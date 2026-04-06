@@ -4,15 +4,18 @@ import Link from "next/link";
 import { FaFileAlt, FaDownload, FaCalendarAlt, FaFolderOpen } from "react-icons/fa";
 import BodyContentImage from "@/components/shared/BodyContentImage";
 import RichMarkdown from "@/components/shared/RichMarkdown";
+import { useTranslations } from "next-intl";
 
 export default function ResultDetailClient({ result }) {
+  const t = useTranslations("research.resultDetails");
+
   if (!result) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Result Not Found</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t("notFound")}</h2>
           <Link href="/research/results" className="mt-4 inline-block text-blue-600 hover:underline">
-            Back to Results
+            {t("backToResults")}
           </Link>
         </div>
       </div>
@@ -47,7 +50,7 @@ export default function ResultDetailClient({ result }) {
             href="/research/results"
             className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
           >
-            ← Back to Results
+            ← {t("backToResults")}
           </Link>
         </div>
 
@@ -169,7 +172,7 @@ export default function ResultDetailClient({ result }) {
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <FaFolderOpen className="w-6 h-6" />
-                Attachments
+                {t("attachments")}
               </h2>
               <div className="grid gap-3">
                 {attachments.map((file, idx) => (
@@ -205,7 +208,7 @@ export default function ResultDetailClient({ result }) {
           {projects.length > 0 && (
             <div className="border-t border-gray-200 dark:border-gray-800 pt-6">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                Related Projects
+                {t("relatedProjects")}
               </h2>
               <div className="flex flex-wrap gap-2">
                 {projects.map((project) => (

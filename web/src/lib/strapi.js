@@ -552,6 +552,33 @@ export async function getProjectBySlug(slug) {
             },
           },
         },
+        researchContent: {
+          on: {
+            'shared.rich-text': { fields: ['body'] },
+            'shared.section': {
+              fields: ['heading', 'subheading', 'body'],
+              populate: { media: { fields: ['url', 'formats', 'alternativeText'] } },
+            },
+            'shared.media': {
+              populate: { file: { fields: ['url', 'formats', 'alternativeText'] } },
+            },
+            'shared.slider': {
+              populate: { files: { fields: ['url', 'formats', 'alternativeText'] } },
+            },
+          },
+        },
+        contactInfo: {
+          populate: {
+            contactEntries: { fields: ['label', 'type', 'value', 'description'] },
+          },
+          fields: ['generalInfo'],
+        },
+        results: {
+          fields: ['title', 'slug', 'description', 'publishedDate'],
+          populate: {
+            attachments: { fields: ['name', 'url', 'mime', 'ext'] },
+          },
+        },
         teams: {
           populate: {
             members: { populate: { person: PERSON_WITH_IMAGE_POPULATE } },
@@ -1592,7 +1619,29 @@ export function transformProjectData(strapiProjects) {
       title: attributes.title || '',
       abstract: attributes.abstract || '',
       body: normalizeBodyBlocks(attributes.body),
-      phase: attributes.phase || attributes.status || '',
+      researchContent: normalizeBodyBlocks(attributes.researchContent),
+      startDate: attributes.startDate || null,
+      endDate: attributes.endDate || null,
+      contactInfo: attributes.contactInfo || null,
+      results: toArray(attributes.results?.data ?? attributes.results).map((result) => {
+        const resultData = result?.attributes ?? result ?? {};
+        return {
+          id: result?.id ?? null,
+          slug: resultData.slug || '',
+          title: resultData.title || '',
+          description: resultData.description || '',
+          publishedDate: resultData.publishedDate || '',
+          attachments: toArray(resultData.attachments?.data ?? resultData.attachments).map((file) => {
+            const fileData = file?.attributes ?? file ?? {};
+            return {
+              name: fileData.name || '',
+              url: resolveMediaUrl(file),
+              mime: fileData.mime || '',
+              ext: fileData.ext || '',
+            };
+          }),
+        };
+      }),
       isIndustryEngagement: !!attributes.isIndustryEngagement,
       heroImage: resolveMediaUrl(attributes.heroImage),
       // Map themes relation to simple array for frontend compatibility

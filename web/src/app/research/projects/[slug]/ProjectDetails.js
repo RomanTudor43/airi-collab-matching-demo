@@ -17,11 +17,17 @@ import {
   FaBookOpen,
   FaFilePdf,
   FaUserTie,
+  FaNewspaper,
+  FaFlask,
+  FaPhone,
+  FaCog,
+  FaEnvelope,
 } from 'react-icons/fa';
 import { containerVariants, itemVariants } from '@/lib/animations';
 import { useTranslations } from 'next-intl';
 import BodyContentImage from '@/components/shared/BodyContentImage';
 import RichMarkdown from '@/components/shared/RichMarkdown';
+import { getProjectPhase, getPhaseColorClasses } from '@/lib/projectPhase';
 
 // Helper to get person path
 function getPersonPath(person) {
@@ -160,11 +166,21 @@ function PartnerCard({ partner }) {
 }
 
 // Info Card Component
-function InfoCard({ icon: Icon, label, value, href }) {
+function InfoCard({ icon: Icon, label, value, href, color = 'blue' }) {
+  const colorClasses = {
+    blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    purple: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+    green: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+    gray: 'bg-gray-100 dark:bg-gray-900/30 text-gray-600 dark:text-gray-400',
+  };
+  
+  const bgClass = colorClasses[color]?.split(' ')[0] || colorClasses.blue.split(' ')[0];
+  const textClass = colorClasses[color]?.split(' ').slice(2).join(' ') || colorClasses.blue.split(' ').slice(2).join(' ');
+  
   const content = (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 flex items-center gap-3">
-      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-        <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+      <div className={`p-2 ${bgClass} rounded-lg`}>
+        <Icon className={`w-5 h-5 ${textClass}`} />
       </div>
       <div>
         <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -341,26 +357,34 @@ export default function ProjectDetails({ project }) {
     ? project.partnersData
     : (project.partners || []).map((name) => ({ name, slug: '' }));
   
-  const getTranslatedPhase = (phase) => {
-    if (!phase) return "";
-    const lowerPhase = phase.toLowerCase();
-    return t.has(`phases.${lowerPhase}`) ? t(`phases.${lowerPhase}`) : phase;
-  };
+  // Get phase from dates
+  const phase = getProjectPhase(project.startDate, project.endDate);
 
   const markdownClassName = 'prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300';
+  const resolveMediaSource = (media) => {
+    if (!media) return '';
+    if (typeof media === 'string') return media;
+    return media.url || media.src || '';
+  };
 
   const peopleCount = teams.length + contributors.length;
+  const resultsCount = project.results?.length || 0;
+  const hasResearch = project.researchContent && project.researchContent.length > 0;
+  const hasContact = project.contactInfo?.contactEntries?.length > 0 || project.contactInfo?.generalInfo;
+  
   const tabs = [
-    { id: 'overview', label: t('tabs.overview'), icon: FaInfoCircle },
-    { id: 'team', label: t('tabs.people'), icon: FaUsers, count: peopleCount > 0 ? peopleCount : undefined },
+    { id: 'about', label: t('tabs.about'), icon: FaInfoCircle },
+    { id: 'team', label: t('tabs.team'), icon: FaUsers, count: peopleCount > 0 ? peopleCount : undefined },
+    { id: 'research', label: t('tabs.research'), icon: FaFlask },
+    { id: 'publications', label: t('tabs.publications'), icon: FaBookOpen, count: project.publications?.length },
+    { id: 'results', label: t('tabs.results'), icon: FaCog, count: resultsCount > 0 ? resultsCount : undefined },
+    { id: 'news', label: t('tabs.news'), icon: FaNewspaper },
+    { id: 'partners', label: t('tabs.partners'), icon: FaHandshake, count: partners.length > 0 ? partners.length : undefined },
+    { id: 'contact', label: t('tabs.contact'), icon: FaPhone },
   ];
 
   if (project.resources && project.resources.length > 0) {
-    tabs.push({ id: 'resources', label: t('tabs.resources'), icon: FaDatabase, count: project.resources.length });
-  }
-
-  if (project.publications && project.publications.length > 0) {
-    tabs.push({ id: 'publications', label: t('tabs.publications'), icon: FaBookOpen, count: project.publications.length });
+    tabs.splice(5, 0, { id: 'resources', label: t('tabs.resources'), icon: FaDatabase, count: project.resources.length });
   }
 
   return (
@@ -431,8 +455,8 @@ export default function ProjectDetails({ project }) {
           {project.region && (
             <InfoCard icon={FaMapMarkerAlt} label={t("region")} value={project.region} />
           )}
-          {project.phase && (
-            <InfoCard icon={FaChartLine} label={t("phase")} value={getTranslatedPhase(project.phase)} />
+          {phase && (
+            <InfoCard icon={FaChartLine} label={t("phase")} value={phase.label} color={phase.color} />
           )}
           {project.partners && project.partners.length > 0 && (
             <InfoCard
@@ -467,7 +491,7 @@ export default function ProjectDetails({ project }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {activeTab === 'overview' && (
+          {activeTab === 'about' && (
             <motion.div
               initial="hidden"
               animate="visible"
@@ -588,38 +612,6 @@ export default function ProjectDetails({ project }) {
                       </Link>
                     ))}
                   </div>
-                </motion.div>
-              )}
-
-              {/* Partners */}
-              {partners && partners.length > 0 && (
-                <motion.div
-                  variants={itemVariants}
-                  className="rounded-3xl border border-gray-100 dark:border-gray-800 bg-white/60 dark:bg-gray-900/40 backdrop-blur-sm p-6 md:p-10 shadow-sm mt-8"
-                >
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="p-3 bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400 rounded-xl">
-                      <FaHandshake className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {t("partners")}
-                      </h2>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Collaborating organizations on this project.
-                      </p>
-                    </div>
-                  </div>
-                  <motion.div
-                    initial="hidden"
-                    animate="visible"
-                    variants={containerVariants}
-                    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5"
-                  >
-                    {partners.map(partner => (
-                      <PartnerCard key={partner.slug || partner.name} partner={partner} />
-                    ))}
-                  </motion.div>
                 </motion.div>
               )}
             </motion.div>
@@ -805,6 +797,353 @@ export default function ProjectDetails({ project }) {
                   <FaBookOpen className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
                   <p className="text-gray-500 dark:text-gray-400">
                     {t("noPublications")}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Research Tab */}
+          {activeTab === 'research' && (
+            <div className="space-y-6">
+              {project.researchContent && project.researchContent.length > 0 ? (
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={containerVariants}
+                  className="space-y-8"
+                >
+                  {project.researchContent.map((block, index) => {
+                    if (block.__component === 'shared.rich-text') {
+                      return (
+                        <motion.div
+                          key={index}
+                          variants={itemVariants}
+                          className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6"
+                        >
+                          <RichMarkdown
+                            className={markdownClassName}
+                            content={block.body}
+                          />
+                        </motion.div>
+                      );
+                    }
+                    if (block.__component === 'shared.section') {
+                      return (
+                        <motion.div
+                          key={index}
+                          variants={itemVariants}
+                          className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6"
+                        >
+                          {block.heading && (
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                              {block.heading}
+                            </h2>
+                          )}
+                          {block.subheading && (
+                            <h3 className="text-lg text-gray-600 dark:text-gray-400 mb-3">
+                              {block.subheading}
+                            </h3>
+                          )}
+                          {block.body && (
+                            <RichMarkdown className={markdownClassName} content={block.body} />
+                          )}
+                          {block.media && (
+                            <div className="mt-6 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                              <BodyContentImage
+                                src={block.media}
+                                alt={block.heading || project.title || 'Research media'}
+                                className="w-full"
+                                portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                                landscapeClassName="w-full max-h-[36rem] object-contain"
+                              />
+                            </div>
+                          )}
+                        </motion.div>
+                      );
+                    }
+                    if (block.__component === 'shared.media' && block.file) {
+                      const mediaSrc = resolveMediaSource(block.file);
+                      if (!mediaSrc) return null;
+                      return (
+                        <motion.figure
+                          key={index}
+                          variants={itemVariants}
+                          className="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800"
+                        >
+                          <BodyContentImage
+                            src={mediaSrc}
+                            alt={project.title || 'Research media'}
+                            className="w-full"
+                            portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                            landscapeClassName="w-full max-h-[40rem] object-contain"
+                          />
+                        </motion.figure>
+                      );
+                    }
+                    if (block.__component === 'shared.media' && block.media) {
+                      const mediaSrc = resolveMediaSource(block.media);
+                      if (!mediaSrc) return null;
+                      return (
+                        <motion.figure
+                          key={index}
+                          variants={itemVariants}
+                          className="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800"
+                        >
+                          <BodyContentImage
+                            src={mediaSrc}
+                            alt={project.title || 'Research media'}
+                            className="w-full"
+                            portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                            landscapeClassName="w-full max-h-[40rem] object-contain"
+                          />
+                        </motion.figure>
+                      );
+                    }
+                    if (block.__component === 'shared.media') {
+                      const mediaSrc = resolveMediaSource(block.url || block.src || block.image);
+                      if (!mediaSrc) return null;
+                      return (
+                        <motion.figure
+                          key={index}
+                          variants={itemVariants}
+                          className="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800"
+                        >
+                          <BodyContentImage
+                            src={mediaSrc}
+                            alt={project.title || 'Research media'}
+                            className="w-full"
+                            portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                            landscapeClassName="w-full max-h-[40rem] object-contain"
+                          />
+                        </motion.figure>
+                      );
+                    }
+                    if (block.__component === 'shared.slider' && Array.isArray(block.files) && block.files.length > 0) {
+                      return (
+                        <motion.div
+                          key={index}
+                          variants={itemVariants}
+                          className="grid gap-4 sm:grid-cols-2"
+                        >
+                          {block.files.map((file, fileIndex) => (
+                            <figure key={fileIndex} className="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                              <BodyContentImage
+                                src={file}
+                                alt={`${project.title || 'Project'} research media ${fileIndex + 1}`}
+                                landscapeClassName="w-full max-h-[24rem] object-cover"
+                                portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                              />
+                            </figure>
+                          ))}
+                        </motion.div>
+                      );
+                    }
+                    return null;
+                  })}
+                </motion.div>
+              ) : (
+                <div className="text-center py-12">
+                  <FaFlask className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t('noResearch')}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Results Tab */}
+          {activeTab === 'results' && (
+            <div className="space-y-6">
+              {project.results && project.results.length > 0 ? (
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={containerVariants}
+                  className="grid gap-4 md:grid-cols-2"
+                >
+                  {project.results.map((result) => (
+                    <Link
+                      key={result.id}
+                      href={`/research/results/${result.slug}`}
+                      className="block group"
+                    >
+                      <motion.div
+                        variants={itemVariants}
+                        className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 hover:shadow-lg transition h-full flex flex-col"
+                      >
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 mb-2">
+                          {result.title}
+                        </h3>
+                        {result.description && (
+                          <p className="text-gray-600 dark:text-gray-300 line-clamp-3 mb-3 flex-1">
+                            {result.description}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mt-auto">
+                          {result.publishedDate && (
+                            <span>
+                              {new Date(result.publishedDate).toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'long' 
+                              })}
+                            </span>
+                          )}
+                          {result.attachments?.length > 0 && (
+                            <span>
+                              📎 {result.attachments.length} {result.attachments.length === 1 ? t('attachment') : t('attachments')}
+                            </span>
+                          )}
+                        </div>
+                      </motion.div>
+                    </Link>
+                  ))}
+                </motion.div>
+              ) : (
+                <div className="text-center py-12">
+                  <FaCog className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t('noResults')}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* News Tab */}
+          {activeTab === 'news' && (
+            <div className="space-y-6">
+              <div className="text-center py-12">
+                <FaNewspaper className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">
+                  {t('noNews')}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Partners Tab */}
+          {activeTab === 'partners' && (
+            <div className="space-y-6">
+              {partners && partners.length > 0 ? (
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={containerVariants}
+                  className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+                >
+                  {partners.map((partner) => (
+                    <PartnerCard key={partner.id} partner={partner} />
+                  ))}
+                </motion.div>
+              ) : (
+                <div className="text-center py-12">
+                  <FaHandshake className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t('noPartners')}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contact Tab */}
+          {activeTab === 'contact' && (
+            <div className="space-y-6">
+              {project.contactInfo ? (
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={containerVariants}
+                  className="max-w-2xl"
+                >
+                  <motion.div
+                    variants={itemVariants}
+                    className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6"
+                  >
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+                      {t('contactInformation')}
+                    </h2>
+                    
+                    {/* General Info */}
+                    {project.contactInfo.generalInfo && (
+                      <div className="prose dark:prose-invert max-w-none mb-6">
+                        <RichMarkdown markdown={project.contactInfo.generalInfo} />
+                      </div>
+                    )}
+                    
+                    {/* Contact Entries */}
+                    {project.contactInfo.contactEntries && project.contactInfo.contactEntries.length > 0 && (
+                      <div className="space-y-4">
+                        {project.contactInfo.contactEntries.map((entry, index) => {
+                          const getIcon = (type) => {
+                            switch(type) {
+                              case 'email': return FaEnvelope;
+                              case 'phone': return FaPhone;
+                              case 'address': return FaMapMarkerAlt;
+                              case 'website': return FaExternalLinkAlt;
+                              case 'social': return FaUserTie;
+                              default: return FaInfoCircle;
+                            }
+                          };
+                          
+                          const getIconColor = (type) => {
+                            switch(type) {
+                              case 'email': return 'text-blue-600';
+                              case 'phone': return 'text-green-600';
+                              case 'address': return 'text-red-600';
+                              case 'website': return 'text-purple-600';
+                              case 'social': return 'text-cyan-600';
+                              default: return 'text-gray-600';
+                            }
+                          };
+                          
+                          const linkValue = (type, value) => {
+                            if (type === 'email') {
+                              return <a href={`mailto:${value}`} className="text-blue-600 dark:text-blue-400 hover:underline break-all">{value}</a>;
+                            }
+                            if (type === 'phone') {
+                              return <a href={`tel:${value}`} className="text-blue-600 dark:text-blue-400 hover:underline">{value}</a>;
+                            }
+                            if (type === 'website') {
+                              return <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline break-all">{value}</a>;
+                            }
+                            return <span className="text-gray-700 dark:text-gray-300">{value}</span>;
+                          };
+                          
+                          const Icon = getIcon(entry.type);
+                          
+                          return (
+                            <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900">
+                              <div className="mt-1">
+                                <Icon className={`w-5 h-5 ${getIconColor(entry.type)}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-gray-900 dark:text-white mb-1">
+                                  {entry.label}
+                                </div>
+                                <div className="mb-1">
+                                  {linkValue(entry.type, entry.value)}
+                                </div>
+                                {entry.description && (
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                                    {entry.description}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </motion.div>
+                </motion.div>
+              ) : (
+                <div className="text-center py-12">
+                  <FaPhone className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t('noContact')}
                   </p>
                 </div>
               )}

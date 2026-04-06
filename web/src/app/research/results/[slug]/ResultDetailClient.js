@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, Download, Calendar, FolderOpen } from "lucide-react";
-import RichContent from "@/components/RichContent";
+import { FaFileAlt, FaDownload, FaCalendarAlt, FaFolderOpen } from "react-icons/fa";
+import BodyContentImage from "@/components/shared/BodyContentImage";
+import RichMarkdown from "@/components/shared/RichMarkdown";
 
 export default function ResultDetailClient({ result }) {
   if (!result) {
@@ -19,6 +20,8 @@ export default function ResultDetailClient({ result }) {
   }
 
   const { title, description, publishedDate, projects = [], attachments = [], body = [] } = result;
+  
+  const markdownClassName = 'prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300';
 
   const formatFileSize = (bytes) => {
     if (!bytes) return '';
@@ -60,13 +63,13 @@ export default function ResultDetailClient({ result }) {
             <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-600 dark:text-gray-400">
               {publishedDate && (
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
+                  <FaCalendarAlt className="w-4 h-4" />
                   <span>{new Date(publishedDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                 </div>
               )}
               {attachments.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
+                  <FaFileAlt className="w-4 h-4" />
                   <span>{attachments.length} {attachments.length === 1 ? 'attachment' : 'attachments'}</span>
                 </div>
               )}
@@ -82,8 +85,82 @@ export default function ResultDetailClient({ result }) {
 
           {/* Body Content (Dynamic Zone) */}
           {body && body.length > 0 && (
-            <div className="mb-8">
-              <RichContent content={body} />
+            <div className="mb-8 space-y-6">
+              {body.map((block, index) => {
+                if (!block || typeof block !== 'object') return null;
+
+                if (block.__component === 'shared.rich-text') {
+                  return (
+                    <div key={`rich-${index}`}>
+                      <RichMarkdown content={block.body} className={markdownClassName} />
+                    </div>
+                  );
+                }
+
+                if (block.__component === 'shared.section') {
+                  return (
+                    <article key={`section-${index}`} className="space-y-4">
+                      {block.heading && (
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {block.heading}
+                        </h2>
+                      )}
+                      {block.subheading && (
+                        <p className="text-lg text-gray-500 dark:text-gray-400">
+                          {block.subheading}
+                        </p>
+                      )}
+                      {block.body && (
+                        <RichMarkdown content={block.body} className={markdownClassName} />
+                      )}
+                      {block.media && (
+                        <div className="mt-6 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                          <BodyContentImage
+                            src={block.media}
+                            alt={block.heading || title}
+                            className="w-full"
+                            portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                            landscapeClassName="w-full max-h-[36rem] object-cover"
+                          />
+                        </div>
+                      )}
+                    </article>
+                  );
+                }
+
+                if (block.__component === 'shared.media' && block.file) {
+                  return (
+                    <figure key={`media-${index}`} className="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                      <BodyContentImage
+                        src={block.file}
+                        alt={title}
+                        className="w-full"
+                        portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                        landscapeClassName="w-full max-h-[40rem] object-contain"
+                      />
+                    </figure>
+                  );
+                }
+
+                if (block.__component === 'shared.slider' && Array.isArray(block.files) && block.files.length > 0) {
+                  return (
+                    <div key={`slider-${index}`} className="grid gap-4 sm:grid-cols-2">
+                      {block.files.map((file, fileIndex) => (
+                        <figure key={`slider-file-${index}-${fileIndex}`} className="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900">
+                          <BodyContentImage
+                            src={file}
+                            alt={`${title} media ${fileIndex + 1}`}
+                            landscapeClassName="aspect-video w-full object-cover"
+                            portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                          />
+                        </figure>
+                      ))}
+                    </div>
+                  );
+                }
+
+                return null;
+              })}
             </div>
           )}
 
@@ -91,7 +168,7 @@ export default function ResultDetailClient({ result }) {
           {attachments.length > 0 && (
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <FolderOpen className="w-6 h-6" />
+                <FaFolderOpen className="w-6 h-6" />
                 Attachments
               </h2>
               <div className="grid gap-3">
@@ -117,7 +194,7 @@ export default function ResultDetailClient({ result }) {
                         )}
                       </div>
                     </div>
-                    <Download className="w-5 h-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 flex-shrink-0 ml-3" />
+                    <FaDownload className="w-5 h-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 flex-shrink-0 ml-3" />
                   </a>
                 ))}
               </div>

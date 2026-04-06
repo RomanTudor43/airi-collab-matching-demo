@@ -105,17 +105,21 @@ function buildBridges(communities, interLinks, positions) {
       x1: positions[si].x, y1: positions[si].y,
       x2: positions[ti].x, y2: positions[ti].y,
       strength: Math.min(1, link.count / 20),
+      sourceId: link.source,
+      targetId: link.target,
+      count: link.count,
     };
   }).filter(Boolean);
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export default function GalaxyClient({ communities, interLinks, totalPapers }) {
+export default function GalaxyClient({ communities, interLinks, crossClusterLinks = [], totalPapers }) {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
   const router = useRouter();
 
   const [hovered, setHovered] = useState(null); // community index
+  const [hoveredBridge, setHoveredBridge] = useState(null); // bridge info for tooltip
   const [dimensions, setDimensions] = useState({ w: 1200, h: 800 });
 
   // Refs for animation data (avoid re-creating each frame)
@@ -142,10 +146,14 @@ export default function GalaxyClient({ communities, interLinks, totalPapers }) {
       (c) => 30 + Math.sqrt(c.paperCount) * 6
     );
 
-    dataRef.current = { positions, particles, bridges, stars, radii };
+    // Map cluster IDs to positions for cross-cluster link rendering
+    const clusterIdToIdx = {};
+    communities.forEach((c, i) => { clusterIdToIdx[c.id] = i; });
+
+    dataRef.current = { positions, particles, bridges, stars, radii, clusterIdToIdx };
   }, [communities, interLinks, dimensions]);
 
-  // ── Hit-test ────────────────────────────────────────────────────────────
+  // ── Hit-test for clusters ───────────────────────────────────────────────
   const hitTest = useCallback((mx, my) => {
     if (!dataRef.current) return -1;
     const { positions, radii } = dataRef.current;
@@ -158,13 +166,62 @@ export default function GalaxyClient({ communities, interLinks, totalPapers }) {
     return -1;
   }, []);
 
+  // ── Hit-test for bridges (line proximity) ───────────────────────────────
+  const hitTestBridge = useCallback((mx, my) => {
+    if (!dataRef.current) return null;
+    const { bridges } = dataRef.current;
+    const threshold = 12; // pixels from line
+    
+    for (const bridge of bridges) {
+      // Point-to-line-segment distance
+      const dx = bridge.x2 - bridge.x1;
+      const dy = bridge.y2 - bridge.y1;
+      const len2 = dx * dx + dy * dy;
+      if (len2 === 0) continue;
+      
+      const t = Math.max(0, Math.min(1, ((mx - bridge.x1) * dx + (my - bridge.y1) * dy) / len2));
+      const projX = bridge.x1 + t * dx;
+      const projY = bridge.y1 + t * dy;
+      const dist = Math.sqrt((mx - projX) ** 2 + (my - projY) ** 2);
+      
+      if (dist < threshold) {
+        // Find cross-cluster links for this bridge
+        const linksForBridge = crossClusterLinks.filter(
+          (l) => (l.sourceCluster === bridge.sourceId && l.targetCluster === bridge.targetId) ||
+                 (l.sourceCluster === bridge.targetId && l.targetCluster === bridge.sourceId)
+        ).slice(0, 5); // Top 5 links
+        
+        return {
+          x: mx,
+          y: my,
+          source: bridge.sourceId,
+          target: bridge.targetId,
+          count: bridge.count,
+          links: linksForBridge,
+        };
+      }
+    }
+    return null;
+  }, [crossClusterLinks]);
+
   // ── Mouse handlers ──────────────────────────────────────────────────────
   const onMouseMove = useCallback((e) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const idx = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    const idx = hitTest(mx, my);
     setHovered(idx >= 0 ? idx : null);
-  }, [hitTest]);
+    
+    // Only check bridges if not hovering a cluster
+    if (idx < 0) {
+      const bridgeInfo = hitTestBridge(mx, my);
+      setHoveredBridge(bridgeInfo);
+    } else {
+      setHoveredBridge(null);
+    }
+  }, [hitTest, hitTestBridge]);
 
   const onClick = useCallback((e) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -223,9 +280,26 @@ export default function GalaxyClient({ communities, interLinks, totalPapers }) {
 
       // ── Inter-community bridges ────────────────────────────
       bridges.forEach((b) => {
-        ctx.strokeStyle = `rgba(255,165,0,${BRIDGE_OPACITY * (0.5 + b.strength * 0.5)})`;
-        ctx.lineWidth = 0.8 + b.strength * 1.5;
-        ctx.setLineDash([6, 8]);
+        const isHoveredBridge = hoveredBridge && 
+          ((hoveredBridge.source === b.sourceId && hoveredBridge.target === b.targetId) ||
+           (hoveredBridge.source === b.targetId && hoveredBridge.target === b.sourceId));
+        
+        if (isHoveredBridge) {
+          // Draw glow effect for hovered bridge
+          ctx.strokeStyle = `rgba(255,200,100,0.4)`;
+          ctx.lineWidth = 6 + b.strength * 4;
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(b.x1, b.y1);
+          ctx.lineTo(b.x2, b.y2);
+          ctx.stroke();
+        }
+        
+        ctx.strokeStyle = isHoveredBridge 
+          ? `rgba(255,200,100,0.7)` 
+          : `rgba(255,165,0,${BRIDGE_OPACITY * (0.5 + b.strength * 0.5)})`;
+        ctx.lineWidth = isHoveredBridge ? (2 + b.strength * 2) : (0.8 + b.strength * 1.5);
+        ctx.setLineDash(isHoveredBridge ? [4, 4] : [6, 8]);
         ctx.beginPath();
         ctx.moveTo(b.x1, b.y1);
         ctx.lineTo(b.x2, b.y2);
@@ -325,7 +399,7 @@ export default function GalaxyClient({ communities, interLinks, totalPapers }) {
       running = false;
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [dimensions, communities, hovered]);
+  }, [dimensions, communities, hovered, hoveredBridge]);
 
   return (
     <div
@@ -335,11 +409,39 @@ export default function GalaxyClient({ communities, interLinks, totalPapers }) {
       <canvas
         ref={canvasRef}
         className="absolute inset-0"
-        style={{ cursor: hovered != null ? "pointer" : "default" }}
+        style={{ cursor: hovered != null || hoveredBridge != null ? "pointer" : "default" }}
         onMouseMove={onMouseMove}
         onClick={onClick}
-        onMouseLeave={() => setHovered(null)}
+        onMouseLeave={() => { setHovered(null); setHoveredBridge(null); }}
       />
+
+      {/* Cross-cluster link tooltip */}
+      {hoveredBridge && (
+        <div
+          className="pointer-events-none absolute z-30 font-mono text-[10px] bg-black/90 border border-amber-500/40 rounded px-3 py-2 max-w-xs"
+          style={{
+            left: Math.min(hoveredBridge.x + 15, dimensions.w - 280),
+            top: Math.max(hoveredBridge.y - 10, 10),
+          }}
+        >
+          <div className="text-amber-400 font-bold mb-1">
+            {hoveredBridge.count} cross-cluster links
+          </div>
+          {hoveredBridge.links.length > 0 && (
+            <div className="space-y-1.5 mt-2">
+              {hoveredBridge.links.map((link, i) => (
+                <div key={i} className="text-amber-300/70 leading-tight">
+                  <span className="text-amber-500/50">→</span>{" "}
+                  {link.sourceTitle.length > 40 ? link.sourceTitle.slice(0, 40) + "…" : link.sourceTitle}
+                  <span className="text-amber-500/30 mx-1">↔</span>
+                  {link.targetTitle.length > 40 ? link.targetTitle.slice(0, 40) + "…" : link.targetTitle}
+                  <span className="text-amber-500/40 ml-1">({(link.score * 100).toFixed(0)}%)</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* CRT scanlines */}
       <div

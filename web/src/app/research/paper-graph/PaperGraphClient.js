@@ -562,6 +562,17 @@ function IntelPanel({ paper, links, sx, sy, scale }) {
             ◈ {paper.communityLabel}
           </div>
         )}
+        {paper.secondaryClusters?.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {paper.secondaryClusters.map((sc) => (
+              <span key={sc.clusterId} className="text-purple-400/60 border border-purple-500/30 px-1.5 py-0.5 bg-purple-900/10"
+                style={{ fontSize: 8, letterSpacing: "0.05em" }}
+                title={`Distance: ${(sc.distance || 0).toFixed(3)}`}>
+                ⟡ {sc.clusterLabel || `Cluster ${sc.clusterId}`}
+              </span>
+            ))}
+          </div>
+        )}
         {paper.topics?.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
             {paper.topics.map((t) => (

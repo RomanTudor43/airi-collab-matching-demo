@@ -13,6 +13,7 @@ class GraphArtifacts:
     duplicate_ids: set
     communities: dict
     community_labels: dict
+    secondary_clusters: dict
     filtered_papers: list
     embedding_payloads: dict
     embeddings: object
@@ -67,10 +68,11 @@ def build_graph_artifacts(
 
     communities = {}
     community_labels = {}
+    secondary_clusters = {}
 
     if len(filtered_papers) > 2:
         clean_links = [link for link in all_links if not link["is_duplicate"]]
-        communities, community_labels = gg.detect_communities(
+        communities, community_labels, secondary_clusters = gg.detect_communities(
             filtered_papers,
             embeddings,
             clean_links,
@@ -83,6 +85,7 @@ def build_graph_artifacts(
                 {
                     "assignments": communities,
                     "labels": community_labels,
+                    "secondary_clusters": secondary_clusters,
                 },
                 handle,
                 indent=2,
@@ -94,6 +97,7 @@ def build_graph_artifacts(
         duplicate_ids=duplicate_ids,
         communities=communities,
         community_labels=community_labels,
+        secondary_clusters=secondary_clusters,
         filtered_papers=filtered_papers,
         embedding_payloads=embedding_payloads,
         embeddings=embeddings,

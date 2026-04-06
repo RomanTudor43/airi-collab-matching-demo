@@ -158,10 +158,12 @@ def update_graph_metadata(strapi, graph, pub_map, logger=None):
         embedding_payload = graph.embedding_payloads.get(paper_id)
         community_id = graph.communities.get(paper_id)
         community_label = graph.community_labels.get(community_id) if community_id is not None else None
+        secondary_clusters = graph.secondary_clusters.get(paper_id, [])
         payload = strapi.build_graph_metadata_payload(
             embedding_payload=embedding_payload,
             community_id=community_id,
             community_label=community_label,
+            secondary_clusters=secondary_clusters,
             indexed_at=indexed_at,
             clear_missing=True,
         )

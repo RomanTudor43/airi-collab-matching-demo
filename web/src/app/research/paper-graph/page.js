@@ -46,13 +46,21 @@ export default async function PaperGraphPage() {
         .map(([t]) => t),
     }));
 
-  // Build inter-community link summary
+  // Build paper lookups
   const oaToIdMap = {};
-  papers.forEach((p) => { if (p.openAlexId) oaToIdMap[p.openAlexId] = p.id; });
+  const paperById = {};
+  papers.forEach((p) => {
+    if (p.openAlexId) oaToIdMap[p.openAlexId] = p.id;
+    paperById[p.id] = p;
+  });
+  
   const linksRaw = await getGraphLinks();
   const links = transformGraphLinkData(linksRaw, oaToIdMap);
+  
   const paperComm = {};
   papers.forEach((p) => { if (p.community != null) paperComm[p.id] = p.community; });
+  
+  // Build inter-community link summary (cluster-to-cluster counts)
   const bridgeMap = {};
   links.forEach((l) => {
     const sc = paperComm[l.sourceId];
@@ -64,6 +72,30 @@ export default async function PaperGraphPage() {
   });
   const interLinks = Object.values(bridgeMap);
 
+  // Build paper-level cross-cluster links for hover preview
+  // Group by cluster pair, limit to top links per pair
+  const crossClusterLinks = links
+    .filter((l) => {
+      const sc = paperComm[l.sourceId];
+      const tc = paperComm[l.targetId];
+      return sc != null && tc != null && sc !== tc;
+    })
+    .map((l) => {
+      const sourcePaper = paperById[l.sourceId];
+      const targetPaper = paperById[l.targetId];
+      return {
+        sourceId: l.sourceId,
+        targetId: l.targetId,
+        sourceTitle: sourcePaper?.title || 'Unknown',
+        targetTitle: targetPaper?.title || 'Unknown',
+        sourceCluster: paperComm[l.sourceId],
+        targetCluster: paperComm[l.targetId],
+        score: l.score,
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 200); // Limit for performance
+
   if (communities.length === 0) {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ background: "#03070f" }}>
@@ -74,7 +106,14 @@ export default async function PaperGraphPage() {
     );
   }
 
-  return <GalaxyClient communities={communities} interLinks={interLinks} totalPapers={papers.length} />;
+  return (
+    <GalaxyClient
+      communities={communities}
+      interLinks={interLinks}
+      crossClusterLinks={crossClusterLinks}
+      totalPapers={papers.length}
+    />
+  );
 }
 
 

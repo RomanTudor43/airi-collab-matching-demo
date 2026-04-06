@@ -461,6 +461,7 @@ class StrapiClient:
         embedding_payload=None,
         community_id=None,
         community_label=None,
+        secondary_clusters=None,
         indexed_at=None,
         clear_missing=False,
     ):
@@ -485,6 +486,11 @@ class StrapiClient:
         elif clear_missing:
             payload["community"] = None
             payload["communityLabel"] = None
+
+        if secondary_clusters is not None:
+            payload["secondaryClusters"] = secondary_clusters
+        elif clear_missing:
+            payload["secondaryClusters"] = None
 
         return payload
 

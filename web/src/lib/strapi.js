@@ -708,6 +708,7 @@ export async function getPapers(options = {}) {
         'topics',
         'community',
         'communityLabel',
+        'secondaryClusters',
       ],
       populate: {
         authors: PERSON_FLAT_POPULATE,
@@ -780,6 +781,11 @@ export function transformPaperData(strapiPapers) {
 
       const pdfUrl = resolveMediaUrl(attributes.pdfFile) || normalizeExternalUrl(attributes.pdf_url);
 
+      // Secondary clusters: array of { clusterId, clusterLabel, distance }
+      const secondaryClusters = Array.isArray(attributes.secondaryClusters)
+        ? attributes.secondaryClusters
+        : [];
+
       return {
         id: paper?.id ?? null,
         openAlexId: attributes.openAlexId || '',
@@ -793,6 +799,7 @@ export function transformPaperData(strapiPapers) {
         pdf_url: pdfUrl,
         community: typeof attributes.community === 'number' ? attributes.community : null,
         communityLabel: attributes.communityLabel || '',
+        secondaryClusters,
         _strapi: paper,
       };
     })

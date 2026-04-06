@@ -2,8 +2,7 @@ import json
 import hashlib
 import logging
 import os
-import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from functools import lru_cache
 
 import numpy as np
@@ -12,61 +11,17 @@ from sentence_transformers import SentenceTransformer
 log = logging.getLogger(__name__)
 
 
-# Coarse top-level sectors used to avoid over-segmented galaxy clusters.
-# Keep this list intentionally short and broad; topic-level detail is surfaced downstream.
-MACRO_SECTORS = [
-    {
-        "key": "ai_ml",
-        "label": "AI & Machine Learning",
-        "keywords": [
-            "artificial intelligence",
-            "machine learning",
-            "deep learning",
-            "neural network",
-            "computer vision",
-            "natural language",
-            "reinforcement learning",
-            "llm",
-            "transformer",
-            "data mining",
-        ],
-    },
-    {
-        "key": "circuits_systems",
-        "label": "Circuits & Systems",
-        "keywords": [
-            "circuit",
-            "vlsi",
-            "fpga",
-            "embedded",
-            "hardware",
-            "electronic",
-            "signal processing",
-            "control system",
-            "analog",
-            "digital design",
-        ],
-    },
-    {
-        "key": "medical_health",
-        "label": "Medical & Health",
-        "keywords": [
-            "medical",
-            "clinical",
-            "health",
-            "biomedical",
-            "diagnosis",
-            "hospital",
-            "patient",
-            "imaging",
-            "retina",
-            "ophthalmology",
-        ],
-    },
-]
+# HDBSCAN clustering parameters for macro-level grouping.
+# min_cluster_size: Minimum papers to form a cluster (smaller = more clusters)
+# min_samples: Core point density requirement (smaller = less conservative)
+HDBSCAN_MIN_CLUSTER_SIZE = 20
+HDBSCAN_MIN_SAMPLES = 5
 
-FALLBACK_SECTOR_KEY = "emerging_other"
-FALLBACK_SECTOR_LABEL = "Emerging & Other"
+# Target range for macro clusters (used to tune parameters if needed)
+TARGET_CLUSTER_RANGE = (6, 10)
+
+# Label for papers that don't fit any cluster (noise points in HDBSCAN)
+NOISE_CLUSTER_LABEL = "Interdisciplinary & Emerging"
 
 
 @lru_cache(maxsize=None)
@@ -300,17 +255,140 @@ def _paper_rank_tuple(paper):
     )
 
 
+# Threshold for secondary cluster membership (cosine distance)
+# Papers closer than this to another cluster centroid get a secondary affiliation
+# At 0.7, approximately 20% of papers get secondary affiliations
+SECONDARY_CLUSTER_DISTANCE_THRESHOLD = 0.7
+
+
 def detect_communities(filtered_papers, embeddings, links, resolution=1.0):
-    """Detect communities using the Louvain algorithm."""
+    """Detect communities using HDBSCAN clustering on embeddings.
+    
+    HDBSCAN finds density-based clusters without requiring a pre-specified count.
+    Papers that don't fit any cluster (noise) are assigned to their nearest cluster.
+    
+    Returns:
+        communities: dict mapping paper_id -> primary cluster_id
+        labels: dict mapping cluster_id -> human-readable label
+        secondary_clusters: dict mapping paper_id -> list of secondary cluster_ids
+    """
+    if len(filtered_papers) < 2 or len(embeddings) < 2:
+        log.warning("Not enough papers for community detection")
+        return {}, {}, {}
+
+    paper_ids = [paper_identifier(paper) for paper in filtered_papers]
+
+    # Try HDBSCAN first, fall back to Louvain if it fails
+    result = _cluster_with_hdbscan(filtered_papers, embeddings, paper_ids)
+    
+    if not result[0]:  # communities dict is empty
+        log.warning("HDBSCAN produced no clusters, falling back to Louvain")
+        communities, labels = _cluster_with_louvain(filtered_papers, links, paper_ids, resolution)
+        secondary_clusters = {}  # Louvain doesn't support soft membership
+    else:
+        communities, labels, secondary_clusters = result
+
+    cluster_counts = Counter(communities.values())
+    n_with_secondary = sum(1 for v in secondary_clusters.values() if v)
+    log.info(f"Final clustering: {len(cluster_counts)} clusters, {n_with_secondary} papers with secondary affiliations")
+
+    return communities, labels, secondary_clusters
+
+
+def _cluster_with_hdbscan(filtered_papers, embeddings, paper_ids):
+    """Perform HDBSCAN clustering on paper embeddings.
+    
+    Uses 'leaf' cluster selection for better granularity (6-10 clusters),
+    then assigns noise points to their nearest cluster centroid.
+    Also computes secondary cluster affiliations for papers near multiple centroids.
+    
+    Returns:
+        communities: dict mapping paper_id -> primary cluster_id
+        labels: dict mapping cluster_id -> label
+        secondary_clusters: dict mapping paper_id -> list of secondary cluster_ids
+    """
+    try:
+        import hdbscan
+        from sklearn.metrics.pairwise import cosine_distances
+    except ImportError:
+        log.warning("hdbscan not installed — skipping HDBSCAN clustering")
+        return {}, {}, {}
+
+    log.info(f"Running HDBSCAN clustering (min_cluster_size={HDBSCAN_MIN_CLUSTER_SIZE}, min_samples={HDBSCAN_MIN_SAMPLES})...")
+    
+    clusterer = hdbscan.HDBSCAN(
+        min_cluster_size=HDBSCAN_MIN_CLUSTER_SIZE,
+        min_samples=HDBSCAN_MIN_SAMPLES,
+        metric='euclidean',
+        cluster_selection_method='leaf',  # Produces more granular clusters
+        prediction_data=True,
+    )
+    
+    cluster_labels = clusterer.fit_predict(embeddings)
+    
+    # Count clusters (excluding noise label -1)
+    unique_labels = set(cluster_labels)
+    n_clusters = len([l for l in unique_labels if l >= 0])
+    noise_mask = cluster_labels == -1
+    n_noise = sum(noise_mask)
+    
+    log.info(f"HDBSCAN found {n_clusters} clusters, {n_noise} noise points")
+    
+    if n_clusters == 0:
+        return {}, {}, {}
+    
+    # Compute cluster centroids
+    centroids = []
+    for c in range(n_clusters):
+        mask = cluster_labels == c
+        centroids.append(embeddings[mask].mean(axis=0))
+    centroids = np.array(centroids)
+    
+    # Compute distances from all papers to all centroids
+    all_distances = cosine_distances(embeddings, centroids)
+    
+    # Assign noise points to nearest cluster
+    final_labels = cluster_labels.copy()
+    if n_noise > 0:
+        noise_indices = np.where(noise_mask)[0]
+        for idx in noise_indices:
+            final_labels[idx] = all_distances[idx].argmin()
+        log.info(f"Assigned {n_noise} noise points to nearest clusters")
+    
+    # Build communities dict and compute secondary affiliations
+    communities = {}
+    secondary_clusters = {}
+    
+    for idx, (paper_id, primary_label) in enumerate(zip(paper_ids, final_labels)):
+        communities[paper_id] = int(primary_label)
+        
+        # Find secondary clusters (close but not primary)
+        distances = all_distances[idx]
+        secondaries = []
+        for cluster_id, dist in enumerate(distances):
+            if cluster_id != primary_label and dist < SECONDARY_CLUSTER_DISTANCE_THRESHOLD:
+                secondaries.append(cluster_id)
+        
+        # Sort by distance (closest first) and limit to 2
+        secondaries.sort(key=lambda c: distances[c])
+        secondary_clusters[paper_id] = secondaries[:2]
+    
+    # Generate labels from dominant topics
+    labels = _label_communities_from_topics(filtered_papers, communities)
+    
+    return communities, labels, secondary_clusters
+
+
+def _cluster_with_louvain(filtered_papers, links, paper_ids, resolution):
+    """Fallback: use Louvain community detection on the similarity graph."""
     try:
         import networkx as nx
         from networkx.algorithms.community import louvain_communities
     except ImportError:
-        log.warning("networkx not installed — skipping community detection")
+        log.warning("networkx not installed — skipping Louvain fallback")
         return {}, {}
 
     graph = nx.Graph()
-    paper_ids = [paper_identifier(paper) for paper in filtered_papers]
     graph.add_nodes_from(paper_ids)
 
     for link in links:
@@ -329,87 +407,14 @@ def detect_communities(filtered_papers, embeddings, links, resolution=1.0):
         for paper_id in members:
             communities[paper_id] = community_id
 
-    # Coarsen Louvain groups into broad manually curated sectors.
-    # This keeps the top-level graph stable and avoids many single-item clusters.
-    communities, community_labels = _coarsen_to_macro_sectors(filtered_papers, communities)
-    log.info(f"Detected {len(communities_list)} raw communities; {len(set(communities.values()))} macro sectors")
+    labels = _label_communities_from_topics(filtered_papers, communities)
+    log.info(f"Louvain detected {len(communities_list)} communities")
 
-    return communities, community_labels
+    return communities, labels
 
 
-def _coarsen_to_macro_sectors(papers, communities):
-    papers_by_id = {paper_identifier(paper): paper for paper in papers}
-
-    grouped = defaultdict(list)
-    for paper_id, community_id in communities.items():
-        grouped[community_id].append(paper_id)
-
-    # First assign each raw community to a dominant macro sector when confident.
-    raw_to_sector = {}
-    for community_id, member_ids in grouped.items():
-        counts = defaultdict(int)
-        for paper_id in member_ids:
-            paper = papers_by_id.get(paper_id)
-            sector_key = _infer_macro_sector(paper)
-            if sector_key:
-                counts[sector_key] += 1
-
-        if not counts:
-            raw_to_sector[community_id] = FALLBACK_SECTOR_KEY
-            continue
-
-        dominant_sector, dominant_count = max(counts.items(), key=lambda kv: kv[1])
-        confidence = dominant_count / max(len(member_ids), 1)
-
-        # If a raw community has weak thematic agreement, keep it in fallback.
-        raw_to_sector[community_id] = dominant_sector if confidence >= 0.5 else FALLBACK_SECTOR_KEY
-
-    # Stable sector ordering keeps IDs deterministic across runs.
-    ordered_sector_keys = [sector["key"] for sector in MACRO_SECTORS] + [FALLBACK_SECTOR_KEY]
-    sector_key_to_id = {key: idx for idx, key in enumerate(ordered_sector_keys)}
-
-    sector_communities = {}
-    for paper_id, community_id in communities.items():
-        sector_key = raw_to_sector.get(community_id, FALLBACK_SECTOR_KEY)
-        sector_communities[paper_id] = sector_key_to_id[sector_key]
-
-    labels = {
-        sector_key_to_id[sector["key"]]: sector["label"]
-        for sector in MACRO_SECTORS
-    }
-    labels[sector_key_to_id[FALLBACK_SECTOR_KEY]] = FALLBACK_SECTOR_LABEL
-
-    return sector_communities, labels
-
-
-def _infer_macro_sector(paper):
-    if not paper:
-        return None
-
-    title = str(paper.get("title") or "")
-    abstract = str(paper.get("abstract") or "")
-    topics = " ".join(str(topic) for topic in (paper.get("topics") or []))
-    text = f"{title} {abstract} {topics}".lower()
-    text = re.sub(r"\s+", " ", text)
-
-    scores = {}
-    for sector in MACRO_SECTORS:
-        score = 0
-        for keyword in sector["keywords"]:
-            if keyword in text:
-                score += 1
-        if score > 0:
-            scores[sector["key"]] = score
-
-    if not scores:
-        return None
-
-    return max(scores.items(), key=lambda kv: kv[1])[0]
-
-
-def _label_communities(papers, communities):
-    from collections import Counter
-
+def _label_communities_from_topics(papers, communities):
+    """Generate human-readable cluster labels from dominant topics."""
     topic_counts = {}
     for paper in papers:
         community_id = communities.get(paper_identifier(paper))
@@ -423,7 +428,12 @@ def _label_communities(papers, communities):
     labels = {}
     for community_id, counter in topic_counts.items():
         top_topics = counter.most_common(3)
-        labels[community_id] = " / ".join(topic for topic, _ in top_topics) if top_topics else f"Cluster {community_id}"
+        if top_topics:
+            # Use top 2 topics for concise label, fallback to 1 if only 1 exists
+            label_topics = [t for t, _ in top_topics[:2]]
+            labels[community_id] = " & ".join(label_topics)
+        else:
+            labels[community_id] = f"Cluster {community_id}"
 
     return labels
 

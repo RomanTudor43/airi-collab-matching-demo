@@ -65,6 +65,9 @@
     "communityLabel": {
       "type": "string"
     },
+    "secondaryClusters": {
+      "type": "json"
+    },
     "lastImportedAt": {
       "type": "datetime"
     },

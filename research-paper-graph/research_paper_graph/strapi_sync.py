@@ -8,7 +8,7 @@ def create_client(settings):
     return StrapiClient(settings.strapi_api_url, settings.strapi_token)
 
 
-def upload_publications(strapi, papers_to_upload, args, logger=None):
+def upload_publications(strapi, papers_to_upload, logger=None):
     """Upsert publications into Strapi and return the publication map and stats."""
     log = logger or logging.getLogger("paper-sync")
 
@@ -47,31 +47,20 @@ def upload_publications(strapi, papers_to_upload, args, logger=None):
                 if ensure_payload:
                     strapi.update_publication(existing_id, ensure_payload)
 
-            if args.update_existing:
-                if existing_source == "openAlexAutomated" and not existing_listing_eligible:
-                    merged_author_ids = strapi.merge_publication_author_ids(existing_id, author_ids)
-                    update_payload = strapi.build_import_update_payload(paper, author_ids=merged_author_ids)
-                    strapi.update_publication(existing_id, update_payload)
-                    stats["updated"] += 1
-                    log.debug(f"  Updated ({match_type}): {paper_label[:60]}")
-                else:
-                    stats["protected_manual"] += 1
-                    stats["skipped"] += 1
-                    log.debug(
-                        f"  Protected curated/manual-priority entry ({match_type}): {paper_label[:60]}"
-                    )
+            # Update existing automated publications with fresh data
+            if existing_source == "openAlexAutomated" and not existing_listing_eligible:
+                merged_author_ids = strapi.merge_publication_author_ids(existing_id, author_ids)
+                update_payload = strapi.build_import_update_payload(paper, author_ids=merged_author_ids)
+                strapi.update_publication(existing_id, update_payload)
+                stats["updated"] += 1
+                log.debug(f"  Updated ({match_type}): {paper_label[:60]}")
             else:
+                stats["protected_manual"] += 1
                 stats["skipped"] += 1
-                log.debug(f"  Exists ({match_type}): {paper_label[:60]}")
+                log.debug(
+                    f"  Protected curated/manual-priority entry ({match_type}): {paper_label[:60]}"
+                )
             continue
-
-        if args.upload_pdfs and paper.get("pdf_url"):
-            source_value = oa_id or paper.get("doi") or paper_label or "paper"
-            source_token = str(source_value).split("/")[-1].strip() or "paper"
-            safe_name = f"{source_token}.pdf"
-            pdf_id = strapi.upload_pdf(paper["pdf_url"], safe_name)
-            if pdf_id:
-                paper["attachment"] = pdf_id
 
         doc_id = strapi.create_publication(paper, author_ids=author_ids or None)
         if doc_id:

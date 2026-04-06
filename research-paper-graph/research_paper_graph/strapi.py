@@ -1,11 +1,11 @@
 import logging
-import re
-import unicodedata
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from io import BytesIO
 
 import requests
+
+from .utils import normalize_doi, normalize_openalex_id, normalize_title, slugify
 
 log = logging.getLogger(__name__)
 
@@ -31,48 +31,20 @@ class StrapiClient:
         self._pub_published = {}
         self._person_by_name = {}
 
-    def _normalize_openalex_id(self, value):
-        raw = str(value or "").strip()
-        if not raw:
-            return ""
-        return raw.rstrip("/")
-
-    def _normalize_doi(self, value):
-        raw = str(value or "").strip().lower()
-        if not raw:
-            return ""
-        raw = re.sub(r"^https?://(dx\.)?doi\.org/", "", raw)
-        return raw
-
-    def _normalize_title(self, value):
-        raw = str(value or "").strip().lower()
-        raw = re.sub(r"\s+", " ", raw)
-        return raw
-
     def _normalize_source_kind(self, source_kind):
         if source_kind in {"openAlexAutomated", "openalex", "merged"}:
             return "openAlexAutomated"
         return "manual"
 
-    def _slugify(self, value):
-        text = str(value or "")
-        text = unicodedata.normalize("NFD", text)
-        text = "".join(char for char in text if unicodedata.category(char) != "Mn")
-        text = text.lower().strip()
-        text = re.sub(r"[^a-z0-9\s-]", "", text)
-        text = re.sub(r"\s+", "-", text)
-        text = re.sub(r"-+", "-", text)
-        return text.strip("-")
-
     def build_publication_slug(self, paper_data):
         title = paper_data.get("title") or ""
-        slug = self._slugify(title)
+        slug = slugify(title)
         if slug:
             return slug
 
         openalex_id = str(paper_data.get("openAlexId") or "")
         fallback = openalex_id.rstrip("/").split("/")[-1] if openalex_id else ""
-        fallback_slug = self._slugify(fallback)
+        fallback_slug = slugify(fallback)
         return fallback_slug or f"publication-{int(datetime.now(timezone.utc).timestamp())}"
 
     def build_import_create_payload(self, paper_data, author_ids=None, attachment_id=None):
@@ -111,8 +83,8 @@ class StrapiClient:
 
     def _build_machine_owned_payload(self, paper_data):
         imported_at = self._utc_now()
-        openalex_id = self._normalize_openalex_id(paper_data.get("openAlexId"))
-        doi = self._normalize_doi(paper_data.get("doi"))
+        openalex_id = normalize_openalex_id(paper_data.get("openAlexId"))
+        doi = normalize_doi(paper_data.get("doi"))
         return {
             "title": paper_data["title"],
             "openAlexId": openalex_id or None,
@@ -128,7 +100,7 @@ class StrapiClient:
     def _build_raw_import_metadata(self, paper_data, imported_at):
         return {
             "source": "openAlexAutomated",
-            "sourceId": self._normalize_openalex_id(paper_data.get("openAlexId")) or None,
+            "sourceId": normalize_openalex_id(paper_data.get("openAlexId")) or None,
             "authors": paper_data.get("authors") or [],
             "pdfUrl": paper_data.get("pdf_url"),
             "importedAt": imported_at,
@@ -192,9 +164,9 @@ class StrapiClient:
             self._pub_listing_eligible[document_id] = bool(attributes.get("listingEligible"))
             self._pub_slug[document_id] = attributes.get("slug") or ""
             self._pub_published[document_id] = bool(attributes.get("publishedAt"))
-            normalized_oaid = self._normalize_openalex_id(attributes.get("openAlexId"))
-            normalized_doi = self._normalize_doi(attributes.get("doi"))
-            normalized_title = self._normalize_title(attributes.get("title"))
+            normalized_oaid = normalize_openalex_id(attributes.get("openAlexId"))
+            normalized_doi = normalize_doi(attributes.get("doi"))
+            normalized_title = normalize_title(attributes.get("title"))
             if normalized_oaid:
                 self._pub_by_oaid[normalized_oaid] = document_id
             if normalized_doi:
@@ -370,9 +342,9 @@ class StrapiClient:
 
     def find_existing_publication(self, openalex_id=None, doi=None, title=None):
         """Find an existing publication by OpenAlex ID, DOI, or fuzzy title."""
-        normalized_oaid = self._normalize_openalex_id(openalex_id)
-        normalized_doi = self._normalize_doi(doi)
-        normalized_title = self._normalize_title(title)
+        normalized_oaid = normalize_openalex_id(openalex_id)
+        normalized_doi = normalize_doi(doi)
+        normalized_title = normalize_title(title)
 
         if normalized_oaid and normalized_oaid in self._pub_by_oaid:
             return self._pub_by_oaid[normalized_oaid], "openAlexId"
@@ -448,9 +420,9 @@ class StrapiClient:
                 self._pub_listing_eligible[document_id] = False
                 self._pub_slug[document_id] = payload.get("slug") or ""
                 self._pub_published[document_id] = bool(payload.get("publishedAt"))
-                normalized_oaid = self._normalize_openalex_id(paper_data.get("openAlexId"))
-                normalized_doi = self._normalize_doi(paper_data.get("doi"))
-                normalized_title = self._normalize_title(paper_data.get("title"))
+                normalized_oaid = normalize_openalex_id(paper_data.get("openAlexId"))
+                normalized_doi = normalize_doi(paper_data.get("doi"))
+                normalized_title = normalize_title(paper_data.get("title"))
                 if normalized_oaid:
                     self._pub_by_oaid[normalized_oaid] = document_id
                 if normalized_doi:
@@ -518,7 +490,7 @@ class StrapiClient:
 
     def get_publication_id_by_openalex(self, openalex_id):
         """Find an existing Strapi document ID for a given OpenAlex ID."""
-        normalized_oaid = self._normalize_openalex_id(openalex_id)
+        normalized_oaid = normalize_openalex_id(openalex_id)
         if normalized_oaid in self._pub_by_oaid:
             return self._pub_by_oaid[normalized_oaid]
 

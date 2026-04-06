@@ -1,78 +1,60 @@
 import logging
 import os
-import re
 import sys
 
 from . import openalex as oaf
 from .strapi import StrapiClient
+from .utils import normalize_doi, normalize_openalex_id, normalize_title, slugify
 
 
 def fetch_papers(args, logger=None, settings=None):
     """Fetch papers from the configured source and return (papers, label)."""
     log = logger or logging.getLogger("paper-sync")
 
-    # TODO: --institution and -institution is allowed, smoothen out to same way of processing everywhere
-    # Other fields are allowed only with --
-    # --mode is deprecated, to clean up
-    if getattr(args, "mode", None) == "institution":
-        institution_name = (getattr(args, "institution", None) or "").strip()
-        if not institution_name:
-            log.error("--institution is required for mode=institution")
-            sys.exit(1)
+    # Dispatch based on which source parameter is provided
+    institution_name = (getattr(args, "institution", None) or "").strip()
+    person_name = (getattr(args, "person", None) or "").strip()
 
+    # Institution mode: fetch papers for a specific institution
+    if institution_name:
         inst_id = oaf.find_institution_id(institution_name)
         if not inst_id:
             log.error(f"Institution '{institution_name}' not found in OpenAlex")
             sys.exit(1)
 
         label = institution_name.replace(" ", "_")
-        cache_path = _resolve_fetch_cache_path(args, f"institution_{label}")
+        cache_path = _resolve_fetch_cache_path(f"institution_{label}")
         papers = oaf.get_institution_papers(
             inst_id,
             cache_path=cache_path,
-            use_cache=args.use_fetch_cache,
-            refresh_cache=args.refresh_fetch_cache,
+            use_cache=True,
+            refresh_cache=False,
         )
         papers = _dedupe_papers(papers)
         return papers, label
 
-    if getattr(args, "mode", None) == "person":
-        person_name = (getattr(args, "person", None) or "").strip()
-        if not person_name:
-            log.error("--person is required for person mode")
-            sys.exit(1)
-
+    # Person mode: fetch papers for a specific person by name
+    if person_name:
         author_id = oaf.find_author_id(person_name)
         if not author_id:
             log.error(f"Author '{person_name}' not found in OpenAlex")
             sys.exit(1)
 
-        label = _slugify(person_name)
-        cache_path = _resolve_fetch_cache_path(args, f"person_{label}")
+        label = slugify(person_name)
+        cache_path = _resolve_fetch_cache_path(f"person_{label}")
         papers = oaf.get_author_papers(
             author_id,
             cache_path=cache_path,
-            use_cache=args.use_fetch_cache,
-            refresh_cache=args.refresh_fetch_cache,
+            use_cache=True,
+            refresh_cache=False,
         )
         papers = _dedupe_papers(papers)
         return papers, label
 
-    # TODO: Reinforce options. 
-    if getattr(args, "mode", None) != "strapi-people":
-        log.error("Unsupported --mode. Allowed values: strapi-people, institution, person")
-        sys.exit(1)
-
+    # Default: Strapi-people mode - fetch papers for all people in Strapi
     if not settings:
         log.error("Runtime settings are required for Strapi people sync")
         sys.exit(1)
-
-    # strapi-people mode is strict: no source selector parameters allowed.
-    if (getattr(args, "institution", None) or "").strip():
-        log.error("--institution is only valid when --mode institution")
-        sys.exit(1)
-
-    # Strapi-people as a "default" mode is a bit messy. Consider adding an explicit "if" cause
 
     strapi = StrapiClient(settings.strapi_api_url, settings.strapi_token)
     people = strapi.load_import_people()
@@ -86,8 +68,8 @@ def fetch_papers(args, logger=None, settings=None):
     for index, person in enumerate(people, start=1):
         person_name = person["fullName"]
         person_id = person["documentId"]
-        person_label = _slugify(person_name)
-        cache_path = _resolve_fetch_cache_path(args, f"person_{person_label}_{person_id}")
+        person_label = slugify(person_name)
+        cache_path = _resolve_fetch_cache_path(f"person_{person_label}_{person_id}")
 
         log.info(f"Fetching papers for Strapi person {index}/{total_people}: {person_name}")
         author_id = oaf.find_author_id(person_name)
@@ -98,8 +80,8 @@ def fetch_papers(args, logger=None, settings=None):
         person_papers = oaf.get_author_papers(
             author_id,
             cache_path=cache_path,
-            use_cache=args.use_fetch_cache,
-            refresh_cache=args.refresh_fetch_cache,
+            use_cache=True,
+            refresh_cache=False,
         )
 
         for paper in person_papers:
@@ -110,18 +92,8 @@ def fetch_papers(args, logger=None, settings=None):
     return papers, "strapi_people"
 
 
-def _resolve_fetch_cache_path(args, cache_key):
-    """Determine the cache path for fetched papers based on the cache key"""
-    override_path = getattr(args, "fetch_cache_file", None)
-    if override_path:
-        if getattr(args, "mode", None) == "strapi-people":
-            base_dir = os.path.dirname(override_path)
-            filename = os.path.basename(override_path)
-            stem, extension = os.path.splitext(filename)
-            extension = extension or ".json"
-            derived_name = f"{stem}_{cache_key}{extension}"
-            return os.path.join(base_dir, derived_name) if base_dir else derived_name
-        return override_path
+def _resolve_fetch_cache_path(cache_key):
+    """Determine the cache path for fetched papers based on the cache key."""
     return os.path.join("outputs", "fetch-cache", f"{cache_key}.json")
 
 
@@ -168,33 +140,14 @@ def _merge_unique(existing_values, new_values):
     return merged
 
 
-def _slugify(value):
-    normalized = re.sub(r"[^a-zA-Z0-9]+", "_", value.strip())
-    return normalized.strip("_") or "person"
 
-
-def _normalize_openalex_id(value):
-    raw = str(value or "").strip()
-    return raw.rstrip("/") if raw else ""
-
-
-def _normalize_doi(value):
-    raw = str(value or "").strip().lower()
-    if not raw:
-        return ""
-    return re.sub(r"^https?://(dx\.)?doi\.org/", "", raw)
-
-
-def _normalize_title(value):
-    raw = str(value or "").strip().lower()
-    return re.sub(r"\s+", " ", raw)
 
 
 def _paper_key(paper):
     return (
-        _normalize_openalex_id(paper.get("openAlexId"))
-        or _normalize_doi(paper.get("doi"))
-        or _normalize_title(paper.get("title"))
+        normalize_openalex_id(paper.get("openAlexId"))
+        or normalize_doi(paper.get("doi"))
+        or normalize_title(paper.get("title"))
     )
 
 

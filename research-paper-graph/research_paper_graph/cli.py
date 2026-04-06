@@ -48,29 +48,6 @@ def build_parser():
     return p
 
 
-def _apply_runtime_defaults(args):
-    """Set fixed runtime defaults to keep the tool predictable and low-config.
-    
-    Leftover from previous versions where these were all CLI flags - now hardcoded to avoid config sprawl and user confusion.
-    
-    TODO: To be removed, along with all the options themselves. """
-    if getattr(args, "institution", None):
-        args.mode = "institution"
-    elif getattr(args, "person", None):
-        args.mode = "person"
-    else:
-        args.mode = "strapi-people"
-    args.use_fetch_cache = True
-    args.refresh_fetch_cache = False
-    args.fetch_cache_file = None
-    args.skip_graph = False
-    args.skip_communities = False
-    args.update_existing = True
-    args.upload_pdfs = False
-    args.limit = 0
-    args.community_resolution = 1.0
-
-
 def run(args):
     sim_thresh = SETTINGS.graph_similarity_threshold
     dup_thresh = SETTINGS.graph_duplicate_threshold
@@ -84,12 +61,12 @@ def run(args):
     preview_graph = build_graph_artifacts(
         papers,
         label,
-        skip_graph=args.skip_graph,
-        skip_communities=args.skip_communities,
+        skip_graph=False,
+        skip_communities=False,
         similarity_threshold=sim_thresh,
         duplicate_threshold=dup_thresh,
         model_name=model_name,
-        community_resolution=args.community_resolution,
+        community_resolution=1.0,
         logger=log,
     )
 
@@ -103,23 +80,18 @@ def run(args):
         return
 
     strapi = create_client(SETTINGS)
-    pub_map, _stats = upload_publications(strapi, papers_to_upload, args, logger=log)
-
-    if args.skip_graph:
-        log.info("Skipping global graph rebuild (--skip-graph).")
-        log.info("Done.")
-        return
+    pub_map, _stats = upload_publications(strapi, papers_to_upload, logger=log)
 
     global_papers, global_pub_map = strapi.load_graph_eligible_publications()
     global_graph = build_graph_artifacts(
         global_papers,
         "global",
         skip_graph=False,
-        skip_communities=args.skip_communities,
+        skip_communities=False,
         similarity_threshold=sim_thresh,
         duplicate_threshold=dup_thresh,
         model_name=model_name,
-        community_resolution=args.community_resolution,
+        community_resolution=1.0,
         logger=log,
     )
 
@@ -151,9 +123,6 @@ def main(argv=None):
     if not has_source_selector:
         parser.print_help()
         return
-
-    # TODO: Remove this method and all the options it sets, now that the relevant flags have been removed and hardcoded defaults are in place.
-    _apply_runtime_defaults(args)
 
     logging.basicConfig(
         level=logging.INFO,

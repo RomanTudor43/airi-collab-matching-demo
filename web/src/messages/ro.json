@@ -1047,6 +1047,25 @@
         "master": "Mai multe actualizări vor fi disponibile în curând pentru secțiunea de Masterat.",
         "bachelor": "Mai multe actualizări vor fi disponibile în curând pentru secțiunea de Licență."
       }
+    },
+    "results": {
+      "title": "Rezultate cercetare",
+      "subtitle": "Rezultate de cercetare, seturi de date, depozite de cod și alte livrabile din proiectele noastre.",
+      "searchPlaceholder": "Căutare rezultate...",
+      "allProjects": "Toate proiectele",
+      "clearFilters": "Șterge",
+      "resultCount": "{count} rezultat",
+      "resultCountPlural": "{count} rezultate",
+      "attachment": "atașament",
+      "attachments": "atașamente",
+      "noResults": "Nu s-au găsit rezultate",
+      "noResultsDescription": "Încercați să ajustați criteriile de căutare sau filtrare."
+    },
+    "resultDetails": {
+      "notFound": "Rezultatul nu a fost găsit",
+      "backToResults": "Înapoi la rezultate",
+      "attachments": "Atașamente",
+      "relatedProjects": "Proiecte asociate"
     }
   },
   "resources": {

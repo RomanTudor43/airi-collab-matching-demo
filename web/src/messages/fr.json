@@ -164,25 +164,64 @@
       },
       "Content": {
         "Overview": {
-          "partnerships": { "title": "Partenariats académiques", "desc": "Un réseau de collaborations et d'activités conjointes." },
-          "teaching": { "title": "Enseignement et formation", "desc": "Cours, écoles d'été et ateliers." },
-          "mobility": { "title": "Mobilité", "desc": "Cotutelles, visites, stages, échanges." }
+          "partnerships": {
+            "title": "Partenariats académiques",
+            "desc": "Un réseau de collaborations et d'activités conjointes."
+          },
+          "teaching": {
+            "title": "Enseignement et formation",
+            "desc": "Cours, écoles d'été et ateliers."
+          },
+          "mobility": {
+            "title": "Mobilité",
+            "desc": "Cotutelles, visites, stages, échanges."
+          }
         },
         "Initiatives": {
-          "schools": { "title": "Écoles d'été et ateliers", "desc": "Événements internationaux et locaux pour les étudiants et chercheurs." },
-          "seminars": { "title": "Séminaires conjoints", "desc": "Présentations collaboratives et conférenciers invités." },
-          "visits": { "title": "Visites de recherche", "desc": "Séjours de recherche à court et à long terme." }
+          "schools": {
+            "title": "Écoles d'été et ateliers",
+            "desc": "Événements internationaux et locaux pour les étudiants et chercheurs."
+          },
+          "seminars": {
+            "title": "Séminaires conjoints",
+            "desc": "Présentations collaboratives et conférenciers invités."
+          },
+          "visits": {
+            "title": "Visites de recherche",
+            "desc": "Séjours de recherche à court et à long terme."
+          }
         },
         "Courses": {
-          "ml": { "title": "Apprentissage automatique", "desc": "Cours communs, modules appliqués, projets." },
-          "robotics": { "title": "Robotique et Vision", "desc": "Laboratoires pratiques, automatisation et systèmes de vision." },
-          "hpc": { "title": "HPC pour l'IA", "desc": "Programmation GPU et entraînement de modèles IA à grande échelle." },
-          "ethics": { "title": "Éthique et sécurité de l'IA", "desc": "Équité, explicabilité et gouvernance dans l'IA." }
+          "ml": {
+            "title": "Apprentissage automatique",
+            "desc": "Cours communs, modules appliqués, projets."
+          },
+          "robotics": {
+            "title": "Robotique et Vision",
+            "desc": "Laboratoires pratiques, automatisation et systèmes de vision."
+          },
+          "hpc": {
+            "title": "HPC pour l'IA",
+            "desc": "Programmation GPU et entraînement de modèles IA à grande échelle."
+          },
+          "ethics": {
+            "title": "Éthique et sécurité de l'IA",
+            "desc": "Équité, explicabilité et gouvernance dans l'IA."
+          }
         },
         "Mobility": {
-          "phd": { "title": "Co-supervision", "desc": "Supervision conjointe de thèses avec des partenaires internationaux." },
-          "grants": { "title": "Bourses de mobilité", "desc": "Financement pour les échanges et les séjours de recherche." },
-          "placements": { "title": "Stages et échanges", "desc": "Stages, visites et échanges de personnel." }
+          "phd": {
+            "title": "Co-supervision",
+            "desc": "Supervision conjointe de thèses avec des partenaires internationaux."
+          },
+          "grants": {
+            "title": "Bourses de mobilité",
+            "desc": "Financement pour les échanges et les séjours de recherche."
+          },
+          "placements": {
+            "title": "Stages et échanges",
+            "desc": "Stages, visites et échanges de personnel."
+          }
         }
       },
       "Event": {
@@ -899,10 +938,15 @@
       "officialWebsite": "Site officiel",
       "documentation": "Documentation",
       "tabs": {
-        "overview": "Aperçu",
-        "people": "Équipe",
-        "resources": "Ressources",
-        "publications": "Publications"
+        "about": "À propos",
+        "team": "Équipe",
+        "research": "Recherche",
+        "publications": "Publications",
+        "results": "Résultats",
+        "news": "Actualités",
+        "partners": "Partenaires",
+        "contact": "Contact",
+        "resources": "Ressources"
       },
       "abstract": "Résumé",
       "researchDomains": "Domaines de recherche",
@@ -928,7 +972,17 @@
         "planned": "Planifié",
         "completed": "Terminé",
         "archived": "Archivé"
-      }
+      },
+      "attachment": "Pièce jointe",
+      "attachments": "Pièces jointes",
+      "contactInformation": "Informations de contact",
+      "noContact": "Aucune information de contact disponible",
+      "noNews": "Intégration des actualités bientôt disponible",
+      "noPartners": "Aucun partenaire listé",
+      "noResearch": "Aucun contenu de recherche disponible",
+      "noResults": "Aucun résultat disponible",
+      "resultCount": "{count} résultat",
+      "resultCountPlural": "{count} résultats"
     },
     "publications": {
       "title": "Publications",
@@ -993,6 +1047,25 @@
         "master": "Plus de mises à jour à venir pour la section Master.",
         "bachelor": "Plus de mises à jour à venir pour la section Licence."
       }
+    },
+    "results": {
+      "title": "Résultats de recherche",
+      "subtitle": "Résultats de recherche, ensembles de données, dépôts de code et autres livrables de nos projets.",
+      "searchPlaceholder": "Rechercher des résultats...",
+      "allProjects": "Tous les projets",
+      "clearFilters": "Effacer",
+      "resultCount": "{count} résultat",
+      "resultCountPlural": "{count} résultats",
+      "attachment": "pièce jointe",
+      "attachments": "pièces jointes",
+      "noResults": "Aucun résultat trouvé",
+      "noResultsDescription": "Essayez d'ajuster vos critères de recherche ou de filtre."
+    },
+    "resultDetails": {
+      "notFound": "Résultat non trouvé",
+      "backToResults": "Retour aux résultats",
+      "attachments": "Pièces jointes",
+      "relatedProjects": "Projets associés"
     }
   },
   "resources": {

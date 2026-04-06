@@ -1054,6 +1054,25 @@
         "master": "More updates coming soon for the Master section.",
         "bachelor": "More updates coming soon for the Bachelor section."
       }
+    },
+    "results": {
+      "title": "Research Results",
+      "subtitle": "Research outputs, datasets, code repositories, and other deliverables from our projects.",
+      "searchPlaceholder": "Search results...",
+      "allProjects": "All Projects",
+      "clearFilters": "Clear",
+      "resultCount": "{count} result",
+      "resultCountPlural": "{count} results",
+      "attachment": "attachment",
+      "attachments": "attachments",
+      "noResults": "No Results Found",
+      "noResultsDescription": "Try adjusting your search or filter criteria."
+    },
+    "resultDetails": {
+      "notFound": "Result not found",
+      "backToResults": "Back to Results",
+      "attachments": "Attachments",
+      "relatedProjects": "Related Projects"
     }
   },
   "resources": {

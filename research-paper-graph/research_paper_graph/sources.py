@@ -7,13 +7,13 @@ from .strapi import StrapiClient
 from .utils import normalize_doi, normalize_openalex_id, normalize_title, slugify
 
 
-def fetch_papers(args, logger=None, settings=None):
+def fetch_papers(institution=None, person=None, settings=None, logger=None):
     """Fetch papers from the configured source and return (papers, label)."""
     log = logger or logging.getLogger("paper-sync")
 
     # Dispatch based on which source parameter is provided
-    institution_name = (getattr(args, "institution", None) or "").strip()
-    person_name = (getattr(args, "person", None) or "").strip()
+    institution_name = (institution or "").strip()
+    person_name = (person or "").strip()
 
     # Institution mode: fetch papers for a specific institution
     if institution_name:

@@ -18,11 +18,11 @@ class GraphArtifacts:
     embeddings: object
 
 
-def save_paper_snapshot(papers, label, output_dir="outputs", logger=None):
+def save_paper_snapshot(papers, label, logger=None):
     """Persist the fetched paper payload for reuse and debugging."""
     log = logger or logging.getLogger("paper-sync")
-    os.makedirs(output_dir, exist_ok=True)
-    out_path = os.path.join(output_dir, f"papers_{label}.json")
+    os.makedirs("outputs", exist_ok=True)
+    out_path = os.path.join("outputs", f"papers_{label}.json")
 
     with open(out_path, "w", encoding="utf-8") as handle:
         json.dump(papers, handle, indent=2)
@@ -35,28 +35,13 @@ def build_graph_artifacts(
     papers,
     label,
     *,
-    skip_graph=False,
-    skip_communities=False,
     similarity_threshold=0.5,
     duplicate_threshold=0.92,
     model_name="all-MiniLM-L6-v2",
-    community_resolution=1.0,
-    output_dir="outputs",
     logger=None,
 ):
-    """Generate graph links and optional community artifacts, persisting local outputs."""
+    """Generate graph links and community artifacts, persisting local outputs."""
     log = logger or logging.getLogger("paper-sync")
-
-    if skip_graph:
-        return GraphArtifacts(
-            all_links=[],
-            duplicate_ids=set(),
-            communities={},
-            community_labels={},
-            filtered_papers=[],
-            embedding_payloads={},
-            embeddings=None,
-        )
 
     log.info(
         f"Generating links (threshold={similarity_threshold}, dup={duplicate_threshold})..."
@@ -69,7 +54,7 @@ def build_graph_artifacts(
     )
 
     if len(filtered_papers) > 0:
-        index_path = os.path.join(output_dir, f"index_{label}.json")
+        index_path = os.path.join("outputs", f"index_{label}.json")
         gg.save_index(embeddings, filtered_papers, index_path)
 
     indexed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -83,16 +68,16 @@ def build_graph_artifacts(
     communities = {}
     community_labels = {}
 
-    if not skip_communities and len(filtered_papers) > 2:
+    if len(filtered_papers) > 2:
         clean_links = [link for link in all_links if not link["is_duplicate"]]
         communities, community_labels = gg.detect_communities(
             filtered_papers,
             embeddings,
             clean_links,
-            resolution=community_resolution,
+            resolution=1.0,
         )
 
-        comm_path = os.path.join(output_dir, f"communities_{label}.json")
+        comm_path = os.path.join("outputs", f"communities_{label}.json")
         with open(comm_path, "w", encoding="utf-8") as handle:
             json.dump(
                 {

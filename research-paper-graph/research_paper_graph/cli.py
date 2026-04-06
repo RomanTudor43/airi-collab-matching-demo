@@ -31,7 +31,6 @@ def build_parser():
     )
     source_group.add_argument(
         "--institution",
-        "-institution",
         type=str,
         help="Import papers for one institution",
     )
@@ -53,7 +52,12 @@ def run(args):
     dup_thresh = SETTINGS.graph_duplicate_threshold
     model_name = SETTINGS.graph_ai_model
 
-    papers, label = fetch_papers(args, logger=log, settings=SETTINGS)
+    papers, label = fetch_papers(
+        institution=args.institution,
+        person=args.person,
+        settings=SETTINGS,
+        logger=log,
+    )
     log.info(f"Fetched {len(papers)} papers ({label})")
 
     save_paper_snapshot(papers, label, logger=log)
@@ -61,12 +65,9 @@ def run(args):
     preview_graph = build_graph_artifacts(
         papers,
         label,
-        skip_graph=False,
-        skip_communities=False,
         similarity_threshold=sim_thresh,
         duplicate_threshold=dup_thresh,
         model_name=model_name,
-        community_resolution=1.0,
         logger=log,
     )
 
@@ -86,12 +87,9 @@ def run(args):
     global_graph = build_graph_artifacts(
         global_papers,
         "global",
-        skip_graph=False,
-        skip_communities=False,
         similarity_threshold=sim_thresh,
         duplicate_threshold=dup_thresh,
         model_name=model_name,
-        community_resolution=1.0,
         logger=log,
     )
 

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 // ─── Constants ───────────────────────────────────────────────────────────────
 const PARTICLE_COUNT_PER = 40; // particles per community
 const STAR_COUNT = 400;
-const BRIDGE_OPACITY = 0.12;
+const BRIDGE_OPACITY = 0.35; // Increased for better visibility on dark background
 
 // ─── Seeded RNG ──────────────────────────────────────────────────────────────
 function makeRng(seed) {
@@ -226,11 +226,23 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
   const onClick = useCallback((e) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const idx = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    // First check cluster hit
+    const idx = hitTest(mx, my);
     if (idx >= 0) {
       router.push(`/research/paper-graph/c-${communities[idx].id}`);
+      return;
     }
-  }, [hitTest, communities, router]);
+    
+    // Then check bridge hit
+    const bridgeInfo = hitTestBridge(mx, my);
+    if (bridgeInfo && bridgeInfo.links.length > 0) {
+      // Navigate to the source cluster's view (user can explore links from there)
+      router.push(`/research/paper-graph/c-${bridgeInfo.source}`);
+    }
+  }, [hitTest, hitTestBridge, communities, router]);
 
   // ── Animation loop ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -286,8 +298,8 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
         
         if (isHoveredBridge) {
           // Draw glow effect for hovered bridge
-          ctx.strokeStyle = `rgba(255,200,100,0.4)`;
-          ctx.lineWidth = 6 + b.strength * 4;
+          ctx.strokeStyle = `rgba(255,200,100,0.5)`;
+          ctx.lineWidth = 8 + b.strength * 4;
           ctx.setLineDash([]);
           ctx.beginPath();
           ctx.moveTo(b.x1, b.y1);
@@ -295,11 +307,13 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
           ctx.stroke();
         }
         
+        // Use a brighter, more visible orange/gold for base lines
+        const baseOpacity = BRIDGE_OPACITY * (0.6 + b.strength * 0.4);
         ctx.strokeStyle = isHoveredBridge 
-          ? `rgba(255,200,100,0.7)` 
-          : `rgba(255,165,0,${BRIDGE_OPACITY * (0.5 + b.strength * 0.5)})`;
-        ctx.lineWidth = isHoveredBridge ? (2 + b.strength * 2) : (0.8 + b.strength * 1.5);
-        ctx.setLineDash(isHoveredBridge ? [4, 4] : [6, 8]);
+          ? `rgba(255,210,120,0.85)` 
+          : `rgba(255,180,60,${baseOpacity})`;
+        ctx.lineWidth = isHoveredBridge ? (2.5 + b.strength * 2) : (1.2 + b.strength * 1.8);
+        ctx.setLineDash(isHoveredBridge ? [4, 4] : [8, 6]);
         ctx.beginPath();
         ctx.moveTo(b.x1, b.y1);
         ctx.lineTo(b.x2, b.y2);

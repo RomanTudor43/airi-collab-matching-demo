@@ -17,6 +17,7 @@ class GraphArtifacts:
     filtered_papers: list
     embedding_payloads: dict
     embeddings: object
+    topic_hierarchy: dict  # Topic supercluster data
 
 
 def save_paper_snapshot(papers, label, logger=None):
@@ -92,6 +93,25 @@ def build_graph_artifacts(
             )
         log.info(f"Saved community data to {comm_path}")
 
+    # Build topic hierarchy (superclusters)
+    topic_hierarchy = {}
+    if len(filtered_papers) > 0:
+        log.info("Building topic hierarchy...")
+        topic_hierarchy = gg.build_topic_hierarchy(filtered_papers, model_name)
+        
+        # Save topic hierarchy to JSON
+        topic_path = os.path.join("outputs", f"topic_hierarchy_{label}.json")
+        # Convert numpy array to list for JSON serialization
+        serializable_hierarchy = {
+            "topics": topic_hierarchy.get("topics", []),
+            "topic_to_cluster": topic_hierarchy.get("topic_to_cluster", {}),
+            "cluster_to_topics": topic_hierarchy.get("cluster_to_topics", {}),
+            "cluster_labels": topic_hierarchy.get("cluster_labels", {}),
+        }
+        with open(topic_path, "w", encoding="utf-8") as handle:
+            json.dump(serializable_hierarchy, handle, indent=2)
+        log.info(f"Saved topic hierarchy to {topic_path}")
+
     return GraphArtifacts(
         all_links=all_links,
         duplicate_ids=duplicate_ids,
@@ -101,4 +121,5 @@ def build_graph_artifacts(
         filtered_papers=filtered_papers,
         embedding_payloads=embedding_payloads,
         embeddings=embeddings,
+        topic_hierarchy=topic_hierarchy,
     )

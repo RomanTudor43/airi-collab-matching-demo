@@ -510,6 +510,7 @@ export default function PaperGraphClient({
         <IntelPanel
           paper={tooltipData.paper}
           links={hovLinks}
+          paperById={paperById}
           sx={tooltipData.sx}
           sy={tooltipData.sy}
           scale={scale}
@@ -520,9 +521,9 @@ export default function PaperGraphClient({
 }
 
 // ── Intel panel ───────────────────────────────────────────────────────────────
-function IntelPanel({ paper, links, sx, sy, scale }) {
+function IntelPanel({ paper, links, paperById, sx, sy, scale }) {
   const panelW = 300;
-  const panelH = 250;
+  const panelH = 320; // Increased for cross-cluster section
   const containerW = typeof window !== "undefined" ? window.innerWidth : 1200;
   const containerH = typeof window !== "undefined" ? window.innerHeight : 800;
 
@@ -597,6 +598,48 @@ function IntelPanel({ paper, links, sx, sy, scale }) {
             {cross > 0 && <span style={{ color: "#ffa500" }}>◆ {cross} cross-cluster</span>}
           </div>
         )}
+        {/* Cross-cluster connections section */}
+        {cross > 0 && (() => {
+          const crossLinks = links
+            .filter((l) => l.isCrossCluster)
+            .map((l) => {
+              const otherId = l.sourceId === paper.id ? l.targetId : l.sourceId;
+              const otherPaper = paperById[otherId];
+              return otherPaper ? { paper: otherPaper, score: l.score } : null;
+            })
+            .filter(Boolean)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 4);
+          
+          if (crossLinks.length === 0) return null;
+          
+          return (
+            <div className="mt-2 pt-2 border-t border-orange-500/20">
+              <div className="text-[8px] text-orange-400/70 tracking-wider mb-1.5">
+                ⟡ RELATED IN OTHER CLUSTERS
+              </div>
+              <div className="space-y-1">
+                {crossLinks.map(({ paper: p, score }) => (
+                  <div key={p.id} className="flex items-start gap-1.5">
+                    <span className="text-orange-400/50 text-[7px] shrink-0 mt-0.5">
+                      {(score * 100).toFixed(0)}%
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-orange-200/70 text-[8px] leading-tight truncate">
+                        {p.title}
+                      </div>
+                      {p.communityLabel && (
+                        <div className="text-orange-400/40 text-[7px] truncate">
+                          in {p.communityLabel}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
       <div className="flex items-center gap-1 mt-0.5 px-1">
         <div className="h-px flex-1 bg-amber-500/25" />

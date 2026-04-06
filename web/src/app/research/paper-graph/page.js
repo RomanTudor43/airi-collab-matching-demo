@@ -71,6 +71,12 @@ export default async function PaperGraphPage() {
     bridgeMap[key].count += 1;
   });
   const interLinks = Object.values(bridgeMap);
+  
+  // Debug log for cross-cluster links
+  console.log(`[paper-graph] ${links.length} total links, ${interLinks.length} cluster bridges`);
+  if (interLinks.length > 0) {
+    console.log(`[paper-graph] Bridge sample:`, interLinks.slice(0, 3).map(l => `c${l.source}↔c${l.target}:${l.count}`).join(', '));
+  }
 
   // Build paper-level cross-cluster links for hover preview
   // Group by cluster pair, limit to top links per pair

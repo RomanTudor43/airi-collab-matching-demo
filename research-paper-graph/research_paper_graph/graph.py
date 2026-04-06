@@ -438,7 +438,175 @@ def _label_communities_from_topics(papers, communities):
     return labels
 
 
-def save_index(embeddings, papers, path):
+# ─── Topic Clustering ─────────────────────────────────────────────────────────
+# Groups similar topics into superclusters at the constellation level.
+
+# Target number of topic superclusters per macro cluster
+TARGET_TOPIC_CLUSTERS = (10, 15)
+
+# HDBSCAN parameters for topic clustering (smaller clusters than papers)
+TOPIC_HDBSCAN_MIN_CLUSTER_SIZE = 3
+TOPIC_HDBSCAN_MIN_SAMPLES = 2
+
+
+def extract_all_topics(papers):
+    """Extract all unique topics across all papers."""
+    topics = set()
+    for paper in papers:
+        for topic in paper.get("topics", []):
+            if topic and isinstance(topic, str):
+                topics.add(topic)
+    return sorted(topics)
+
+
+def generate_topic_embeddings(topics, model_name="all-MiniLM-L6-v2"):
+    """Generate embeddings for topic strings."""
+    if not topics:
+        return np.array([])
+    
+    model = _load_sentence_transformer(model_name)
+    log.info(f"Generating embeddings for {len(topics)} topics...")
+    embeddings = model.encode(topics, show_progress_bar=False)
+    return _normalize_embeddings(embeddings)
+
+
+def cluster_topics(topics, embeddings, min_cluster_size=TOPIC_HDBSCAN_MIN_CLUSTER_SIZE,
+                   min_samples=TOPIC_HDBSCAN_MIN_SAMPLES):
+    """Cluster topics using HDBSCAN to create superclusters."""
+    import hdbscan
+    
+    if len(topics) < min_cluster_size:
+        # Not enough topics to cluster - assign all to one cluster
+        return {topic: 0 for topic in topics}, {0: topics}
+    
+    log.info(f"Clustering {len(topics)} topics with HDBSCAN...")
+    clusterer = hdbscan.HDBSCAN(
+        min_cluster_size=min_cluster_size,
+        min_samples=min_samples,
+        metric='cosine',
+        cluster_selection_method='leaf',
+    )
+    labels = clusterer.fit_predict(embeddings)
+    
+    # Group topics by cluster
+    topic_to_cluster = {}
+    clusters_to_topics = defaultdict(list)
+    
+    for topic, label in zip(topics, labels):
+        if label == -1:
+            # Noise point - assign to nearest cluster
+            topic_idx = topics.index(topic)
+            topic_emb = embeddings[topic_idx]
+            
+            # Find nearest non-noise cluster
+            min_dist = float('inf')
+            nearest_cluster = 0
+            
+            for other_idx, other_label in enumerate(labels):
+                if other_label != -1:
+                    dist = 1 - np.dot(topic_emb, embeddings[other_idx])
+                    if dist < min_dist:
+                        min_dist = dist
+                        nearest_cluster = other_label
+            
+            topic_to_cluster[topic] = nearest_cluster
+            clusters_to_topics[nearest_cluster].append(topic)
+        else:
+            topic_to_cluster[topic] = label
+            clusters_to_topics[label].append(topic)
+    
+    n_clusters = len(set(labels) - {-1})
+    noise_count = sum(1 for l in labels if l == -1)
+    log.info(f"Topic clustering: {n_clusters} clusters, {noise_count} noise points reassigned")
+    
+    return topic_to_cluster, dict(clusters_to_topics)
+
+
+def label_topic_clusters(clusters_to_topics):
+    """Generate labels for topic superclusters based on common theme."""
+    labels = {}
+    for cluster_id, topics in clusters_to_topics.items():
+        if not topics:
+            labels[cluster_id] = f"Topic Group {cluster_id}"
+            continue
+        
+        # Find common words/phrases in topics
+        word_counts = Counter()
+        for topic in topics:
+            words = topic.lower().split()
+            for word in words:
+                # Skip common words
+                if len(word) > 3 and word not in {'and', 'the', 'for', 'with', 'from'}:
+                    word_counts[word] += 1
+        
+        # Use most common meaningful word(s) as label
+        top_words = word_counts.most_common(2)
+        if top_words:
+            label_parts = [w.title() for w, _ in top_words if _ > 1]
+            if label_parts:
+                labels[cluster_id] = " & ".join(label_parts[:2])
+            else:
+                # Fall back to shortest topic name
+                labels[cluster_id] = min(topics, key=len)[:40]
+        else:
+            labels[cluster_id] = topics[0][:40] if topics else f"Topic Group {cluster_id}"
+    
+    return labels
+
+
+def build_topic_hierarchy(papers, model_name="all-MiniLM-L6-v2"):
+    """Build complete topic clustering hierarchy.
+    
+    Returns:
+        dict with:
+        - topics: list of all unique topics
+        - topic_embeddings: numpy array of embeddings
+        - topic_to_cluster: mapping of topic -> cluster_id
+        - cluster_to_topics: mapping of cluster_id -> list of topics
+        - cluster_labels: mapping of cluster_id -> human-readable label
+    """
+    topics = extract_all_topics(papers)
+    if not topics:
+        return {
+            "topics": [],
+            "topic_embeddings": np.array([]),
+            "topic_to_cluster": {},
+            "cluster_to_topics": {},
+            "cluster_labels": {},
+        }
+    
+    embeddings = generate_topic_embeddings(topics, model_name)
+    topic_to_cluster, cluster_to_topics = cluster_topics(topics, embeddings)
+    cluster_labels = label_topic_clusters(cluster_to_topics)
+    
+    log.info(f"Topic hierarchy: {len(topics)} topics -> {len(cluster_to_topics)} superclusters")
+    for cid, label in sorted(cluster_labels.items()):
+        count = len(cluster_to_topics.get(cid, []))
+        log.info(f"  Supercluster {cid}: {label} ({count} topics)")
+    
+    return {
+        "topics": topics,
+        "topic_embeddings": embeddings,
+        "topic_to_cluster": topic_to_cluster,
+        "cluster_to_topics": cluster_to_topics,
+        "cluster_labels": cluster_labels,
+    }
+
+
+def assign_paper_topic_clusters(papers, topic_to_cluster):
+    """Assign each paper to topic superclusters based on its topics.
+    
+    Returns dict mapping paper_id -> list of supercluster ids
+    """
+    assignments = {}
+    for paper in papers:
+        paper_id = paper_identifier(paper)
+        clusters = set()
+        for topic in paper.get("topics", []):
+            if topic in topic_to_cluster:
+                clusters.add(topic_to_cluster[topic])
+        assignments[paper_id] = sorted(clusters)
+    return assignments
     """Persist embeddings and paper IDs for reuse."""
     data = {
         "paper_ids": [paper_identifier(paper) for paper in papers],

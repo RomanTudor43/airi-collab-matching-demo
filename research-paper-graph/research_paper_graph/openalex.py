@@ -43,16 +43,14 @@ def find_author_id(author_name, institution=None):
     return None
 
 
-def get_author_papers(author_id, *, cache_path=None, use_cache=False, refresh_cache=False):
-    """Retrieve processed papers for a given author, optionally resuming from cache."""
+def get_author_papers(author_id, *, cache_path=None):
+    """Retrieve processed papers for a given author, using cache when available."""
     return _get_processed_works(
         f"author.id:{author_id},is_oa:true",
         description=f"author {author_id}",
         per_page=50,
         pause_seconds=0.2,
         cache_path=cache_path,
-        use_cache=use_cache,
-        refresh_cache=refresh_cache,
     )
 
 
@@ -109,16 +107,14 @@ def get_institution_authors(institution_id, min_works=3):
     return authors
 
 
-def get_institution_papers(institution_id, *, cache_path=None, use_cache=False, refresh_cache=False):
-    """Retrieve processed papers for an institution, optionally resuming from cache."""
+def get_institution_papers(institution_id, *, cache_path=None):
+    """Retrieve processed papers for an institution, using cache when available."""
     return _get_processed_works(
         f"institutions.id:{institution_id},is_oa:true",
         description=f"institution {institution_id}",
         per_page=200,
         pause_seconds=0.1,
         cache_path=cache_path,
-        use_cache=use_cache,
-        refresh_cache=refresh_cache,
     )
 
 
@@ -174,33 +170,32 @@ def _get_processed_works(
     per_page,
     pause_seconds,
     cache_path=None,
-    use_cache=False,
-    refresh_cache=False,
 ):
+    """Fetch works from OpenAlex API with automatic caching and resume support.
+    
+    If a cache_path is provided, the function will:
+    - Resume from a partial cache if the fetch was interrupted
+    - Return completed results from cache if available
+    - Write progress to cache as it fetches
+    """
     papers = []
     cursor = "*"
     total_count = "?"
 
-    if cache_path and refresh_cache and os.path.exists(cache_path):
-        os.remove(cache_path)
-
+    # Check for existing cache
     cached_state = _load_fetch_cache(cache_path) if cache_path and os.path.exists(cache_path) else None
-    if cached_state and not refresh_cache:
+    if cached_state:
         cached_papers = cached_state.get("papers", [])
         if cached_state.get("completed"):
-            if use_cache:
-                log.info(f"Using completed fetch cache for {description}: {cache_path}")
-                return cached_papers
-            log.info(f"Fetch cache exists for {description} but cache reuse is disabled; refetching.")
-        elif use_cache:
+            # Cache is complete, return it
+            log.info(f"Using completed fetch cache for {description}: {cache_path}")
+            return cached_papers
+        else:
+            # Cache is incomplete, resume from where we left off
             papers = cached_papers
             cursor = cached_state.get("next_cursor") or "*"
             total_count = cached_state.get("total_count", "?")
             log.info(f"Resuming fetch cache for {description}: {len(papers)} papers already cached")
-        else:
-            log.info(f"Incomplete fetch cache exists for {description} but cache reuse is disabled; refetching.")
-
-    # Not explicit, but lazy fetching is working. Look above at the elif use_cache, we reuse the cursor from there and resume fetching where we left off
 
     log.info(f"Fetching works for {description}...")
     while True:

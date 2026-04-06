@@ -24,12 +24,7 @@ def fetch_papers(args, logger=None, settings=None):
 
         label = institution_name.replace(" ", "_")
         cache_path = _resolve_fetch_cache_path(f"institution_{label}")
-        papers = oaf.get_institution_papers(
-            inst_id,
-            cache_path=cache_path,
-            use_cache=True,
-            refresh_cache=False,
-        )
+        papers = oaf.get_institution_papers(inst_id, cache_path=cache_path)
         papers = _dedupe_papers(papers)
         return papers, label
 
@@ -42,12 +37,7 @@ def fetch_papers(args, logger=None, settings=None):
 
         label = slugify(person_name)
         cache_path = _resolve_fetch_cache_path(f"person_{label}")
-        papers = oaf.get_author_papers(
-            author_id,
-            cache_path=cache_path,
-            use_cache=True,
-            refresh_cache=False,
-        )
+        papers = oaf.get_author_papers(author_id, cache_path=cache_path)
         papers = _dedupe_papers(papers)
         return papers, label
 
@@ -77,12 +67,7 @@ def fetch_papers(args, logger=None, settings=None):
             log.warning(f"Skipping Strapi person with no OpenAlex match: {person_name}")
             continue
 
-        person_papers = oaf.get_author_papers(
-            author_id,
-            cache_path=cache_path,
-            use_cache=True,
-            refresh_cache=False,
-        )
+        person_papers = oaf.get_author_papers(author_id, cache_path=cache_path)
 
         for paper in person_papers:
             _merge_seed_paper(papers_by_key, paper, person)

@@ -22,6 +22,8 @@ import {
   FaPhone,
   FaCog,
   FaEnvelope,
+  FaGithub,
+  FaLink,
 } from 'react-icons/fa';
 import { containerVariants, itemVariants } from '@/lib/animations';
 import { useTranslations } from 'next-intl';
@@ -206,29 +208,72 @@ function InfoCard({ icon: Icon, label, value, href, color = 'blue' }) {
 
 // Resource Card Component
 function ResourceCard({ resource, t }) {
+  const iconMap = {
+    database: FaDatabase,
+    github: FaGithub,
+    tool: FaCog,
+    code: FaFileAlt,
+    document: FaFileAlt,
+    book: FaBookOpen,
+    api: FaCog,
+    cloud: FaDatabase,
+    ai: FaLightbulb,
+    link: FaExternalLinkAlt,
+  };
+  
+  const categoryColors = {
+    resource: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    tool: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    software: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    documentation: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+    api: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    library: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+    framework: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+    learning: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
+    other: "bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300",
+  };
+  
+  const IconComponent = iconMap[resource.icon] || FaLink;
+  const categoryColor = categoryColors[resource.category] || categoryColors.other;
+  const categoryLabel = t.has(`categories.${resource.category}`) 
+    ? t(`categories.${resource.category}`) 
+    : resource.category || 'Other';
+
   return (
     <motion.a
-      href={resource.source_url || resource.url}
+      href={resource.url}
       target="_blank"
       rel="noopener noreferrer"
       variants={itemVariants}
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 hover:shadow-lg transition-all duration-300 group"
+      className="group relative flex flex-col h-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-6 shadow-sm hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300"
     >
-      <div className="flex items-start gap-3">
-        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg flex-shrink-0">
-          <FaDatabase className="w-5 h-5 text-green-600 dark:text-green-400" />
+      {/* Header with icon and category */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform shadow-sm">
+          <IconComponent className="w-6 h-6" />
         </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-            {resource.title}
-          </h4>
-          {resource.platform && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {t("platform")} {resource.platform}
-            </p>
-          )}
+        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${categoryColor}`}>
+          {categoryLabel}
+        </span>
+      </div>
+
+      {/* Title */}
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+        {resource.title}
+      </h3>
+
+      {/* Description */}
+      {resource.description && (
+        <div className="mb-4 flex-grow text-gray-600 dark:text-gray-400 text-sm leading-relaxed line-clamp-3">
+          {typeof resource.description === 'string' ? resource.description : ''}
         </div>
-        <FaExternalLinkAlt className="w-4 h-4 text-gray-400 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors flex-shrink-0" />
+      )}
+
+      {/* Footer with link indicator */}
+      <div className="flex items-center justify-end pt-3 border-t border-gray-100 dark:border-gray-800 mt-auto">
+        <span className="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 font-semibold group-hover:translate-x-1 transition-transform">
+          {t("visitResource")} <FaExternalLinkAlt className="w-3 h-3" />
+        </span>
       </div>
     </motion.a>
   );

@@ -587,7 +587,7 @@ export async function getProjectBySlug(slug) {
         },
         contributors: PERSON_WITH_IMAGE_POPULATE,
         timeline: {},
-        resources: { fields: ['title', 'slug', 'url', 'icon', 'category'] },
+        resources: { fields: ['title', 'slug', 'url', 'icon', 'category', 'description'] },
       },
     });
 
@@ -1607,6 +1607,7 @@ export function transformProjectData(strapiProjects) {
         id: resource?.id ?? null,
         title: resourceAttrs.title || '',
         slug: resourceAttrs.slug || '',
+        description: resourceAttrs.description || '',
         url: normalizeExternalUrl(resourceAttrs.url),
         icon: resourceAttrs.icon || 'link',
         category: resourceAttrs.category || '',

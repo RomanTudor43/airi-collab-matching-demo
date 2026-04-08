@@ -982,7 +982,8 @@
       "noResearch": "Няма налично изследователско съдържание",
       "noResults": "Няма налични резултати",
       "resultCount": "{count} резултат",
-      "resultCountPlural": "{count} резултати"
+      "resultCountPlural": "{count} резултати",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Публикации",
@@ -1048,24 +1049,11 @@
         "bachelor": "Очаквайте скоро повече актуализации за секцията Бакалавърска програма."
       }
     },
-    "results": {
-      "title": "Резултати от изследването",
-      "subtitle": "Резултати от изследвания, набори от данни, хранилища за код и други резултати от нашите проекти.",
-      "searchPlaceholder": "Търсене на резултати...",
-      "allProjects": "Всички проекти",
-      "clearFilters": "Изчисти",
-      "resultCount": "{count} резултат",
-      "resultCountPlural": "{count} резултати",
-      "attachment": "прикачен файл",
-      "attachments": "прикачени файлове",
-      "noResults": "Няма намерени резултати",
-      "noResultsDescription": "Опитайте да коригирате критериите си за търсене или филтър."
-    },
     "resultDetails": {
       "notFound": "Резултатът не е намерен",
-      "backToResults": "Обратно към резултатите",
       "attachments": "Прикачени файлове",
-      "relatedProjects": "Свързани проекти"
+      "backToProjects": "Обратно към проектите",
+      "attachment": "attachment"
     }
   },
   "resources": {

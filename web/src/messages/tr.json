@@ -982,7 +982,8 @@
       "noResearch": "Araştırma içeriği mevcut değil",
       "noResults": "Sonuç mevcut değil",
       "resultCount": "{count} sonuç",
-      "resultCountPlural": "{count} sonuç"
+      "resultCountPlural": "{count} sonuç",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Yayınlar",
@@ -1048,24 +1049,11 @@
         "bachelor": "Lisans bölümü için daha fazla güncelleme yakında geliyor."
       }
     },
-    "results": {
-      "title": "Araştırma Sonuçları",
-      "subtitle": "Projelerimizden araştırma çıktıları, veri setleri, kod depoları ve diğer çıktılar.",
-      "searchPlaceholder": "Sonuçları ara...",
-      "allProjects": "Tüm Projeler",
-      "clearFilters": "Temizle",
-      "resultCount": "{count} sonuç",
-      "resultCountPlural": "{count} sonuç",
-      "attachment": "ek",
-      "attachments": "ekler",
-      "noResults": "Sonuç bulunamadı",
-      "noResultsDescription": "Arama veya filtre kriterlerinizi ayarlamayı deneyin."
-    },
     "resultDetails": {
       "notFound": "Sonuç bulunamadı",
-      "backToResults": "Sonuçlara Dön",
       "attachments": "Ekler",
-      "relatedProjects": "İlgili Projeler"
+      "backToProjects": "Projelere Dön",
+      "attachment": "attachment"
     }
   },
   "resources": {

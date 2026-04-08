@@ -982,7 +982,8 @@
       "noResearch": "Aucun contenu de recherche disponible",
       "noResults": "Aucun résultat disponible",
       "resultCount": "{count} résultat",
-      "resultCountPlural": "{count} résultats"
+      "resultCountPlural": "{count} résultats",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Publications",
@@ -1048,24 +1049,11 @@
         "bachelor": "Plus de mises à jour à venir pour la section Licence."
       }
     },
-    "results": {
-      "title": "Résultats de recherche",
-      "subtitle": "Résultats de recherche, ensembles de données, dépôts de code et autres livrables de nos projets.",
-      "searchPlaceholder": "Rechercher des résultats...",
-      "allProjects": "Tous les projets",
-      "clearFilters": "Effacer",
-      "resultCount": "{count} résultat",
-      "resultCountPlural": "{count} résultats",
-      "attachment": "pièce jointe",
-      "attachments": "pièces jointes",
-      "noResults": "Aucun résultat trouvé",
-      "noResultsDescription": "Essayez d'ajuster vos critères de recherche ou de filtre."
-    },
     "resultDetails": {
       "notFound": "Résultat non trouvé",
-      "backToResults": "Retour aux résultats",
       "attachments": "Pièces jointes",
-      "relatedProjects": "Projets associés"
+      "backToProjects": "Retour au projets",
+      "attachment": "attachment"
     }
   },
   "resources": {

@@ -989,7 +989,8 @@
         "planned": "Planned",
         "completed": "Completed",
         "archived": "Archived"
-      }
+      },
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Publications",
@@ -1055,24 +1056,11 @@
         "bachelor": "More updates coming soon for the Bachelor section."
       }
     },
-    "results": {
-      "title": "Research Results",
-      "subtitle": "Research outputs, datasets, code repositories, and other deliverables from our projects.",
-      "searchPlaceholder": "Search results...",
-      "allProjects": "All Projects",
-      "clearFilters": "Clear",
-      "resultCount": "{count} result",
-      "resultCountPlural": "{count} results",
-      "attachment": "attachment",
-      "attachments": "attachments",
-      "noResults": "No Results Found",
-      "noResultsDescription": "Try adjusting your search or filter criteria."
-    },
     "resultDetails": {
       "notFound": "Result not found",
-      "backToResults": "Back to Results",
+      "attachment": "attachment",
       "attachments": "Attachments",
-      "relatedProjects": "Related Projects"
+      "backToProjects": "Back to Projects"
     }
   },
   "resources": {

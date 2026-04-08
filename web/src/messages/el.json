@@ -982,7 +982,8 @@
       "noResearch": "Δεν υπάρχει διαθέσιμο ερευνητικό περιεχόμενο",
       "noResults": "Δεν υπάρχουν διαθέσιμα αποτελέσματα",
       "resultCount": "{count} αποτέλεσμα",
-      "resultCountPlural": "{count} αποτελέσματα"
+      "resultCountPlural": "{count} αποτελέσματα",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Δημοσιεύσεις",
@@ -1048,24 +1049,11 @@
         "bachelor": "Περισσότερες ενημερώσεις έρχονται σύντομα για την ενότητα Πτυχίου."
       }
     },
-    "results": {
-      "title": "Αποτελέσματα Έρευνας",
-      "subtitle": "Αποτελέσματα έρευνας, σύνολα δεδομένων, αποθετήρια κώδικα και άλλα παραδοτέα από τα έργα μας.",
-      "searchPlaceholder": "Αναζήτηση αποτελεσμάτων...",
-      "allProjects": "Όλα τα Έργα",
-      "clearFilters": "Καθαρισμός",
-      "resultCount": "{count} αποτέλεσμα",
-      "resultCountPlural": "{count} αποτελέσματα",
-      "attachment": "συνημμένο",
-      "attachments": "συνημμένα",
-      "noResults": "Δεν βρέθηκαν αποτελέσματα",
-      "noResultsDescription": "Δοκιμάστε να προσαρμόσετε τα κριτήρια αναζήτησης ή φίλτρου."
-    },
     "resultDetails": {
       "notFound": "Το αποτέλεσμα δεν βρέθηκε",
-      "backToResults": "Πίσω στα αποτελέσματα",
       "attachments": "Συνημμένα",
-      "relatedProjects": "Σχετικά Έργα"
+      "backToProjects": "Επιστροφή στο Έργα",
+      "attachment": "attachment"
     }
   },
   "resources": {

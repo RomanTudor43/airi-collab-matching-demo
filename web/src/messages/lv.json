@@ -982,7 +982,8 @@
       "noResearch": "Nav pieejams pētniecības saturs",
       "noResults": "Nav pieejamu rezultātu",
       "resultCount": "{count} rezultāts",
-      "resultCountPlural": "{count} rezultāti"
+      "resultCountPlural": "{count} rezultāti",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Publikācijas",
@@ -1048,24 +1049,11 @@
         "bachelor": "Drīzumā būs pieejami papildinājumi Bakalaura līmeņa sadaļā."
       }
     },
-    "results": {
-      "title": "Pētniecības rezultāti",
-      "subtitle": "Pētniecības rezultāti, datu kopas, kodu repozitoriji un citi mūsu projektu rezultāti.",
-      "searchPlaceholder": "Meklēt rezultātus...",
-      "allProjects": "Visi projekti",
-      "clearFilters": "Notīrīt",
-      "resultCount": "{count} rezultāts",
-      "resultCountPlural": "{count} rezultāti",
-      "attachment": "pielikums",
-      "attachments": "pielikumi",
-      "noResults": "Rezultāti nav atrasti",
-      "noResultsDescription": "Mēģiniet pielāgot meklēšanas vai filtra kritērijus."
-    },
     "resultDetails": {
       "notFound": "Rezultāts nav atrasts",
-      "backToResults": "Atpakaļ uz rezultātiem",
       "attachments": "Pielikumi",
-      "relatedProjects": "Saistītie projekti"
+      "backToProjects": "Atpakaļ uz projekteu",
+      "attachment": "attachment"
     }
   },
   "resources": {

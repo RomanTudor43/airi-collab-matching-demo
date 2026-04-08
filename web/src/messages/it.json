@@ -982,7 +982,8 @@
       "noResearch": "Nessun contenuto di ricerca disponibile",
       "noResults": "Nessun risultato disponibile",
       "resultCount": "{count} risultato",
-      "resultCountPlural": "{count} risultati"
+      "resultCountPlural": "{count} risultati",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Pubblicazioni",
@@ -1048,24 +1049,11 @@
         "bachelor": "Ulteriori aggiornamenti in arrivo per la sezione Triennale."
       }
     },
-    "results": {
-      "title": "Risultati della ricerca",
-      "subtitle": "Risultati di ricerca, set di dati, repository di codice e altri deliverable dei nostri progetti.",
-      "searchPlaceholder": "Cerca risultati...",
-      "allProjects": "Tutti i progetti",
-      "clearFilters": "Cancella",
-      "resultCount": "{count} risultato",
-      "resultCountPlural": "{count} risultati",
-      "attachment": "allegato",
-      "attachments": "allegati",
-      "noResults": "Nessun risultato trovato",
-      "noResultsDescription": "Prova a modificare i criteri di ricerca o filtro."
-    },
     "resultDetails": {
       "notFound": "Risultato non trovato",
-      "backToResults": "Torna ai risultati",
       "attachments": "Allegati",
-      "relatedProjects": "Progetti correlati"
+      "backToProjects": "Torna al progetti",
+      "attachment": "attachment"
     }
   },
   "resources": {

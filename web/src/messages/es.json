@@ -982,7 +982,8 @@
       "noResearch": "No hay contenido de investigación disponible",
       "noResults": "No hay resultados disponibles",
       "resultCount": "{count} resultado",
-      "resultCountPlural": "{count} resultados"
+      "resultCountPlural": "{count} resultados",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Publicaciones",
@@ -1048,24 +1049,11 @@
         "bachelor": "Próximamente habrá más actualizaciones para la sección de Grado."
       }
     },
-    "results": {
-      "title": "Resultados de investigación",
-      "subtitle": "Resultados de investigación, conjuntos de datos, repositorios de código y otros entregables de nuestros proyectos.",
-      "searchPlaceholder": "Buscar resultados...",
-      "allProjects": "Todos los proyectos",
-      "clearFilters": "Limpiar",
-      "resultCount": "{count} resultado",
-      "resultCountPlural": "{count} resultados",
-      "attachment": "adjunto",
-      "attachments": "adjuntos",
-      "noResults": "No se encontraron resultados",
-      "noResultsDescription": "Intente ajustar sus criterios de búsqueda o filtro."
-    },
     "resultDetails": {
       "notFound": "Resultado no encontrado",
-      "backToResults": "Volver a resultados",
       "attachments": "Adjuntos",
-      "relatedProjects": "Proyectos relacionados"
+      "backToProjects": "Volver al proyectos",
+      "attachment": "attachment"
     }
   },
   "resources": {

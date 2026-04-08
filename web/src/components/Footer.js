@@ -44,7 +44,7 @@ export default function Footer() {
   const quickLinks = [
     { href: '/research/projects', label: t('quickLinks.projects') },
     { href: '/about/sitemap', label: t('quickLinks.sitemap') },
-    { href: 'https://didatec.sharepoint.com/sites/UTCNRooms/SitePages/UTCN-AIRI-OBSERVATOR-CLUJ.aspx', label: t('quickLinks.rooms'), external: true },
+    { href: 'https://didatec.sharepoint.com/sites/UTCNRooms/SitePages/UTCN-AIRI---Artificial-Intelligence-Research-Institute.aspx', label: t('quickLinks.rooms'), external: true },
     { href: 'https://didatec-my.sharepoint.com/:f:/g/personal/airi_campus_utcluj_ro/IgBfIIZeG9p5SJ_Pde6NBWT5AU_tSajIkfRPaloVwavKIJ4', label: t('quickLinks.dissemination'), external: true },
     { href: '/contact', label: t('quickLinks.contactUs') },
   ];

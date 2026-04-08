@@ -1,15 +1,13 @@
-import { notFound } from "next/navigation";
-import { getResults, getResultBySlug, transformResultData } from "@/lib/strapi";
-import ResultDetailClient from "./ResultDetailClient";
-import { JsonLd } from "@/lib/jsonld";
+import { notFound } from 'next/navigation';
+import { getResultBySlug, getResults, transformResultData } from '@/lib/strapi';
+import ResultDetailsClient from './ResultDetailsClient';
 
 export async function generateStaticParams() {
   try {
-    const resultsRaw = await getResults();
-    const results = transformResultData(resultsRaw);
+    const results = transformResultData(await getResults());
     return results
-      .filter((r) => r.slug)
-      .map((r) => ({ slug: r.slug }));
+      .filter((result) => result.slug)
+      .map((result) => ({ slug: result.slug }));
   } catch {
     return [];
   }
@@ -17,53 +15,39 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  if (!slug) return { title: "Result Not Found" };
+  const resultRow = await getResultBySlug(slug);
+  const result = transformResultData(resultRow ? [resultRow] : [])[0];
 
-  try {
-    const resultEntry = await getResultBySlug(slug);
-    if (!resultEntry) return { title: "Result Not Found" };
-    const [result] = transformResultData([resultEntry]);
-    if (!result) return { title: "Result Not Found" };
-
-    const description = (result.description || result.title || "").slice(0, 160);
-
-    return {
-      title: result.title || "Result",
-      description,
-      openGraph: {
-        title: `${result.title} | AIRi @ UTCN`,
-        description,
-        type: "article",
-      },
-    };
-  } catch {
-    return { title: "Result" };
+  if (!result) {
+    return { title: 'Result' };
   }
+
+  const description = (result.description || result.title || '').slice(0, 160);
+
+  return {
+    title: `${result.title} | Research Result`,
+    description,
+    openGraph: {
+      title: `${result.title} | AIRi @ UTCN`,
+      description,
+      type: 'article',
+    },
+  };
 }
 
-export default async function ResultDetailPage({ params }) {
+export default async function ResultPage({ params }) {
   const { slug } = await params;
-  if (!slug) notFound();
+  const resultRow = await getResultBySlug(slug);
 
-  const resultEntry = await getResultBySlug(slug);
-  if (!resultEntry) notFound();
+  if (!resultRow) {
+    notFound();
+  }
 
-  const [result] = transformResultData([resultEntry]);
-  if (!result) notFound();
+  const result = transformResultData([resultRow])[0];
 
-  // Basic JSON-LD for result (similar to publication)
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "CreativeWork",
-    name: result.title,
-    description: result.description,
-    datePublished: result.publishedDate,
-  };
+  if (!result) {
+    notFound();
+  }
 
-  return (
-    <>
-      <JsonLd data={jsonLd} />
-      <ResultDetailClient result={result} />
-    </>
-  );
+  return <ResultDetailsClient result={result} />;
 }

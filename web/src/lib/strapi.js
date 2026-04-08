@@ -1830,6 +1830,11 @@ export async function getResources(options = {}) {
   }
 }
 
+/**
+ * Get a single resource by slug
+ * @param {string} slug - The resource's slug
+ * @returns {Promise<Object|null>} The resource or null
+ */
 export function transformResourceData(strapiResources) {
   const list = Array.isArray(strapiResources) ? strapiResources : strapiResources ? [strapiResources] : [];
   

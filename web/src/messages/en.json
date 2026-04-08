@@ -980,6 +980,8 @@
       "noPartners": "No partners listed",
       "noContact": "No contact information available",
       "contactInformation": "Contact Information",
+      "contactMethods": "Contact Methods",
+      "generalSupport": "General Support",
       "resultCount": "{count} result",
       "resultCountPlural": "{count} results",
       "attachments": "attachments",

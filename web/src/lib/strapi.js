@@ -568,10 +568,10 @@ export async function getProjectBySlug(slug) {
           },
         },
         contactInfo: {
+          fields: ['generalInfo'],
           populate: {
             contactEntries: { fields: ['label', 'type', 'value', 'description'] },
           },
-          fields: ['generalInfo'],
         },
         results: {
           fields: ['title', 'slug', 'description', 'publishedDate'],
@@ -603,18 +603,24 @@ export async function getProjectBySlug(slug) {
       },
     });
 
-    const [projectData, pubData] = await Promise.all([
-      fetchAPI(`/projects?${projectParams.toString()}`),
-      fetchAPI(`/publications?${pubParams.toString()}`),
-    ]);
+    const projectData = await fetchAPI(`/projects?${projectParams.toString()}`);
 
     const project = projectData.data?.[0];
     if (!project) return null;
 
+    // Publications are optional for this view; do not block project rendering if this call fails.
+    let publications = [];
+    try {
+      const pubData = await fetchAPI(`/publications?${pubParams.toString()}`);
+      publications = pubData?.data ?? [];
+    } catch (error) {
+      console.warn('Failed to fetch publications for project:', slug, error);
+    }
+
     // Inject publications into the project so transformProjectData can pick them up.
     // Works for both Strapi v4 (attributes wrapper) and v5 (flat object).
     const attrs = project?.attributes ?? project;
-    attrs.publications = pubData.data ?? [];
+    attrs.publications = publications;
 
     return project;
   } catch (error) {
@@ -1483,6 +1489,29 @@ export function transformProjectData(strapiProjects) {
       })
       .filter(Boolean);
 
+  const normalizeContactInfo = (contactInfo) => {
+    if (!contactInfo) return null;
+    
+    const contactData = contactInfo?.attributes ?? contactInfo ?? {};
+    const contactEntries = toArray(contactData.contactEntries?.data ?? contactData.contactEntries)
+      .map((entry) => {
+        if (!entry) return null;
+        const entryData = entry?.attributes ?? entry ?? {};
+        return {
+          label: entryData.label || '',
+          type: entryData.type || 'email',
+          value: entryData.value || '',
+          description: entryData.description || '',
+        };
+      })
+      .filter(Boolean);
+
+    return {
+      contactEntries,
+      generalInfo: contactData.generalInfo || null,
+    };
+  };
+
   return list.map((project) => {
     const attributes = project?.attributes ?? project ?? {};
 
@@ -1623,7 +1652,7 @@ export function transformProjectData(strapiProjects) {
       researchContent: normalizeBodyBlocks(attributes.researchContent),
       startDate: attributes.startDate || null,
       endDate: attributes.endDate || null,
-      contactInfo: attributes.contactInfo || null,
+      contactInfo: normalizeContactInfo(attributes.contactInfo),
       results: toArray(attributes.results?.data ?? attributes.results).map((result) => {
         const resultData = result?.attributes ?? result ?? {};
         return {

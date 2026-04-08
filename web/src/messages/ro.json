@@ -973,6 +973,8 @@
       "noPartners": "Niciun partener listat",
       "noContact": "Informații de contact indisponibile",
       "contactInformation": "Informații de Contact",
+      "contactMethods": "Metode de contact",
+      "generalSupport": "Suport general",
       "resultCount": "{count} rezultat",
       "resultCountPlural": "{count} rezultate",
       "attachments": "atașamente",

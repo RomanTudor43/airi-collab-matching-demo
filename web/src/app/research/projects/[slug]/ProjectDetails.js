@@ -1101,88 +1101,100 @@ export default function ProjectDetails({ project }) {
                   initial="hidden"
                   animate="visible"
                   variants={containerVariants}
-                  className="max-w-2xl"
                 >
-                  <motion.div
-                    variants={itemVariants}
-                    className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6"
-                  >
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                      {t('contactInformation')}
-                    </h2>
-                    
-                    {/* General Info */}
-                    {project.contactInfo.generalInfo && (
-                      <div className="prose dark:prose-invert max-w-none mb-6">
-                        <RichMarkdown markdown={project.contactInfo.generalInfo} />
-                      </div>
-                    )}
-                    
-                    {/* Contact Entries */}
-                    {project.contactInfo.contactEntries && project.contactInfo.contactEntries.length > 0 && (
-                      <div className="space-y-4">
-                        {project.contactInfo.contactEntries.map((entry, index) => {
-                          const getIcon = (type) => {
-                            switch(type) {
-                              case 'email': return FaEnvelope;
-                              case 'phone': return FaPhone;
-                              case 'address': return FaMapMarkerAlt;
-                              case 'website': return FaExternalLinkAlt;
-                              case 'social': return FaUserTie;
-                              default: return FaInfoCircle;
-                            }
-                          };
-                          
-                          const getIconColor = (type) => {
-                            switch(type) {
-                              case 'email': return 'text-blue-600';
-                              case 'phone': return 'text-green-600';
-                              case 'address': return 'text-red-600';
-                              case 'website': return 'text-purple-600';
-                              case 'social': return 'text-cyan-600';
-                              default: return 'text-gray-600';
-                            }
-                          };
-                          
-                          const linkValue = (type, value) => {
-                            if (type === 'email') {
-                              return <a href={`mailto:${value}`} className="text-blue-600 dark:text-blue-400 hover:underline break-all">{value}</a>;
-                            }
-                            if (type === 'phone') {
-                              return <a href={`tel:${value}`} className="text-blue-600 dark:text-blue-400 hover:underline">{value}</a>;
-                            }
-                            if (type === 'website') {
-                              return <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline break-all">{value}</a>;
-                            }
-                            return <span className="text-gray-700 dark:text-gray-300">{value}</span>;
-                          };
-                          
-                          const Icon = getIcon(entry.type);
-                          
-                          return (
-                            <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900">
-                              <div className="mt-1">
-                                <Icon className={`w-5 h-5 ${getIconColor(entry.type)}`} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-semibold text-gray-900 dark:text-white mb-1">
-                                  {entry.label}
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+                    {t('contactInformation')}
+                  </h2>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Left Column: Contact Entries */}
+                    <motion.div
+                      variants={itemVariants}
+                      className="space-y-4"
+                    >
+                      {project.contactInfo.contactEntries && project.contactInfo.contactEntries.length > 0 ? (
+                        <>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                            {t('contactMethods')}
+                          </h3>
+                          {project.contactInfo.contactEntries.map((entry, index) => {
+                            const getIcon = (type) => {
+                              switch(type) {
+                                case 'email': return FaEnvelope;
+                                case 'phone': return FaPhone;
+                                case 'address': return FaMapMarkerAlt;
+                                case 'website': return FaExternalLinkAlt;
+                                case 'social': return FaUserTie;
+                                default: return FaInfoCircle;
+                              }
+                            };
+                            
+                            const getIconColor = (type) => {
+                              switch(type) {
+                                case 'email': return 'text-blue-600';
+                                case 'phone': return 'text-green-600';
+                                case 'address': return 'text-red-600';
+                                case 'website': return 'text-purple-600';
+                                case 'social': return 'text-cyan-600';
+                                default: return 'text-gray-600';
+                              }
+                            };
+                            
+                            const linkValue = (type, value) => {
+                              if (type === 'email') {
+                                return <a href={`mailto:${value}`} className="text-blue-600 dark:text-blue-400 hover:underline break-all">{value}</a>;
+                              }
+                              if (type === 'phone') {
+                                return <a href={`tel:${value}`} className="text-blue-600 dark:text-blue-400 hover:underline">{value}</a>;
+                              }
+                              if (type === 'website') {
+                                return <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline break-all">{value}</a>;
+                              }
+                              return <span className="text-gray-700 dark:text-gray-300">{value}</span>;
+                            };
+                            
+                            const Icon = getIcon(entry.type);
+                            
+                            return (
+                              <div key={index} className="flex items-start gap-3 p-4 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
+                                <div className="mt-1 flex-shrink-0">
+                                  <Icon className={`w-5 h-5 ${getIconColor(entry.type)}`} />
                                 </div>
-                                <div className="mb-1">
-                                  {linkValue(entry.type, entry.value)}
-                                </div>
-                                {entry.description && (
-                                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    {entry.description}
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-gray-900 dark:text-white mb-1">
+                                    {entry.label}
                                   </div>
-                                )}
+                                  <div className="mb-1">
+                                    {linkValue(entry.type, entry.value)}
+                                  </div>
+                                  {entry.description && (
+                                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                                      {entry.description}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </>
+                      ) : null}
+                    </motion.div>
+                    
+                    {/* Right Column: General Info */}
+                    {project.contactInfo.generalInfo && (
+                      <motion.div
+                        variants={itemVariants}
+                        className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border border-gray-200 dark:border-gray-700"
+                      >
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                          {t('generalSupport')}
+                        </h3>
+                        <div className="prose dark:prose-invert max-w-none">
+                          <RichMarkdown content={project.contactInfo.generalInfo} />
+                        </div>
+                      </motion.div>
                     )}
-                  </motion.div>
+                  </div>
                 </motion.div>
               ) : (
                 <div className="text-center py-12">

@@ -327,6 +327,9 @@ export async function fetchAPI(endpoint, options = {}) {
 }
 
 async function fetchAllEntries(endpoint, baseOptions = {}, pageSize = 100) {
+  // Strapi enforces a server-side max page size (100 in this project).
+  // Requesting larger values causes page index/offset mismatches and silent data loss.
+  const safePageSize = Math.max(1, Math.min(Number(pageSize) || 100, 100));
   const results = [];
   let page = 1;
   let pageCount = 1;
@@ -334,7 +337,7 @@ async function fetchAllEntries(endpoint, baseOptions = {}, pageSize = 100) {
   while (page <= pageCount) {
     const params = createParams({
       ...baseOptions,
-      pagination: { page, pageSize },
+      pagination: { page, pageSize: safePageSize },
     });
 
     const data = await fetchAPI(`${endpoint}?${params.toString()}`);
@@ -716,7 +719,7 @@ export async function getPapers(options = {}) {
       },
     };
 
-    return await fetchAllEntries('/publications', baseOptions, 200);
+    return await fetchAllEntries('/publications', baseOptions, 100);
   } catch (error) {
     console.error('Failed to fetch graph papers:', error);
     return [];
@@ -747,7 +750,7 @@ export async function getGraphLinks() {
       },
     };
 
-    return await fetchAllEntries('/graph-links', baseOptions, 500);
+    return await fetchAllEntries('/graph-links', baseOptions, 100);
   } catch (error) {
     console.error('Failed to fetch graph links:', error);
     return [];

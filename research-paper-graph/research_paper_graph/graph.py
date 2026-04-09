@@ -483,7 +483,7 @@ def cluster_topics(topics, embeddings, min_cluster_size=TOPIC_HDBSCAN_MIN_CLUSTE
     clusterer = hdbscan.HDBSCAN(
         min_cluster_size=min_cluster_size,
         min_samples=min_samples,
-        metric='cosine',
+        metric='euclidean',
         cluster_selection_method='leaf',
     )
     labels = clusterer.fit_predict(embeddings)
@@ -497,23 +497,23 @@ def cluster_topics(topics, embeddings, min_cluster_size=TOPIC_HDBSCAN_MIN_CLUSTE
             # Noise point - assign to nearest cluster
             topic_idx = topics.index(topic)
             topic_emb = embeddings[topic_idx]
-            
+
             # Find nearest non-noise cluster
             min_dist = float('inf')
             nearest_cluster = 0
-            
+
             for other_idx, other_label in enumerate(labels):
                 if other_label != -1:
                     dist = 1 - np.dot(topic_emb, embeddings[other_idx])
                     if dist < min_dist:
                         min_dist = dist
-                        nearest_cluster = other_label
-            
+                        nearest_cluster = int(other_label)
+
             topic_to_cluster[topic] = nearest_cluster
             clusters_to_topics[nearest_cluster].append(topic)
         else:
-            topic_to_cluster[topic] = label
-            clusters_to_topics[label].append(topic)
+            topic_to_cluster[topic] = int(label)
+            clusters_to_topics[int(label)].append(topic)
     
     n_clusters = len(set(labels) - {-1})
     noise_count = sum(1 for l in labels if l == -1)
@@ -595,7 +595,7 @@ def build_topic_hierarchy(papers, model_name="all-MiniLM-L6-v2"):
 
 def assign_paper_topic_clusters(papers, topic_to_cluster):
     """Assign each paper to topic superclusters based on its topics.
-    
+
     Returns dict mapping paper_id -> list of supercluster ids
     """
     assignments = {}
@@ -607,6 +607,9 @@ def assign_paper_topic_clusters(papers, topic_to_cluster):
                 clusters.add(topic_to_cluster[topic])
         assignments[paper_id] = sorted(clusters)
     return assignments
+
+
+def save_index(embeddings, papers, path):
     """Persist embeddings and paper IDs for reuse."""
     data = {
         "paper_ids": [paper_identifier(paper) for paper in papers],

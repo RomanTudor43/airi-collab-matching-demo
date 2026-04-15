@@ -470,16 +470,24 @@ def generate_topic_embeddings(topics, model_name="all-MiniLM-L6-v2"):
     return _normalize_embeddings(embeddings)
 
 
-def cluster_topics(topics, embeddings, min_cluster_size=TOPIC_HDBSCAN_MIN_CLUSTER_SIZE,
-                   min_samples=TOPIC_HDBSCAN_MIN_SAMPLES):
+def cluster_topics(topics, embeddings, min_cluster_size=None, min_samples=None):
     """Cluster topics using HDBSCAN to create superclusters."""
     import hdbscan
+
+    # Resolve defaults at call time so CLI runtime overrides on module globals apply.
+    if min_cluster_size is None:
+        min_cluster_size = TOPIC_HDBSCAN_MIN_CLUSTER_SIZE
+    if min_samples is None:
+        min_samples = TOPIC_HDBSCAN_MIN_SAMPLES
     
     if len(topics) < min_cluster_size:
         # Not enough topics to cluster - assign all to one cluster
         return {topic: 0 for topic in topics}, {0: topics}
     
-    log.info(f"Clustering {len(topics)} topics with HDBSCAN...")
+    log.info(
+        f"Clustering {len(topics)} topics with HDBSCAN "
+        f"(min_cluster_size={min_cluster_size}, min_samples={min_samples})..."
+    )
     clusterer = hdbscan.HDBSCAN(
         min_cluster_size=min_cluster_size,
         min_samples=min_samples,
@@ -492,10 +500,9 @@ def cluster_topics(topics, embeddings, min_cluster_size=TOPIC_HDBSCAN_MIN_CLUSTE
     topic_to_cluster = {}
     clusters_to_topics = defaultdict(list)
     
-    for topic, label in zip(topics, labels):
+    for topic_idx, (topic, label) in enumerate(zip(topics, labels)):
         if label == -1:
             # Noise point - assign to nearest cluster
-            topic_idx = topics.index(topic)
             topic_emb = embeddings[topic_idx]
 
             # Find nearest non-noise cluster

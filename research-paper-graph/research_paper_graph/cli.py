@@ -18,6 +18,14 @@ SETTINGS = load_runtime_settings(__file__)
 log = logging.getLogger("paper-sync")
 
 
+def _apply_runtime_graph_settings(settings):
+    """Override graph module clustering knobs from environment settings."""
+    gg.HDBSCAN_MIN_CLUSTER_SIZE = settings.graph_hdbscan_min_cluster_size
+    gg.HDBSCAN_MIN_SAMPLES = settings.graph_hdbscan_min_samples
+    gg.TOPIC_HDBSCAN_MIN_CLUSTER_SIZE = settings.graph_topic_hdbscan_min_cluster_size
+    gg.TOPIC_HDBSCAN_MIN_SAMPLES = settings.graph_topic_hdbscan_min_samples
+
+
 def build_parser():
     p = argparse.ArgumentParser(
         prog="paper-sync",

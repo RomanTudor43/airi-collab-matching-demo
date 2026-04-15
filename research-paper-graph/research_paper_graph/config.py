@@ -12,6 +12,10 @@ class RuntimeSettings:
     graph_similarity_threshold: float
     graph_duplicate_threshold: float
     graph_ai_model: str
+    graph_hdbscan_min_cluster_size: int
+    graph_hdbscan_min_samples: int
+    graph_topic_hdbscan_min_cluster_size: int
+    graph_topic_hdbscan_min_samples: int
 
 
 def _find_env_file(start_path):
@@ -41,4 +45,8 @@ def load_runtime_settings(current_file=None):
         graph_similarity_threshold=float(os.getenv("GRAPH_SIMILARITY_THRESHOLD", "0.5")),
         graph_duplicate_threshold=float(os.getenv("GRAPH_DUPLICATE_THRESHOLD", "0.92")),
         graph_ai_model=os.getenv("GRAPH_AI_MODEL", "all-MiniLM-L6-v2"),
+        graph_hdbscan_min_cluster_size=int(os.getenv("GRAPH_HDBSCAN_MIN_CLUSTER_SIZE", "20")),
+        graph_hdbscan_min_samples=int(os.getenv("GRAPH_HDBSCAN_MIN_SAMPLES", "5")),
+        graph_topic_hdbscan_min_cluster_size=int(os.getenv("GRAPH_TOPIC_HDBSCAN_MIN_CLUSTER_SIZE", "3")),
+        graph_topic_hdbscan_min_samples=int(os.getenv("GRAPH_TOPIC_HDBSCAN_MIN_SAMPLES", "2")),
     )

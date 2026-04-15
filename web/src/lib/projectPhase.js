@@ -70,10 +70,10 @@ export function getProjectPhase(startDate, endDate, nowInput = new Date()) {
  */
 export function getPhaseColorClasses(status) {
   const colorMap = {
-    planned: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-    ongoing: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-    ended: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-    unknown: 'bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-300',
+    planned: 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-100 dark:ring-1 dark:ring-blue-300/40',
+    ongoing: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/25 dark:text-emerald-100 dark:ring-1 dark:ring-emerald-300/40',
+    ended: 'bg-slate-200 text-slate-800 dark:bg-slate-500/25 dark:text-slate-100 dark:ring-1 dark:ring-slate-300/40',
+    unknown: 'bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-100 dark:ring-1 dark:ring-gray-300/35',
   };
 
   return colorMap[status] || colorMap.unknown;

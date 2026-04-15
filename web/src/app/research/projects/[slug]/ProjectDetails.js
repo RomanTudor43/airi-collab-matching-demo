@@ -38,12 +38,41 @@ function getPersonPath(person) {
   return `/people/${slug}`;
 }
 
-function formatProjectDate(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+function parseProjectDate(value) {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatProjectDate(value) {
+  const date = parseProjectDate(value);
+  if (!date) return null;
+
+  const hasExplicitTime = typeof value === 'string' && /T\d{2}:\d{2}/.test(value);
+  const options = hasExplicitTime
+    ? {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }
+    : {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      };
+
   return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    year: 'numeric',
+    ...options,
   }).format(date);
+}
+
+function truncateText(value, maxLength = 180) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return '';
+  if (raw.length <= maxLength) return raw;
+  return `${raw.slice(0, maxLength).trimEnd()}...`;
 }
 
 // Tab Button Component
@@ -410,6 +439,23 @@ export default function ProjectDetails({ project }) {
   const phaseLabel = t.has(phaseLabelKey) ? t(phaseLabelKey) : t('phase');
   const startLabel = formatProjectDate(phase.start);
   const endLabel = formatProjectDate(phase.end);
+  const rawTimelineEvents = (project.timeline || [])
+    .map((event) => {
+      const parsedDate = parseProjectDate(event?.date);
+      return {
+        label: event?.label || t('timelineEventFallback'),
+        date: event?.date || '',
+        parsedDate,
+        dateLabel: formatProjectDate(event?.date),
+        description: truncateText(event?.description, 165),
+      };
+    })
+    .sort((a, b) => {
+      if (a.parsedDate && b.parsedDate) return a.parsedDate.getTime() - b.parsedDate.getTime();
+      if (a.parsedDate) return -1;
+      if (b.parsedDate) return 1;
+      return a.label.localeCompare(b.label);
+    });
 
   const now = new Date();
   let phaseProgress = 0;
@@ -424,6 +470,56 @@ export default function ProjectDetails({ project }) {
   } else if (phase.status === 'ongoing') {
     phaseProgress = 55;
   }
+
+  const timelineEvents = rawTimelineEvents.map((event, index, list) => {
+    let markerPosition = 0;
+    const hasRange = phase.start && phase.end && phase.end.getTime() > phase.start.getTime();
+
+    if (event.parsedDate && hasRange) {
+      const total = phase.end.getTime() - phase.start.getTime();
+      const elapsed = event.parsedDate.getTime() - phase.start.getTime();
+      markerPosition = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+    } else if (list.length === 1) {
+      markerPosition = 50;
+    } else if (list.length > 1) {
+      markerPosition = Math.round((index / (list.length - 1)) * 100);
+    }
+
+    let state = 'upcoming';
+    if (markerPosition <= phaseProgress - 4) state = 'past';
+    else if (Math.abs(markerPosition - phaseProgress) <= 6) state = 'current';
+
+    return {
+      ...event,
+      markerPosition,
+      state,
+    };
+  });
+
+  const eventStateStyles = {
+    past: {
+      card: 'border-blue-200 bg-blue-50/90 dark:border-blue-500/40 dark:bg-blue-500/10',
+      dot: 'bg-blue-500 shadow-[0_0_0_4px_rgba(59,130,246,0.15)]',
+      text: 'text-blue-700 dark:text-blue-200',
+      tone: t('timelineStates.past'),
+    },
+    current: {
+      card: 'border-emerald-300 bg-emerald-50/95 dark:border-emerald-400/60 dark:bg-emerald-500/15 ring-2 ring-emerald-200/70 dark:ring-emerald-400/30',
+      dot: 'bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.2)] animate-pulse',
+      text: 'text-emerald-700 dark:text-emerald-200',
+      tone: t('timelineStates.current'),
+    },
+    upcoming: {
+      card: 'border-slate-200 bg-slate-50/90 dark:border-slate-600/60 dark:bg-slate-800/60 opacity-90',
+      dot: 'bg-slate-400 dark:bg-slate-300',
+      text: 'text-slate-700 dark:text-slate-200',
+      tone: t('timelineStates.upcoming'),
+    },
+  };
+
+  const timelineColumnStyle = timelineEvents.length > 0
+    ? { gridTemplateColumns: `repeat(${timelineEvents.length}, minmax(140px, 1fr))` }
+    : null;
 
   const markdownClassName = 'prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300';
   const resolveMediaSource = (media) => {
@@ -594,17 +690,145 @@ export default function ProjectDetails({ project }) {
                   </div>
                 </div>
 
-                <div className="rounded-lg bg-gray-50 dark:bg-gray-900/60 p-4 border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center justify-between text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-                    <span>{t("phaseProgress")}</span>
-                    <span>{phaseProgress}%</span>
-                  </div>
-                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-blue-500 via-cyan-500 to-emerald-500 rounded-full transition-all duration-500"
-                      style={{ width: `${phaseProgress}%` }}
-                    />
-                  </div>
+                
+                <div className="mt-8">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-8 text-center md:text-left">
+                    {t("timeline")}
+                  </h3>
+
+                  {timelineEvents.length > 0 ? (
+                    <div className="relative pb-8">
+                      {/* Vertical line track */}
+                      <div className="absolute left-[28px] md:left-1/2 top-[10px] bottom-[56px] w-[3px] -translate-x-1/2 bg-gray-200/60 dark:bg-gray-700/50" />
+                      
+                      {/* Active line fill wrapper */}
+                      <div className="absolute left-[28px] md:left-1/2 top-[10px] bottom-[56px] w-[3px] -translate-x-1/2 z-0 overflow-hidden">
+                        <div 
+                          className="absolute top-0 left-0 w-full bg-gradient-to-b from-blue-500 via-cyan-500 to-emerald-500 transition-all duration-1000"
+                          style={{ height: `${Math.max(1, phaseProgress)}%` }}
+                        />
+                      </div>
+                        <div className="relative z-10 pt-2 pb-2 flex flex-col">
+                        {/* Start Node */}
+                        <div className="relative w-full h-8 -mt-4 mb-6 group">
+                          {/* Cross line */}
+                          <div className="absolute top-1/2 left-[28px] md:left-1/2 w-12 md:w-32 -translate-x-1/2 h-[2px] bg-gray-200/80 dark:bg-gray-700/80 z-10 transition-colors duration-300 group-hover:bg-gray-300 dark:group-hover:bg-gray-600" />
+                          
+                          {/* Desktop: Label on the left */}
+                          <div className="hidden md:flex absolute top-1/2 right-1/2 mr-20 -translate-y-1/2 items-center gap-3">
+                             <span className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("start")}</span>
+                             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">{startLabel || t("phaseNoDate")}</span>
+                          </div>
+                          
+                          {/* Mobile: Label on the right */}
+                          <div className="flex md:hidden absolute top-1/2 left-[60px] -translate-y-1/2 items-center gap-2 whitespace-nowrap">
+                             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("start")}</span>
+                             <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">{startLabel || t("phaseNoDate")}</span>
+                          </div>
+                        </div>
+                        {timelineEvents.map((event, index, list) => {
+                          const stateStyle = eventStateStyles[event.state] || eventStateStyles.upcoming;
+                          const isEven = index % 2 === 0;
+                          
+                          // Chronological proportional spacing
+                          let spacingStyle = {};
+                          if (index > 0) {
+                            const prev = list[index - 1].markerPosition;
+                            const diff = event.markerPosition - prev;
+                            // 1% roughly eq to 4px, base min spacing 1.5rem (24px)
+                            const dynamicMargin = Math.max(24, Math.min(160, diff * 4)); 
+                            spacingStyle = { marginTop: `${dynamicMargin}px` };
+                          } else {
+                            spacingStyle = { marginTop: '0.5rem' };
+                          }
+
+                          return (
+                            <div key={`timeline-${event.label}-${index}`} className="relative flex flex-col md:flex-row items-center group" style={spacingStyle}>
+                              
+                              {/* Left Side (Desktop only) */}
+                              <div className={`hidden md:block w-1/2 pr-12 text-right ${isEven ? '' : 'invisible'}`}>
+                                {isEven && (
+                                  <div className="group-hover:-translate-y-1 transition-transform duration-300 flex justify-end">
+                                    <div className={`inline-block text-left p-3.5 rounded-xl border ${stateStyle.card} shadow-sm group-hover:shadow-md max-w-sm`}>
+                                      <div className="flex items-center justify-between gap-3 mb-1.5">
+                                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white leading-snug line-clamp-2 md:line-clamp-none">{event.label}</h4>
+                                        <span className={`shrink-0 text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide bg-white/90 dark:bg-gray-900/80 ${stateStyle.text} border border-current/20`}>
+                                          {stateStyle.tone}
+                                        </span>
+                                      </div>
+                                      {event.dateLabel && (
+                                        <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">{event.dateLabel}</p>
+                                      )}
+                                      {event.description && (
+                                        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] group-focus-within:grid-rows-[1fr] transition-all duration-300">
+                                          <div className="overflow-hidden">
+                                            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed pt-2">{event.description}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Center Dot */}
+                              <div className="absolute left-[28px] md:left-1/2 -translate-x-1/2 flex items-center justify-center w-8 h-8 bg-gray-50 dark:bg-gray-800 rounded-full border-[3px] border-white dark:border-gray-900 shadow-sm transition-transform duration-300 group-hover:scale-110 z-20">
+                                <span className={`w-3.5 h-3.5 rounded-full ${stateStyle.dot}`} title={`${event.label} - ${stateStyle.tone}`} />
+                              </div>
+
+                              {/* Right Side (Mobile is always right side) */}
+                              <div className={`w-full pl-16 py-1 md:py-0 md:w-1/2 md:pl-12 ${!isEven ? '' : 'md:invisible'}`}>
+                                {(!isEven || true) && ( // Always true on mobile
+                                  <div className={`text-left group-hover:-translate-y-1 transition-transform duration-300 ${isEven ? 'md:hidden' : ''}`}>
+                                    <div className={`inline-block w-full md:max-w-sm p-3.5 rounded-xl border ${stateStyle.card} shadow-sm group-hover:shadow-md`}>
+                                      <div className="flex flex-wrap items-center justify-between gap-2.5 mb-1.5">
+                                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white leading-snug pr-2">{event.label}</h4>
+                                        <span className={`shrink-0 text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide bg-white/90 dark:bg-gray-900/80 ${stateStyle.text} border border-current/20`}>
+                                          {stateStyle.tone}
+                                        </span>
+                                      </div>
+                                      {event.dateLabel && (
+                                        <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">{event.dateLabel}</p>
+                                      )}
+                                      {event.description && (
+                                        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] group-focus-within:grid-rows-[1fr] transition-all duration-300">
+                                          <div className="overflow-hidden">
+                                            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed pt-2">{event.description}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                            </div>
+                          );
+                        })}
+                        {/* End Node */}
+                        <div className="relative w-full h-8 mt-8 group">
+                          {/* Cross line */}
+                          <div className="absolute top-1/2 left-[28px] md:left-1/2 w-12 md:w-32 -translate-x-1/2 h-[2px] bg-gray-200/80 dark:bg-gray-700/80 z-10 transition-colors duration-300 group-hover:bg-gray-300 dark:group-hover:bg-gray-600" />
+                          
+                          {/* Desktop: Label on the right */}
+                          <div className="hidden md:flex absolute top-1/2 left-1/2 ml-20 -translate-y-1/2 items-center gap-3">
+                             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">{endLabel || (phase.status === 'ongoing' ? t("phaseOpenEnded") : t("phaseNoDate"))}</span>
+                             <span className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("end")}</span>
+                          </div>
+
+                          {/* Mobile: Label on the right */}
+                          <div className="flex md:hidden absolute top-1/2 left-[60px] -translate-y-1/2 items-center gap-2 whitespace-nowrap">
+                             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("end")}</span>
+                             <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">{endLabel || (phase.status === 'ongoing' ? t("phaseOpenEnded") : t("phaseNoDate"))}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
+                      {t("noTimeline")}
+                    </p>
+                  )}
                 </div>
               </motion.div>
 
@@ -1179,9 +1403,6 @@ export default function ProjectDetails({ project }) {
                     >
                       {project.contactInfo.contactEntries && project.contactInfo.contactEntries.length > 0 ? (
                         <>
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                            {t('contactMethods')}
-                          </h3>
                           {project.contactInfo.contactEntries.map((entry, index) => {
                             const getIcon = (type) => {
                               switch(type) {

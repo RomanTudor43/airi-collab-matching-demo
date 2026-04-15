@@ -949,6 +949,14 @@
       "phaseNoDate": "Not set",
       "phaseOpenEnded": "No end date",
       "phaseProgress": "Timeline progress",
+      "timeline": "Timeline",
+      "timelineEventFallback": "Project milestone",
+      "noTimeline": "No timeline events available yet.",
+      "timelineStates": {
+        "past": "Completed",
+        "current": "Current",
+        "upcoming": "Upcoming"
+      },
       "tabs": {
         "about": "About",
         "team": "Team",

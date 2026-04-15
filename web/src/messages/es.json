@@ -942,6 +942,14 @@
       "phaseNoDate": "No definido",
       "phaseOpenEnded": "Sin fecha de finalización",
       "phaseProgress": "Progreso del cronograma",
+      "timeline": "Cronología",
+      "timelineEventFallback": "Hito del proyecto",
+      "noTimeline": "Todavía no hay eventos de cronología disponibles.",
+      "timelineStates": {
+        "past": "Completado",
+        "current": "Actual",
+        "upcoming": "Próximo"
+      },
       "tabs": {
         "about": "Sobre",
         "team": "Equipo",

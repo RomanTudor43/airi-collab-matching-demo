@@ -937,6 +937,11 @@
       "partnerCountPlural": "{count} socios",
       "officialWebsite": "Sitio Web Oficial",
       "documentation": "Documentación",
+      "start": "Inicio",
+      "end": "Fin",
+      "phaseNoDate": "No definido",
+      "phaseOpenEnded": "Sin fecha de finalización",
+      "phaseProgress": "Progreso del cronograma",
       "tabs": {
         "about": "Sobre",
         "team": "Equipo",
@@ -970,6 +975,7 @@
       "phases": {
         "ongoing": "En curso",
         "planned": "Planificado",
+        "ended": "Finalizado",
         "completed": "Completado",
         "archived": "Archivado"
       },

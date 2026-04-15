@@ -38,6 +38,14 @@ function getPersonPath(person) {
   return `/people/${slug}`;
 }
 
+function formatProjectDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
 // Tab Button Component
 function TabButton({ active, onClick, icon: Icon, label, count }) {
   return (
@@ -373,15 +381,8 @@ function PublicationCard({ publication, t }) {
   );
 }
 
-const PHASE_STYLES = {
-  ongoing:   'bg-green-100  dark:bg-green-900/30  text-green-700  dark:text-green-300',
-  planned:   'bg-blue-100   dark:bg-blue-900/30   text-blue-700   dark:text-blue-300',
-  completed: 'bg-gray-100   dark:bg-gray-700      text-gray-600   dark:text-gray-300',
-  archived:  'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
-};
-
 export default function ProjectDetails({ project }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('about');
   const t = useTranslations("research.projectDetails");
 
   if (!project) {
@@ -401,9 +402,28 @@ export default function ProjectDetails({ project }) {
   const partners = (project.partnersData && project.partnersData.length > 0)
     ? project.partnersData
     : (project.partners || []).map((name) => ({ name, slug: '' }));
-  
-  // Get phase from dates
+
   const phase = getProjectPhase(project.startDate, project.endDate);
+  const phaseLabelKey = phase.status === 'ended'
+    ? (t.has('phases.ended') ? 'phases.ended' : 'phases.completed')
+    : `phases.${phase.status}`;
+  const phaseLabel = t.has(phaseLabelKey) ? t(phaseLabelKey) : t('phase');
+  const startLabel = formatProjectDate(phase.start);
+  const endLabel = formatProjectDate(phase.end);
+
+  const now = new Date();
+  let phaseProgress = 0;
+  if (phase.status === 'ended') {
+    phaseProgress = 100;
+  } else if (phase.status === 'planned') {
+    phaseProgress = 10;
+  } else if (phase.status === 'ongoing' && phase.start && phase.end) {
+    const total = phase.end.getTime() - phase.start.getTime();
+    const elapsed = now.getTime() - phase.start.getTime();
+    phaseProgress = total > 0 ? Math.max(8, Math.min(95, Math.round((elapsed / total) * 100))) : 50;
+  } else if (phase.status === 'ongoing') {
+    phaseProgress = 55;
+  }
 
   const markdownClassName = 'prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300';
   const resolveMediaSource = (media) => {
@@ -495,13 +515,10 @@ export default function ProjectDetails({ project }) {
         {/* Quick Info Cards */}
         <motion.div
           variants={containerVariants}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 -mt-12 mb-8 relative z-10"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 -mt-12 mb-8 relative z-10"
         >
           {project.region && (
             <InfoCard icon={FaMapMarkerAlt} label={t("region")} value={project.region} />
-          )}
-          {phase && (
-            <InfoCard icon={FaChartLine} label={t("phase")} value={phase.label} color={phase.color} />
           )}
           {project.partners && project.partners.length > 0 && (
             <InfoCard
@@ -543,6 +560,54 @@ export default function ProjectDetails({ project }) {
               variants={containerVariants}
               className="space-y-8"
             >
+              {/* Project Phase */}
+              <motion.div
+                variants={itemVariants}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <FaChartLine className="text-blue-500" />
+                    {t("phase")}
+                  </h2>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${getPhaseColorClasses(phase.status)}`}>
+                    {phaseLabel}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                      {t("start")}
+                    </p>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {startLabel || t("phaseNoDate")}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                      {t("end")}
+                    </p>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {endLabel || (phase.status === 'ongoing' ? t("phaseOpenEnded") : t("phaseNoDate"))}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg bg-gray-50 dark:bg-gray-900/60 p-4 border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center justify-between text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                    <span>{t("phaseProgress")}</span>
+                    <span>{phaseProgress}%</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 via-cyan-500 to-emerald-500 rounded-full transition-all duration-500"
+                      style={{ width: `${phaseProgress}%` }}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+
               {/* Abstract */}
               {project.abstract && (
                 <motion.div

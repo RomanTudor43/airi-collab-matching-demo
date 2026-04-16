@@ -425,6 +425,8 @@ function PublicationCard({ publication, t }) {
 function NewsCard({ item, t }) {
   const categoryLabel = getNewsCategoryLabel(item.category, t);
   const publishedLabel = formatProjectDate(item.date);
+  const articleSlug = item?.slug ? encodeURIComponent(item.slug) : '';
+  const viewArticleLabel = t.has('viewArticle') ? t('viewArticle') : t('viewDetails');
 
   return (
     <motion.article
@@ -479,21 +481,26 @@ function NewsCard({ item, t }) {
         )}
       </div>
 
-      <div className="px-5 pb-5 pt-1 mt-auto">
-        {hasNewsLink(item.linkUrl) ? (
+      <div className="px-5 pb-5 pt-1 mt-auto flex flex-wrap items-center gap-4">
+        {articleSlug && (
+          <Link
+            href={`/news&events/news/${articleSlug}`}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+          >
+            {viewArticleLabel}
+            <FaExternalLinkAlt className="w-3 h-3" />
+          </Link>
+        )}
+        {hasNewsLink(item.linkUrl) && (
           <a
             href={item.linkUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
           >
             {t('openArticle')}
             <FaExternalLinkAlt className="w-3 h-3" />
           </a>
-        ) : (
-          <span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-400 dark:text-gray-500">
-            {t('openArticle')}
-          </span>
         )}
       </div>
     </motion.article>

@@ -218,7 +218,7 @@ const DEPARTMENT_POPULATE = {
 
 
 const PROJECT_POPULATE = {
-  fields: ['title', 'slug', 'abstract', 'region', 'phase', 'docUrl', 'officialUrl', 'featured', 'isIndustryEngagement'],
+  fields: ['title', 'slug', 'abstract', 'region', 'startDate', 'endDate', 'isIndustryEngagement'],
   populate: {
     heroImage: {
       fields: ['url', 'formats', 'alternativeText'],
@@ -473,7 +473,7 @@ export async function getPersonTeams(slug) {
         members: {
           populate: { person: PERSON_FLAT_POPULATE },
         },
-        projects: { fields: ['title', 'slug', 'abstract', 'phase'] },
+        projects: { fields: ['title', 'slug', 'abstract', 'startDate', 'endDate'] },
       },
     });
     const data = await fetchAPI(`/teams?${params.toString()}`);
@@ -500,7 +500,7 @@ export async function getDepartmentTeams(departmentSlug) {
         members: {
           populate: { person: PERSON_FLAT_POPULATE },
         },
-        projects: { fields: ['title', 'slug', 'abstract', 'phase'] },
+        projects: { fields: ['title', 'slug', 'abstract', 'startDate', 'endDate'] },
       },
     });
     const data = await fetchAPI(`/teams?${params.toString()}`);
@@ -517,12 +517,11 @@ export async function getDepartmentTeams(departmentSlug) {
  */
 export async function getProjects(options = {}) {
   try {
-    const { domainSlug, themeSlug, featured, publicationState = 'preview' } = options;
+    const { domainSlug, themeSlug, publicationState = 'preview' } = options;
 
     const filters = {};
     if (domainSlug) filters.domains = { slug: { $eq: domainSlug } };
     if (themeSlug) filters.themes = { slug: { $eq: themeSlug } };
-    if (featured !== undefined) filters.featured = { $eq: featured };
 
     const params = createParams({
       sort: 'title:asc',
@@ -577,6 +576,33 @@ export async function getProjectBySlug(slug) {
             },
           },
         },
+        researchContent: {
+          on: {
+            'shared.rich-text': { fields: ['body'] },
+            'shared.section': {
+              fields: ['heading', 'subheading', 'body'],
+              populate: { media: { fields: ['url', 'formats', 'alternativeText'] } },
+            },
+            'shared.media': {
+              populate: { file: { fields: ['url', 'formats', 'alternativeText'] } },
+            },
+            'shared.slider': {
+              populate: { files: { fields: ['url', 'formats', 'alternativeText'] } },
+            },
+          },
+        },
+        contactInfo: {
+          fields: ['generalInfo'],
+          populate: {
+            contactEntries: { fields: ['label', 'type', 'value', 'description'] },
+          },
+        },
+        results: {
+          fields: ['title', 'slug', 'description', 'publishedDate'],
+          populate: {
+            attachments: { fields: ['name', 'url', 'mime', 'ext'] },
+          },
+        },
         teams: {
           populate: {
             members: { populate: { person: PERSON_WITH_IMAGE_POPULATE } },
@@ -584,8 +610,14 @@ export async function getProjectBySlug(slug) {
           },
         },
         contributors: PERSON_WITH_IMAGE_POPULATE,
+        news: {
+          fields: ['title', 'slug', 'summary', 'category', 'publishedDate', 'linkUrl', 'tags'],
+          populate: {
+            heroImage: { fields: ['url', 'formats', 'alternativeText'] },
+          },
+        },
         timeline: {},
-        resources: { fields: ['title', 'slug', 'url', 'icon', 'category'] },
+        resources: { fields: ['title', 'slug', 'url', 'icon', 'category', 'description'] },
       },
     });
 
@@ -601,18 +633,24 @@ export async function getProjectBySlug(slug) {
       },
     });
 
-    const [projectData, pubData] = await Promise.all([
-      fetchAPI(`/projects?${projectParams.toString()}`),
-      fetchAPI(`/publications?${pubParams.toString()}`),
-    ]);
+    const projectData = await fetchAPI(`/projects?${projectParams.toString()}`);
 
     const project = projectData.data?.[0];
     if (!project) return null;
 
+    // Publications are optional for this view; do not block project rendering if this call fails.
+    let publications = [];
+    try {
+      const pubData = await fetchAPI(`/publications?${pubParams.toString()}`);
+      publications = pubData?.data ?? [];
+    } catch (error) {
+      console.warn('Failed to fetch publications for project:', slug, error);
+    }
+
     // Inject publications into the project so transformProjectData can pick them up.
     // Works for both Strapi v4 (attributes wrapper) and v5 (flat object).
     const attrs = project?.attributes ?? project;
-    attrs.publications = pubData.data ?? [];
+    attrs.publications = publications;
 
     return project;
   } catch (error) {
@@ -636,7 +674,7 @@ export async function getPartners() {
         fields: ['url', 'formats', 'alternativeText'],
       },
       projects: {
-        fields: ['title', 'slug', 'featured', 'isIndustryEngagement'],
+        fields: ['title', 'slug', 'isIndustryEngagement'],
       },
     },
   };
@@ -674,7 +712,7 @@ export async function getPartnerBySlug(slug) {
           fields: ['url', 'formats', 'alternativeText'],
         },
         projects: {
-          fields: ['title', 'slug', 'abstract', 'phase', 'featured', 'isIndustryEngagement'],
+          fields: ['title', 'slug', 'abstract', 'isIndustryEngagement'],
           populate: {
             heroImage: {
               fields: ['url', 'formats', 'alternativeText'],
@@ -822,7 +860,7 @@ export async function getNewsArticleBySlug(slug) {
         author: PERSON_FLAT_POPULATE,
         relatedDepartments: DEPARTMENT_POPULATE,
         relatedProjects: {
-          fields: ['title', 'slug', 'abstract', 'phase'],
+          fields: ['title', 'slug', 'abstract', 'startDate', 'endDate'],
           populate: {
             heroImage: { fields: ['url', 'formats', 'alternativeText'] },
           },
@@ -851,6 +889,77 @@ export async function getNewsArticleBySlug(slug) {
     return data.data?.[0] || null;
   } catch (error) {
     console.error('Failed to fetch news article by slug:', error);
+    return null;
+  }
+}
+
+/**
+ * Get all results from Strapi
+ * @param {Object} options - Options for the query
+ * @returns {Promise<Array>} Array of results
+ */
+export async function getResults(options = {}) {
+  try {
+    const params = createParams({
+      sort: 'publishedDate:desc',
+      fields: ['title', 'slug', 'description', 'publishedDate'],
+      populate: {
+        attachments: { fields: ['url', 'name', 'mime', 'ext', 'size', 'formats'] },
+        projects: { fields: ['title', 'slug'] },
+      },
+    });
+    const data = await fetchAPI(`/results?${params.toString()}`);
+    return data.data || [];
+  } catch (error) {
+    console.error('Failed to fetch results:', error);
+    return [];
+  }
+}
+
+/**
+ * Get a single result by slug
+ * @param {string} slug - The result's slug
+ * @returns {Promise<Object|null>} The result or null
+ */
+export async function getResultBySlug(slug) {
+  try {
+    if (!slug) return null;
+    
+    const params = createParams({
+      filters: { slug: { $eq: slug } },
+      publicationState: 'preview',
+      fields: ['title', 'slug', 'description', 'publishedDate'],
+      populate: {
+        attachments: { fields: ['url', 'name', 'mime', 'ext', 'size', 'formats', 'alternativeText'] },
+        projects: { fields: ['title', 'slug'] },
+        body: {
+          on: {
+            'shared.rich-text': { fields: ['body'] },
+            'shared.section': {
+              fields: ['heading', 'subheading', 'body'],
+              populate: {
+                media: { fields: ['url', 'formats', 'alternativeText', 'name', 'mime'] },
+              },
+            },
+            'shared.media': {
+              populate: {
+                file: { fields: ['url', 'formats', 'alternativeText', 'name', 'mime'] },
+              },
+            },
+            'shared.slider': {
+              populate: {
+                files: { fields: ['url', 'formats', 'alternativeText', 'name'] },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const data = await fetchAPI(`/results?${params.toString()}`);
+    return data.data?.[0] || null;
+  } catch (error) {
+    console.error('Failed to fetch result by slug:', error);
     return null;
   }
 }
@@ -1263,6 +1372,107 @@ export function transformPublicationData(strapiPubs) {
   });
 }
 
+/**
+ * Helper function to transform result data
+ */
+export function transformResultData(strapiResults) {
+  const list = Array.isArray(strapiResults) ? strapiResults : strapiResults ? [strapiResults] : [];
+
+  const normalizeBodyBlocks = (blocks) =>
+    toArray(blocks)
+      .map((block) => {
+        const blockData = block?.attributes ?? block ?? {};
+        const componentType = block?.__component;
+
+        const mediaFile = blockData.media?.data ?? blockData.media;
+        const mediaData = mediaFile?.attributes ?? mediaFile ?? {};
+
+        const file = blockData.file?.data ?? blockData.file;
+        const fileData = file?.attributes ?? file ?? {};
+
+        const files = toArray(blockData.files?.data ?? blockData.files).map((f) => {
+          const fd = f?.attributes ?? f ?? {};
+          return {
+            url: resolveMediaUrl(f),
+            alt: fd.alternativeText || fd.name || '',
+            name: fd.name || '',
+          };
+        });
+
+        return {
+          __component: componentType,
+          heading: blockData.heading || '',
+          subheading: blockData.subheading || '',
+          body: blockData.body || '',
+          media: mediaFile
+            ? {
+                url: resolveMediaUrl(mediaFile),
+                alt: mediaData.alternativeText || mediaData.name || '',
+                mime: mediaData.mime || '',
+                name: mediaData.name || '',
+              }
+            : null,
+          file: file
+            ? {
+                url: resolveMediaUrl(file),
+                alt: fileData.alternativeText || fileData.name || '',
+                mime: fileData.mime || '',
+                name: fileData.name || '',
+              }
+            : null,
+          files,
+        };
+      })
+      .filter((block) => block.__component);
+
+  return list.map((result) => {
+    const attributes = result?.attributes ?? result ?? {};
+
+    const projects = toArray(attributes.projects?.data ?? attributes.projects).map((project) => {
+      const projectData = project?.attributes ?? project ?? {};
+      return {
+        id: project?.id ?? null,
+        slug: projectData.slug || '',
+        title: projectData.title || '',
+      };
+    });
+
+    const attachments = toArray(attributes.attachments?.data ?? attributes.attachments).map((file) => {
+      const fileData = file?.attributes ?? file ?? {};
+      return {
+        id: file?.id ?? null,
+        name: fileData.name || '',
+        url: resolveMediaUrl(file),
+        mime: fileData.mime || '',
+        ext: fileData.ext || '',
+        size: typeof fileData.size === 'number' ? fileData.size : null,
+        alt: fileData.alternativeText || '',
+      };
+    });
+
+    const body = normalizeBodyBlocks(attributes.body);
+
+    const normalizeDate = (value) => {
+      if (!value) return '';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toISOString();
+    };
+
+    return {
+      id: result?.id ?? null,
+      slug: attributes.slug || '',
+      title: attributes.title || '',
+      description: attributes.description || '',
+      publishedDate: normalizeDate(attributes.publishedDate),
+      projects,
+      attachments,
+      body,
+      _strapi: result,
+    };
+  });
+}
+
 export function transformNewsData(strapiNews) {
   const list = Array.isArray(strapiNews) ? strapiNews : strapiNews ? [strapiNews] : [];
 
@@ -1271,6 +1481,21 @@ export function transformNewsData(strapiNews) {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return '';
     return d.toISOString();
+  };
+
+  const derivePhase = (startDate, endDate) => {
+    const now = new Date();
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    const hasValidStart = !!start && !Number.isNaN(start.getTime());
+    const hasValidEnd = !!end && !Number.isNaN(end.getTime());
+
+    if (hasValidEnd && end < now) return 'completed';
+    if (hasValidStart && start > now) return 'planned';
+    if (hasValidStart || hasValidEnd) return 'ongoing';
+
+    return '';
   };
 
   const normalizeBodyBlocks = (blocks) =>
@@ -1345,7 +1570,7 @@ export function transformNewsData(strapiNews) {
             title: pa.title || '',
             slug: pa.slug || '',
             abstract: pa.abstract || '',
-            phase: pa.phase || '',
+            phase: pa.phase || derivePhase(pa.startDate, pa.endDate),
             image: resolveMediaUrl(pa.heroImage),
           };
         }),
@@ -1423,6 +1648,29 @@ export function transformProjectData(strapiProjects) {
         };
       })
       .filter(Boolean);
+
+  const normalizeContactInfo = (contactInfo) => {
+    if (!contactInfo) return null;
+    
+    const contactData = contactInfo?.attributes ?? contactInfo ?? {};
+    const contactEntries = toArray(contactData.contactEntries?.data ?? contactData.contactEntries)
+      .map((entry) => {
+        if (!entry) return null;
+        const entryData = entry?.attributes ?? entry ?? {};
+        return {
+          label: entryData.label || '',
+          type: entryData.type || 'email',
+          value: entryData.value || '',
+          description: entryData.description || '',
+        };
+      })
+      .filter(Boolean);
+
+    return {
+      contactEntries,
+      generalInfo: contactData.generalInfo || null,
+    };
+  };
 
   return list.map((project) => {
     const attributes = project?.attributes ?? project ?? {};
@@ -1548,11 +1796,39 @@ export function transformProjectData(strapiProjects) {
         id: resource?.id ?? null,
         title: resourceAttrs.title || '',
         slug: resourceAttrs.slug || '',
+        description: resourceAttrs.description || '',
         url: normalizeExternalUrl(resourceAttrs.url),
         icon: resourceAttrs.icon || 'link',
         category: resourceAttrs.category || '',
       };
     });
+
+    const news = toArray(attributes.news?.data ?? attributes.news)
+      .map((newsItem) => {
+        const newsData = newsItem?.attributes ?? newsItem ?? {};
+        const tags = Array.isArray(newsData.tags) ? newsData.tags : [];
+        const parsedDate = newsData.publishedDate ? new Date(newsData.publishedDate) : null;
+        const date = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : '';
+
+        return {
+          id: newsItem?.id ?? null,
+          title: newsData.title || '',
+          slug: newsData.slug || '',
+          summary: newsData.summary || '',
+          category: newsData.category || 'other',
+          date,
+          linkUrl: normalizeExternalUrl(newsData.linkUrl),
+          image: resolveMediaUrl(newsData.heroImage),
+          tags,
+        };
+      })
+      .filter((item) => item.title || item.slug || item.linkUrl)
+      .sort((a, b) => {
+        if (!a.date && !b.date) return 0;
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
 
     return {
       id: project?.id ?? null,
@@ -1560,7 +1836,29 @@ export function transformProjectData(strapiProjects) {
       title: attributes.title || '',
       abstract: attributes.abstract || '',
       body: normalizeBodyBlocks(attributes.body),
-      phase: attributes.phase || attributes.status || '',
+      researchContent: normalizeBodyBlocks(attributes.researchContent),
+      startDate: attributes.startDate || null,
+      endDate: attributes.endDate || null,
+      contactInfo: normalizeContactInfo(attributes.contactInfo),
+      results: toArray(attributes.results?.data ?? attributes.results).map((result) => {
+        const resultData = result?.attributes ?? result ?? {};
+        return {
+          id: result?.id ?? null,
+          slug: resultData.slug || '',
+          title: resultData.title || '',
+          description: resultData.description || '',
+          publishedDate: resultData.publishedDate || '',
+          attachments: toArray(resultData.attachments?.data ?? resultData.attachments).map((file) => {
+            const fileData = file?.attributes ?? file ?? {};
+            return {
+              name: fileData.name || '',
+              url: resolveMediaUrl(file),
+              mime: fileData.mime || '',
+              ext: fileData.ext || '',
+            };
+          }),
+        };
+      }),
       isIndustryEngagement: !!attributes.isIndustryEngagement,
       heroImage: resolveMediaUrl(attributes.heroImage),
       // Map themes relation to simple array for frontend compatibility
@@ -1577,10 +1875,7 @@ export function transformProjectData(strapiProjects) {
       timeline: normalizeTimelineEntries(attributes.timeline),
       publications,
       resources,
-      // Map docUrl (schema) to docUrl (frontend)
-      docUrl: attributes.docUrl || attributes.doc_url || '',
-      // Map officialUrl (schema) to oficialUrl (legacy frontend typo)
-      oficialUrl: attributes.officialUrl || attributes.oficial_url || attributes.official_url || '',
+      news,
       _strapi: project,
     };
   });
@@ -1753,6 +2048,11 @@ export async function getResources(options = {}) {
   }
 }
 
+/**
+ * Get a single resource by slug
+ * @param {string} slug - The resource's slug
+ * @returns {Promise<Object|null>} The resource or null
+ */
 export function transformResourceData(strapiResources) {
   const list = Array.isArray(strapiResources) ? strapiResources : strapiResources ? [strapiResources] : [];
   
@@ -1843,7 +2143,6 @@ export function transformPartnerData(strapiPartners) {
           title: projectData.title || '',
           slug: projectData.slug || '',
           abstract: projectData.abstract || '',
-          featured: !!projectData.featured,
           isIndustryEngagement: !!projectData.isIndustryEngagement,
           heroImage: resolveMediaUrl(projectData.heroImage),
           domains: toArray(projectData.domains?.data ?? projectData.domains)

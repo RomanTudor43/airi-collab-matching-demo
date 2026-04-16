@@ -166,25 +166,64 @@
       },
       "Content": {
         "Overview": {
-          "partnerships": { "title": "Akademische Partnerschaften", "desc": "Ein Netzwerk von Kooperationen." },
-          "teaching": { "title": "Lehre & Training", "desc": "Kurse und Workshops." },
-          "mobility": { "title": "Mobilität", "desc": "Forschungsbesuche und Austausch." }
+          "partnerships": {
+            "title": "Akademische Partnerschaften",
+            "desc": "Ein Netzwerk von Kooperationen."
+          },
+          "teaching": {
+            "title": "Lehre & Training",
+            "desc": "Kurse und Workshops."
+          },
+          "mobility": {
+            "title": "Mobilität",
+            "desc": "Forschungsbesuche und Austausch."
+          }
         },
         "Initiatives": {
-          "schools": { "title": "Sommerschulen", "desc": "Programme für Studenten." },
-          "seminars": { "title": "Seminare", "desc": "Gemeinsame Vorträge." },
-          "visits": { "title": "Forschungsaufenthalte", "desc": "Kurz- und langfristige Aufenthalte." }
+          "schools": {
+            "title": "Sommerschulen",
+            "desc": "Programme für Studenten."
+          },
+          "seminars": {
+            "title": "Seminare",
+            "desc": "Gemeinsame Vorträge."
+          },
+          "visits": {
+            "title": "Forschungsaufenthalte",
+            "desc": "Kurz- und langfristige Aufenthalte."
+          }
         },
         "Courses": {
-          "ml": { "title": "Maschinelles Lernen", "desc": "Angewandte Module und Kurse." },
-          "robotics": { "title": "Robotik", "desc": "Labore und Automatisierung." },
-          "hpc": { "title": "HPC für KI", "desc": "GPU-Programmierung." },
-          "ethics": { "title": "KI-Ethik", "desc": "Fairness und Governance in KI." }
+          "ml": {
+            "title": "Maschinelles Lernen",
+            "desc": "Angewandte Module und Kurse."
+          },
+          "robotics": {
+            "title": "Robotik",
+            "desc": "Labore und Automatisierung."
+          },
+          "hpc": {
+            "title": "HPC für KI",
+            "desc": "GPU-Programmierung."
+          },
+          "ethics": {
+            "title": "KI-Ethik",
+            "desc": "Fairness und Governance in KI."
+          }
         },
         "Mobility": {
-          "phd": { "title": "Mitbetreuung", "desc": "Gemeinsame PhD-Betreuung." },
-          "grants": { "title": "Stipendien", "desc": "Finanzierung von Aufenthalten." },
-          "placements": { "title": "Austausch", "desc": "Austausch von Mitarbeitern." }
+          "phd": {
+            "title": "Mitbetreuung",
+            "desc": "Gemeinsame PhD-Betreuung."
+          },
+          "grants": {
+            "title": "Stipendien",
+            "desc": "Finanzierung von Aufenthalten."
+          },
+          "placements": {
+            "title": "Austausch",
+            "desc": "Austausch von Mitarbeitern."
+          }
         }
       },
       "Event": {
@@ -207,9 +246,18 @@
       "title": "Engagement an Schulen",
       "description": "Wettbewerbe und KI-Ressourcen für Schüler.",
       "features": {
-        "competitions": { "title": "Wettbewerbe", "desc": "KI-Herausforderungen für Schüler." },
-        "events": { "title": "Veranstaltungen", "desc": "Laborführungen und Workshops." },
-        "resources": { "title": "Ressourcen", "desc": "Materialien für Lehrer." }
+        "competitions": {
+          "title": "Wettbewerbe",
+          "desc": "KI-Herausforderungen für Schüler."
+        },
+        "events": {
+          "title": "Veranstaltungen",
+          "desc": "Laborführungen und Workshops."
+        },
+        "resources": {
+          "title": "Ressourcen",
+          "desc": "Materialien für Lehrer."
+        }
       },
       "linkText": "AILIT Framework ansehen"
     },
@@ -902,10 +950,15 @@
       "officialWebsite": "Offizielle Website",
       "documentation": "Dokumentation",
       "tabs": {
-        "overview": "Übersicht",
-        "people": "Team",
-        "resources": "Ressourcen",
-        "publications": "Publikationen"
+        "about": "Über",
+        "team": "Team",
+        "research": "Forschung",
+        "publications": "Publikationen",
+        "results": "Ergebnisse",
+        "news": "Neuigkeiten",
+        "partners": "Partner",
+        "contact": "Kontakt",
+        "resources": "Ressourcen"
       },
       "abstract": "Zusammenfassung",
       "researchDomains": "Forschungsbereiche",
@@ -931,7 +984,20 @@
         "planned": "Geplant",
         "completed": "Abgeschlossen",
         "archived": "Archiviert"
-      }
+      },
+      "attachment": "Anhang",
+      "attachments": "Anhänge",
+      "contactInformation": "Kontaktinformationen",
+      "contactMethods": "Kontaktmethoden",
+      "generalSupport": "Allgemeine Unterstützung",
+      "noContact": "Keine Kontaktinformationen verfügbar",
+      "noNews": "Neuigkeiten-Integration demnächst verfügbar",
+      "noPartners": "Keine Partner aufgeführt",
+      "noResearch": "Kein Forschungsinhalt verfügbar",
+      "noResults": "Keine Ergebnisse verfügbar",
+      "resultCount": "{count} Ergebnis",
+      "resultCountPlural": "{count} Ergebnisse",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Publikationen",
@@ -996,6 +1062,12 @@
         "master": "Weitere Updates folgen.",
         "bachelor": "Weitere Updates folgen."
       }
+    },
+    "resultDetails": {
+      "notFound": "Ergebnis nicht gefunden",
+      "attachments": "Anhänge",
+      "backToProjects": "Zurück zum Projekt",
+      "attachment": "attachment"
     }
   },
   "resources": {

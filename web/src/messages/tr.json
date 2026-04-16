@@ -166,25 +166,64 @@
       },
       "Content": {
         "Overview": {
-          "partnerships": { "title": "Akademik ortaklıklar", "desc": "Bir işbirliği ve ortak etkinlikler ağı." },
-          "teaching": { "title": "Öğretim ve eğitim", "desc": "Kurslar, yaz okulları ve atölye çalışmaları." },
-          "mobility": { "title": "Hareketlilik", "desc": "Ortak danışmanlık, ziyaretler, stajlar, değişimler." }
+          "partnerships": {
+            "title": "Akademik ortaklıklar",
+            "desc": "Bir işbirliği ve ortak etkinlikler ağı."
+          },
+          "teaching": {
+            "title": "Öğretim ve eğitim",
+            "desc": "Kurslar, yaz okulları ve atölye çalışmaları."
+          },
+          "mobility": {
+            "title": "Hareketlilik",
+            "desc": "Ortak danışmanlık, ziyaretler, stajlar, değişimler."
+          }
         },
         "Initiatives": {
-          "schools": { "title": "Yaz okulları ve atölyeler", "desc": "Öğrenciler ve araştırmacılar için uluslararası ve yerel etkinlikler." },
-          "seminars": { "title": "Ortak seminerler", "desc": "Ortak konuşmalar ve davetli konuşmacılar." },
-          "visits": { "title": "Araştırma ziyaretleri", "desc": "Kısa ve uzun vadeli araştırma konaklamaları." }
+          "schools": {
+            "title": "Yaz okulları ve atölyeler",
+            "desc": "Öğrenciler ve araştırmacılar için uluslararası ve yerel etkinlikler."
+          },
+          "seminars": {
+            "title": "Ortak seminerler",
+            "desc": "Ortak konuşmalar ve davetli konuşmacılar."
+          },
+          "visits": {
+            "title": "Araştırma ziyaretleri",
+            "desc": "Kısa ve uzun vadeli araştırma konaklamaları."
+          }
         },
         "Courses": {
-          "ml": { "title": "Makine Öğrenimi", "desc": "Ortak kurslar, uygulamalı modüller, projeler." },
-          "robotics": { "title": "Robotik ve Vizyon", "desc": "Uygulamalı laboratuvarlar, otomasyon ve vizyon sistemleri." },
-          "hpc": { "title": "Yapay Zeka için HPC", "desc": "GPU programlama ve büyük ölçekli yapay zeka eğitimi." },
-          "ethics": { "title": "Yapay Zeka Etiği ve Güvenliği", "desc": "Yapay zekada adalet, açıklanabilirlik ve yönetişim." }
+          "ml": {
+            "title": "Makine Öğrenimi",
+            "desc": "Ortak kurslar, uygulamalı modüller, projeler."
+          },
+          "robotics": {
+            "title": "Robotik ve Vizyon",
+            "desc": "Uygulamalı laboratuvarlar, otomasyon ve vizyon sistemleri."
+          },
+          "hpc": {
+            "title": "Yapay Zeka için HPC",
+            "desc": "GPU programlama ve büyük ölçekli yapay zeka eğitimi."
+          },
+          "ethics": {
+            "title": "Yapay Zeka Etiği ve Güvenliği",
+            "desc": "Yapay zekada adalet, açıklanabilirlik ve yönetişim."
+          }
         },
         "Mobility": {
-          "phd": { "title": "Ortak danışmanlık", "desc": "Uluslararası ortaklarla ortak doktora danışmanlığı." },
-          "grants": { "title": "Hareketlilik hibeleri", "desc": "Değişimler ve araştırma konaklamaları için finansman." },
-          "placements": { "title": "Stajlar ve değişimler", "desc": "Stajlar, ziyaretler ve personel değişimleri." }
+          "phd": {
+            "title": "Ortak danışmanlık",
+            "desc": "Uluslararası ortaklarla ortak doktora danışmanlığı."
+          },
+          "grants": {
+            "title": "Hareketlilik hibeleri",
+            "desc": "Değişimler ve araştırma konaklamaları için finansman."
+          },
+          "placements": {
+            "title": "Stajlar ve değişimler",
+            "desc": "Stajlar, ziyaretler ve personel değişimleri."
+          }
         }
       },
       "Event": {
@@ -911,10 +950,15 @@
       "officialWebsite": "Resmi Web Sitesi",
       "documentation": "Belgeler",
       "tabs": {
-        "overview": "Genel Bakış",
-        "people": "Kişiler",
-        "resources": "Kaynaklar",
-        "publications": "Yayınlar"
+        "about": "Hakkında",
+        "team": "Ekip",
+        "research": "Araştırma",
+        "publications": "Yayınlar",
+        "results": "Sonuçlar",
+        "news": "Haberler",
+        "partners": "Ortaklar",
+        "contact": "İletişim",
+        "resources": "Kaynaklar"
       },
       "abstract": "Özet",
       "researchDomains": "Araştırma Alanları",
@@ -940,7 +984,20 @@
         "planned": "Planlanan",
         "completed": "Tamamlandı",
         "archived": "Arşivlendi"
-      }
+      },
+      "attachment": "Ek",
+      "attachments": "Ekler",
+      "contactInformation": "İletişim Bilgileri",
+      "contactMethods": "İletişim Yöntemleri",
+      "generalSupport": "Genel Destek",
+      "noContact": "İletişim bilgisi mevcut değil",
+      "noNews": "Haberler entegrasyonu yakında",
+      "noPartners": "Kayıtlı ortak yok",
+      "noResearch": "Araştırma içeriği mevcut değil",
+      "noResults": "Sonuç mevcut değil",
+      "resultCount": "{count} sonuç",
+      "resultCountPlural": "{count} sonuç",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Yayınlar",
@@ -1005,6 +1062,12 @@
         "master": "Yüksek Lisans bölümü için daha fazla güncelleme yakında geliyor.",
         "bachelor": "Lisans bölümü için daha fazla güncelleme yakında geliyor."
       }
+    },
+    "resultDetails": {
+      "notFound": "Sonuç bulunamadı",
+      "attachments": "Ekler",
+      "backToProjects": "Projelere Dön",
+      "attachment": "attachment"
     }
   },
   "resources": {

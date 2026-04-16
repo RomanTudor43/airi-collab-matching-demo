@@ -166,25 +166,64 @@
       },
       "Content": {
         "Overview": {
-          "partnerships": { "title": "Academic partnerships", "desc": "A network of collaborations and joint activities." },
-          "teaching": { "title": "Teaching & training", "desc": "Courses, summer schools, and workshops." },
-          "mobility": { "title": "Mobility", "desc": "Co-tutoring, visits, internships, exchanges." }
+          "partnerships": {
+            "title": "Academic partnerships",
+            "desc": "A network of collaborations and joint activities."
+          },
+          "teaching": {
+            "title": "Teaching & training",
+            "desc": "Courses, summer schools, and workshops."
+          },
+          "mobility": {
+            "title": "Mobility",
+            "desc": "Co-tutoring, visits, internships, exchanges."
+          }
         },
         "Initiatives": {
-          "schools": { "title": "Summer schools & workshops", "desc": "International and local events for students and researchers." },
-          "seminars": { "title": "Joint seminars", "desc": "Collaborative talks & invited speakers." },
-          "visits": { "title": "Research visits", "desc": "Short-term & long-term research stays." }
+          "schools": {
+            "title": "Summer schools & workshops",
+            "desc": "International and local events for students and researchers."
+          },
+          "seminars": {
+            "title": "Joint seminars",
+            "desc": "Collaborative talks & invited speakers."
+          },
+          "visits": {
+            "title": "Research visits",
+            "desc": "Short-term & long-term research stays."
+          }
         },
         "Courses": {
-          "ml": { "title": "Machine Learning", "desc": "Joint courses, applied modules, projects." },
-          "robotics": { "title": "Robotics & Vision", "desc": "Hands-on labs, automation, and vision systems." },
-          "hpc": { "title": "HPC for AI", "desc": "GPU programming & large-scale AI training." },
-          "ethics": { "title": "AI Ethics & Safety", "desc": "Fairness, explainability & governance in AI." }
+          "ml": {
+            "title": "Machine Learning",
+            "desc": "Joint courses, applied modules, projects."
+          },
+          "robotics": {
+            "title": "Robotics & Vision",
+            "desc": "Hands-on labs, automation, and vision systems."
+          },
+          "hpc": {
+            "title": "HPC for AI",
+            "desc": "GPU programming & large-scale AI training."
+          },
+          "ethics": {
+            "title": "AI Ethics & Safety",
+            "desc": "Fairness, explainability & governance in AI."
+          }
         },
         "Mobility": {
-          "phd": { "title": "Co-supervision", "desc": "Joint PhD supervision with international partners." },
-          "grants": { "title": "Mobility grants", "desc": "Funding for exchanges & research stays." },
-          "placements": { "title": "Placements & exchanges", "desc": "Internships, visits, and staff exchanges." }
+          "phd": {
+            "title": "Co-supervision",
+            "desc": "Joint PhD supervision with international partners."
+          },
+          "grants": {
+            "title": "Mobility grants",
+            "desc": "Funding for exchanges & research stays."
+          },
+          "placements": {
+            "title": "Placements & exchanges",
+            "desc": "Internships, visits, and staff exchanges."
+          }
         }
       },
       "Event": {
@@ -565,7 +604,7 @@
       "text": "The Artificial Intelligence Research Institute (AIRi) is a nexus for collaborative research at the Technical University of Cluj-Napoca. AIRi@UTCN promotes excellence in AI theory and practice, bringing together researchers across UTCN around a vision of open collaboration. Our work spans interdisciplinary research, AI literacy across disciplines, and impact through business and public co-creation partnerships."
     },
     "history": {
-      "title":"AIRI Timeline",
+      "title": "AIRI Timeline",
       "event1": {
         "date": "2023-01-15",
         "title": "Announcement of AI Institute at UTCN",
@@ -917,11 +956,29 @@
       "partnerCountPlural": "{count} partners",
       "officialWebsite": "Official Website",
       "documentation": "Documentation",
+      "start": "Start",
+      "end": "End",
+      "phaseNoDate": "Not set",
+      "phaseOpenEnded": "No end date",
+      "phaseProgress": "Timeline progress",
+      "timeline": "Timeline",
+      "timelineEventFallback": "Project milestone",
+      "noTimeline": "No timeline events available yet.",
+      "timelineStates": {
+        "past": "Completed",
+        "current": "Current",
+        "upcoming": "Upcoming"
+      },
       "tabs": {
-        "overview": "Overview",
-        "people": "People",
-        "resources": "Resources",
-        "publications": "Publications"
+        "about": "About",
+        "team": "Team",
+        "research": "Research",
+        "publications": "Publications",
+        "results": "Results",
+        "news": "News",
+        "partners": "Partners",
+        "contact": "Contact",
+        "resources": "Resources"
       },
       "abstract": "Abstract",
       "researchDomains": "Research Domains",
@@ -942,12 +999,35 @@
       "viewDetails": "View details",
       "pdf": "PDF",
       "teamProjects": "Projects",
+      "noResearch": "No research content available",
+      "noResults": "No results available",
+      "noNews": "No news linked to this project yet.",
+      "openArticle": "Open article",
+      "newsCategories": {
+        "announcement": "Announcement",
+        "construction": "Construction",
+        "collaboration": "Collaboration",
+        "award": "Award",
+        "press": "Press",
+        "other": "Update"
+      },
+      "noPartners": "No partners listed",
+      "noContact": "No contact information available",
+      "contactInformation": "Contact Information",
+      "contactMethods": "Contact Methods",
+      "generalSupport": "General Support",
+      "resultCount": "{count} result",
+      "resultCountPlural": "{count} results",
+      "attachments": "attachments",
+      "attachment": "attachment",
       "phases": {
         "ongoing": "Ongoing",
         "planned": "Planned",
+        "ended": "Ended",
         "completed": "Completed",
         "archived": "Archived"
-      }
+      },
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Publications",
@@ -1012,6 +1092,12 @@
         "master": "More updates coming soon for the Master section.",
         "bachelor": "More updates coming soon for the Bachelor section."
       }
+    },
+    "resultDetails": {
+      "notFound": "Result not found",
+      "attachment": "attachment",
+      "attachments": "Attachments",
+      "backToProjects": "Back to Projects"
     }
   },
   "resources": {

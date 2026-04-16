@@ -989,7 +989,16 @@
       "teamProjects": "Projects",
       "noResearch": "No research content available",
       "noResults": "No results available",
-      "noNews": "News integration coming soon",
+      "noNews": "No news linked to this project yet.",
+      "openArticle": "Open article",
+      "newsCategories": {
+        "announcement": "Announcement",
+        "construction": "Construction",
+        "collaboration": "Collaboration",
+        "award": "Award",
+        "press": "Press",
+        "other": "Update"
+      },
       "noPartners": "No partners listed",
       "noContact": "No contact information available",
       "contactInformation": "Contact Information",

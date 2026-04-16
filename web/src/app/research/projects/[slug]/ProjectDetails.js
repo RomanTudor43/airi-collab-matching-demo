@@ -75,6 +75,18 @@ function truncateText(value, maxLength = 180) {
   return `${raw.slice(0, maxLength).trimEnd()}...`;
 }
 
+function hasNewsLink(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function getNewsCategoryLabel(category, t) {
+  const normalized = typeof category === 'string' ? category.trim().toLowerCase() : 'other';
+  const key = normalized || 'other';
+  if (t.has(`newsCategories.${key}`)) return t(`newsCategories.${key}`);
+  if (t.has('newsCategories.other')) return t('newsCategories.other');
+  return key.replace(/[-_]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 // Tab Button Component
 function TabButton({ active, onClick, icon: Icon, label, count }) {
   return (
@@ -410,6 +422,84 @@ function PublicationCard({ publication, t }) {
   );
 }
 
+function NewsCard({ item, t }) {
+  const categoryLabel = getNewsCategoryLabel(item.category, t);
+  const publishedLabel = formatProjectDate(item.date);
+
+  return (
+    <motion.article
+      variants={itemVariants}
+      className="group flex flex-col h-full overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+    >
+      <div className="relative h-52 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+        {item.image ? (
+          <img
+            src={item.image}
+            alt={item.title || t('tabs.news')}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-blue-100 via-slate-100 to-cyan-100 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 flex items-center justify-center text-blue-500 dark:text-blue-300">
+            <FaNewspaper className="w-10 h-10" />
+          </div>
+        )}
+        <div className="absolute top-3 left-3">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wide bg-white/90 dark:bg-gray-900/85 text-slate-700 dark:text-slate-200 border border-white/60 dark:border-gray-700/80 backdrop-blur-sm">
+            {categoryLabel}
+          </span>
+        </div>
+      </div>
+
+      <div className="p-5 flex-1 flex flex-col gap-3">
+        {publishedLabel && (
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+            {publishedLabel}
+          </p>
+        )}
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-snug line-clamp-2">
+          {item.title || t('tabs.news')}
+        </h3>
+        {item.summary && (
+          <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-3 flex-1">
+            {item.summary}
+          </p>
+        )}
+        {Array.isArray(item.tags) && item.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {item.tags.slice(0, 3).map((tag) => (
+              <span
+                key={tag}
+                className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="px-5 pb-5 pt-1 mt-auto">
+        {hasNewsLink(item.linkUrl) ? (
+          <a
+            href={item.linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+          >
+            {t('openArticle')}
+            <FaExternalLinkAlt className="w-3 h-3" />
+          </a>
+        ) : (
+          <span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-400 dark:text-gray-500">
+            {t('openArticle')}
+          </span>
+        )}
+      </div>
+    </motion.article>
+  );
+}
+
 export default function ProjectDetails({ project }) {
   const [activeTab, setActiveTab] = useState('about');
   const t = useTranslations("research.projectDetails");
@@ -431,6 +521,7 @@ export default function ProjectDetails({ project }) {
   const partners = (project.partnersData && project.partnersData.length > 0)
     ? project.partnersData
     : (project.partners || []).map((name) => ({ name, slug: '' }));
+  const projectNews = project.news || [];
 
   const phase = getProjectPhase(project.startDate, project.endDate);
   const phaseLabelKey = phase.status === 'ended'
@@ -539,7 +630,7 @@ export default function ProjectDetails({ project }) {
     { id: 'research', label: t('tabs.research'), icon: FaFlask },
     { id: 'publications', label: t('tabs.publications'), icon: FaBookOpen, count: project.publications?.length },
     { id: 'results', label: t('tabs.results'), icon: FaCog, count: resultsCount > 0 ? resultsCount : undefined },
-    { id: 'news', label: t('tabs.news'), icon: FaNewspaper },
+    { id: 'news', label: t('tabs.news'), icon: FaNewspaper, count: projectNews.length > 0 ? projectNews.length : undefined },
     { id: 'partners', label: t('tabs.partners'), icon: FaHandshake, count: partners.length > 0 ? partners.length : undefined },
     { id: 'contact', label: t('tabs.contact'), icon: FaPhone },
   ];
@@ -1348,12 +1439,29 @@ export default function ProjectDetails({ project }) {
           {/* News Tab */}
           {activeTab === 'news' && (
             <div className="space-y-6">
-              <div className="text-center py-12">
-                <FaNewspaper className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">
-                  {t('noNews')}
-                </p>
-              </div>
+              {projectNews.length > 0 ? (
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={containerVariants}
+                  className="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
+                >
+                  {projectNews.map((item) => (
+                    <NewsCard
+                      key={item.id || item.slug || item.title}
+                      item={item}
+                      t={t}
+                    />
+                  ))}
+                </motion.div>
+              ) : (
+                <div className="text-center py-12">
+                  <FaNewspaper className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t('noNews')}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

@@ -993,7 +993,16 @@
       "contactMethods": "Moyens de contact",
       "generalSupport": "Support général",
       "noContact": "Aucune information de contact disponible",
-      "noNews": "Intégration des actualités bientôt disponible",
+      "noNews": "Aucune actualité liée à ce projet pour le moment",
+      "openArticle": "Ouvrir l'article",
+      "newsCategories": {
+        "announcement": "Annonce",
+        "construction": "Construction",
+        "collaboration": "Collaboration",
+        "award": "Distinction",
+        "press": "Presse",
+        "other": "Mise à jour"
+      },
       "noPartners": "Aucun partenaire listé",
       "noResearch": "Aucun contenu de recherche disponible",
       "noResults": "Aucun résultat disponible",

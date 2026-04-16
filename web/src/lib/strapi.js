@@ -586,6 +586,12 @@ export async function getProjectBySlug(slug) {
           },
         },
         contributors: PERSON_WITH_IMAGE_POPULATE,
+        news: {
+          fields: ['title', 'slug', 'summary', 'category', 'publishedDate', 'linkUrl', 'tags'],
+          populate: {
+            heroImage: { fields: ['url', 'formats', 'alternativeText'] },
+          },
+        },
         timeline: {},
         resources: { fields: ['title', 'slug', 'url', 'icon', 'category', 'description'] },
       },
@@ -1643,6 +1649,33 @@ export function transformProjectData(strapiProjects) {
       };
     });
 
+    const news = toArray(attributes.news?.data ?? attributes.news)
+      .map((newsItem) => {
+        const newsData = newsItem?.attributes ?? newsItem ?? {};
+        const tags = Array.isArray(newsData.tags) ? newsData.tags : [];
+        const parsedDate = newsData.publishedDate ? new Date(newsData.publishedDate) : null;
+        const date = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : '';
+
+        return {
+          id: newsItem?.id ?? null,
+          title: newsData.title || '',
+          slug: newsData.slug || '',
+          summary: newsData.summary || '',
+          category: newsData.category || 'other',
+          date,
+          linkUrl: normalizeExternalUrl(newsData.linkUrl),
+          image: resolveMediaUrl(newsData.heroImage),
+          tags,
+        };
+      })
+      .filter((item) => item.title || item.slug || item.linkUrl)
+      .sort((a, b) => {
+        if (!a.date && !b.date) return 0;
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+
     return {
       id: project?.id ?? null,
       slug: attributes.slug || '',
@@ -1688,6 +1721,7 @@ export function transformProjectData(strapiProjects) {
       timeline: normalizeTimelineEntries(attributes.timeline),
       publications,
       resources,
+      news,
       _strapi: project,
     };
   });

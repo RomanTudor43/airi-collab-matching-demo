@@ -126,6 +126,12 @@
       "relation": "manyToMany",
       "target": "api::result.result",
       "mappedBy": "projects"
+    },
+    "news": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::news-article.news-article",
+      "mappedBy": "relatedProjects"
     }
   }
 }

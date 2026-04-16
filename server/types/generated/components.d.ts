@@ -54,7 +54,7 @@ export interface ProjectTimelineEntry extends Struct.ComponentSchema {
     icon: 'history';
   };
   attributes: {
-    date: Schema.Attribute.Date;
+    date: Schema.Attribute.Date & Schema.Attribute.Required;
     description: Schema.Attribute.Text;
     label: Schema.Attribute.String & Schema.Attribute.Required;
   };

@@ -606,6 +606,7 @@ export interface ApiNewsArticleNewsArticle extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    author: Schema.Attribute.Relation<'manyToOne', 'api::person.person'>;
     body: Schema.Attribute.DynamicZone<
       [
         'shared.section',
@@ -816,6 +817,10 @@ export interface ApiProjectProject extends Struct.CollectionTypeSchema {
       'api::project.project'
     > &
       Schema.Attribute.Private;
+    news: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::news-article.news-article'
+    >;
     partners: Schema.Attribute.Relation<'manyToMany', 'api::partner.partner'>;
     publications: Schema.Attribute.Relation<
       'manyToMany',

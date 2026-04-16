@@ -548,32 +548,37 @@ export default function ProjectDetails({ project }) {
         description: truncateText(event?.description, 165),
       };
     })
+    .filter((event) => !!event.parsedDate)
     .sort((a, b) => {
-      if (a.parsedDate && b.parsedDate) return a.parsedDate.getTime() - b.parsedDate.getTime();
-      if (a.parsedDate) return -1;
-      if (b.parsedDate) return 1;
-      return a.label.localeCompare(b.label);
+      return a.parsedDate.getTime() - b.parsedDate.getTime();
     });
+
+  const visibleTimelineEvents = rawTimelineEvents.filter((event) => {
+    if (!event.parsedDate) return false;
+    if (phase.start && event.parsedDate < phase.start) return false;
+    if (phase.end && event.parsedDate > phase.end) return false;
+    return true;
+  });
 
   const now = new Date();
   let phaseProgress = 0;
   if (phase.status === 'ended') {
     phaseProgress = 100;
   } else if (phase.status === 'planned') {
-    phaseProgress = 10;
+    phaseProgress = 0;
   } else if (phase.status === 'ongoing' && phase.start && phase.end) {
     const total = phase.end.getTime() - phase.start.getTime();
     const elapsed = now.getTime() - phase.start.getTime();
-    phaseProgress = total > 0 ? Math.max(8, Math.min(95, Math.round((elapsed / total) * 100))) : 50;
+    phaseProgress = total > 0 ? Math.max(0, Math.min(100, Math.round((elapsed / total) * 100))) : 50;
   } else if (phase.status === 'ongoing') {
     phaseProgress = 55;
   }
 
-  const timelineEvents = rawTimelineEvents.map((event, index, list) => {
+  const hasRange = phase.start && phase.end && phase.end.getTime() > phase.start.getTime();
+  const timelineEvents = visibleTimelineEvents.map((event, index, list) => {
     let markerPosition = 0;
-    const hasRange = phase.start && phase.end && phase.end.getTime() > phase.start.getTime();
 
-    if (event.parsedDate && hasRange) {
+    if (hasRange) {
       const total = phase.end.getTime() - phase.start.getTime();
       const elapsed = event.parsedDate.getTime() - phase.start.getTime();
       markerPosition = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
@@ -615,9 +620,13 @@ export default function ProjectDetails({ project }) {
     },
   };
 
-  const timelineColumnStyle = timelineEvents.length > 0
-    ? { gridTemplateColumns: `repeat(${timelineEvents.length}, minmax(140px, 1fr))` }
-    : null;
+  const isOpenEndedTimeline = !!phase.start && !phase.end;
+  const openEndedTrackStyle = isOpenEndedTimeline
+    ? {
+        backgroundImage:
+          'repeating-linear-gradient(to bottom, rgba(34, 211, 238, 0.75) 0px, rgba(34, 211, 238, 0.75) 8px, rgba(34, 211, 238, 0.12) 8px, rgba(34, 211, 238, 0.12) 16px)',
+      }
+    : undefined;
 
   const markdownClassName = 'prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300';
   const resolveMediaSource = (media) => {
@@ -797,15 +806,24 @@ export default function ProjectDetails({ project }) {
                   {timelineEvents.length > 0 ? (
                     <div className="relative pb-8">
                       {/* Vertical line track */}
-                      <div className="absolute left-[28px] md:left-1/2 top-[10px] bottom-[56px] w-[3px] -translate-x-1/2 bg-gray-200/60 dark:bg-gray-700/50" />
+                      <div
+                        className={`absolute left-[28px] md:left-1/2 top-[10px] bottom-[56px] w-[3px] -translate-x-1/2 ${isOpenEndedTimeline ? '' : 'bg-gray-200/60 dark:bg-gray-700/50'}`}
+                        style={openEndedTrackStyle}
+                      />
                       
                       {/* Active line fill wrapper */}
-                      <div className="absolute left-[28px] md:left-1/2 top-[10px] bottom-[56px] w-[3px] -translate-x-1/2 z-0 overflow-hidden">
-                        <div 
-                          className="absolute top-0 left-0 w-full bg-gradient-to-b from-blue-500 via-cyan-500 to-emerald-500 transition-all duration-1000"
-                          style={{ height: `${Math.max(1, phaseProgress)}%` }}
-                        />
-                      </div>
+                      {isOpenEndedTimeline ? (
+                        <div className="absolute left-[28px] md:left-1/2 top-[10px] bottom-[56px] w-[3px] -translate-x-1/2 z-0 pointer-events-none">
+                          <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-cyan-400/80 to-transparent animate-pulse" />
+                        </div>
+                      ) : (
+                        <div className="absolute left-[28px] md:left-1/2 top-[10px] bottom-[56px] w-[3px] -translate-x-1/2 z-0 overflow-hidden">
+                          <div 
+                            className="absolute top-0 left-0 w-full bg-gradient-to-b from-blue-500 via-cyan-500 to-emerald-500 transition-all duration-1000"
+                            style={{ height: `${Math.max(1, phaseProgress)}%` }}
+                          />
+                        </div>
+                      )}
                         <div className="relative z-10 pt-2 pb-2 flex flex-col">
                         {/* Start Node */}
                         <div className="relative w-full h-8 -mt-4 mb-6 group">
@@ -833,8 +851,10 @@ export default function ProjectDetails({ project }) {
                           if (index > 0) {
                             const prev = list[index - 1].markerPosition;
                             const diff = event.markerPosition - prev;
-                            // 1% roughly eq to 4px, base min spacing 1.5rem (24px)
-                            const dynamicMargin = Math.max(24, Math.min(160, diff * 4)); 
+                            const averageGap = list.length > 1 ? 100 / (list.length - 1) : 100;
+                            const gapRatio = averageGap > 0 ? diff / averageGap : 1;
+                            // Scale spacing by relative temporal gap while keeping visual readability bounds.
+                            const dynamicMargin = Math.max(18, Math.min(120, Math.round(28 * gapRatio)));
                             spacingStyle = { marginTop: `${dynamicMargin}px` };
                           } else {
                             spacingStyle = { marginTop: '0.5rem' };
@@ -907,6 +927,12 @@ export default function ProjectDetails({ project }) {
                         <div className="relative w-full h-8 mt-8 group">
                           {/* Cross line */}
                           <div className="absolute top-1/2 left-[28px] md:left-1/2 w-12 md:w-32 -translate-x-1/2 h-[2px] bg-gray-200/80 dark:bg-gray-700/80 z-10 transition-colors duration-300 group-hover:bg-gray-300 dark:group-hover:bg-gray-600" />
+
+                          {isOpenEndedTimeline && (
+                            <div className="absolute left-[28px] md:left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full border-2 border-dashed border-cyan-400 dark:border-cyan-300 bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-200 flex items-center justify-center text-sm font-bold shadow-sm">
+                              ∞
+                            </div>
+                          )}
                           
                           {/* Desktop: Label on the right */}
                           <div className="hidden md:flex absolute top-1/2 left-1/2 ml-20 -translate-y-1/2 items-center gap-3">

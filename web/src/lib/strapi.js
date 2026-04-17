@@ -1237,6 +1237,7 @@ export function transformStaffData(strapiStaff) {
       departmentInfo: department,
       image,
       bio: stripHtml(attributes.bio) || '',
+      bioMarkdown: typeof attributes.bio === 'string' ? attributes.bio : '',
       socialLinks,
       publications,
       _strapi: person,

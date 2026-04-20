@@ -23,7 +23,7 @@
       "required": true
     },
     "description": {
-      "type": "text"
+      "type": "richtext"
     },
     "image": {
       "type": "media",

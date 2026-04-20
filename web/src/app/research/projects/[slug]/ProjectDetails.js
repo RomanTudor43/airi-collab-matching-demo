@@ -29,6 +29,7 @@ import { containerVariants, itemVariants } from '@/lib/animations';
 import { useTranslations } from 'next-intl';
 import BodyContentImage from '@/components/shared/BodyContentImage';
 import RichMarkdown from '@/components/shared/RichMarkdown';
+import ExpandableMarkdown from '@/components/shared/ExpandableMarkdown';
 import { getProjectPhase, getPhaseColorClasses } from '@/lib/projectPhase';
 
 // Helper to get person path
@@ -1057,6 +1058,14 @@ export default function ProjectDetails({ project }) {
                           </span>
                         )}
                       </div>
+                      {team.description && (
+                        <ExpandableMarkdown
+                          content={team.description}
+                          previewLength={190}
+                          collapsedTextClassName="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+                          markdownClassName="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 prose-p:my-1 prose-headings:my-2"
+                        />
+                      )}
                       {team.members.length > 0 ? (
                         <motion.div
                           initial="hidden"

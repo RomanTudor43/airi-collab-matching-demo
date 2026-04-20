@@ -124,6 +124,8 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
 
   // Refs for animation data (avoid re-creating each frame)
   const dataRef = useRef(null);
+  const hoveredRef = useRef(null);
+  const hoveredBridgeRef = useRef(null);
 
   // ── Resize handling ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -212,14 +214,39 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
     const my = e.clientY - rect.top;
     
     const idx = hitTest(mx, my);
-    setHovered(idx >= 0 ? idx : null);
+    const nextHovered = idx >= 0 ? idx : null;
+    if (hoveredRef.current !== nextHovered) {
+      hoveredRef.current = nextHovered;
+      setHovered(nextHovered);
+    }
     
     // Only check bridges if not hovering a cluster
     if (idx < 0) {
       const bridgeInfo = hitTestBridge(mx, my);
-      setHoveredBridge(bridgeInfo);
+      const currentBridge = hoveredBridgeRef.current;
+      const sameBridge =
+        currentBridge &&
+        bridgeInfo &&
+        currentBridge.source === bridgeInfo.source &&
+        currentBridge.target === bridgeInfo.target;
+
+      if (!sameBridge) {
+        hoveredBridgeRef.current = bridgeInfo;
+        setHoveredBridge(bridgeInfo);
+      } else if (bridgeInfo) {
+        // Keep tooltip cursor tracking without forcing animation effect restart.
+        hoveredBridgeRef.current = {
+          ...bridgeInfo,
+          source: currentBridge.source,
+          target: currentBridge.target,
+        };
+        setHoveredBridge(hoveredBridgeRef.current);
+      }
     } else {
-      setHoveredBridge(null);
+      if (hoveredBridgeRef.current !== null) {
+        hoveredBridgeRef.current = null;
+        setHoveredBridge(null);
+      }
     }
   }, [hitTest, hitTestBridge]);
 
@@ -250,14 +277,18 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
 
+    canvas.width = dimensions.w;
+    canvas.height = dimensions.h;
+
     let running = true;
     const render = (time) => {
       if (!running || !dataRef.current) return;
       const { w, h } = dimensions;
       const { positions, particles, bridges, stars, radii } = dataRef.current;
+      const hoveredIdx = hoveredRef.current;
+      const activeBridge = hoveredBridgeRef.current;
 
-      canvas.width = w;
-      canvas.height = h;
+      
 
       // Clear
       ctx.fillStyle = "#03070f";
@@ -292,9 +323,10 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
 
       // ── Inter-community bridges ────────────────────────────
       bridges.forEach((b) => {
-        const isHoveredBridge = hoveredBridge && 
-          ((hoveredBridge.source === b.sourceId && hoveredBridge.target === b.targetId) ||
-           (hoveredBridge.source === b.targetId && hoveredBridge.target === b.sourceId));
+        const isHoveredBridge =
+          activeBridge &&
+          ((activeBridge.source === b.sourceId && activeBridge.target === b.targetId) ||
+            (activeBridge.source === b.targetId && activeBridge.target === b.sourceId));
         
         if (isHoveredBridge) {
           // Draw glow effect for hovered bridge
@@ -325,7 +357,7 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
       communities.forEach((comm, ci) => {
         const pos = positions[ci];
         const r = radii[ci];
-        const isHov = hovered === ci;
+        const isHov = hoveredIdx === ci;
         const pulseR = r + Math.sin(time * 0.001 + ci) * 4;
         const glowR = pulseR * (isHov ? 2.2 : 1.8);
 
@@ -343,7 +375,7 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
 
       // ── Particles ──────────────────────────────────────────
       particles.forEach((p) => {
-        const isHov = hovered === p.communityIdx;
+        const isHov = hoveredIdx === p.communityIdx;
         p.angle += p.orbitSpeed * (isHov ? 1.8 : 1);
         const pulse = Math.sin(time * p.pulseSpeed + p.pulseOffset) * 0.35 + 0.65;
         const x = p.cx + Math.cos(p.angle) * p.orbitRadius;
@@ -365,7 +397,7 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
       communities.forEach((comm, ci) => {
         const pos = positions[ci];
         const r = radii[ci];
-        const isHov = hovered === ci;
+        const isHov = hoveredIdx === ci;
         const pulseR = r + Math.sin(time * 0.001 + ci) * 4;
 
         ctx.strokeStyle = comm.color + (isHov ? "60" : "25");
@@ -380,7 +412,7 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
       // ── Labels ─────────────────────────────────────────────
       communities.forEach((comm, ci) => {
         const pos = positions[ci];
-        const isHov = hovered === ci;
+        const isHov = hoveredIdx === ci;
 
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -413,7 +445,7 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
       running = false;
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [dimensions, communities, hovered, hoveredBridge]);
+  }, [dimensions, communities]);
 
   return (
     <div
@@ -426,7 +458,12 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
         style={{ cursor: hovered != null || hoveredBridge != null ? "pointer" : "default" }}
         onMouseMove={onMouseMove}
         onClick={onClick}
-        onMouseLeave={() => { setHovered(null); setHoveredBridge(null); }}
+        onMouseLeave={() => {
+          hoveredRef.current = null;
+          hoveredBridgeRef.current = null;
+          setHovered(null);
+          setHoveredBridge(null);
+        }}
       />
 
       {/* Cross-cluster link tooltip */}

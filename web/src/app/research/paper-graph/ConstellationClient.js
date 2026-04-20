@@ -89,6 +89,7 @@ export default function ConstellationClient({
   const [hovered, setHovered] = useState(null);
   const [dimensions, setDimensions] = useState({ w: 1200, h: 800 });
   const dataRef = useRef(null);
+  const hoveredRef = useRef(null);
 
   useEffect(() => {
     const update = () => {
@@ -125,7 +126,11 @@ export default function ConstellationClient({
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const idx = hitTest(e.clientX - rect.left, e.clientY - rect.top);
-    setHovered(idx >= 0 ? idx : null);
+    const nextHovered = idx >= 0 ? idx : null;
+    if (hoveredRef.current !== nextHovered) {
+      hoveredRef.current = nextHovered;
+      setHovered(nextHovered);
+    }
   }, [hitTest]);
 
   const onClick = useCallback((e) => {
@@ -142,14 +147,15 @@ export default function ConstellationClient({
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
 
+    canvas.width = dimensions.w;
+    canvas.height = dimensions.h;
+
     let running = true;
     const render = (time) => {
       if (!running || !dataRef.current) return;
       const { w, h } = dimensions;
       const { positions, constellationLines, stars, radii } = dataRef.current;
-
-      canvas.width = w;
-      canvas.height = h;
+      const hoveredIdx = hoveredRef.current;
 
       ctx.fillStyle = "#03070f";
       ctx.fillRect(0, 0, w, h);
@@ -180,7 +186,7 @@ export default function ConstellationClient({
       constellationLines.forEach((line) => {
         const p1 = positions[line.i];
         const p2 = positions[line.j];
-        const isH = hovered === line.i || hovered === line.j;
+        const isH = hoveredIdx === line.i || hoveredIdx === line.j;
         const dashOffset = (time * 0.02) % 30;
 
         ctx.strokeStyle = color + (isH ? "50" : "18");
@@ -199,7 +205,7 @@ export default function ConstellationClient({
       topics.forEach((topic, i) => {
         const pos = positions[i];
         const r = radii[i];
-        const isH = hovered === i;
+        const isH = hoveredIdx === i;
         const pulse = r + Math.sin(time * 0.0015 + i * 0.7) * 2;
         const glowR = pulse * (isH ? 3 : 2);
 
@@ -217,7 +223,7 @@ export default function ConstellationClient({
       topics.forEach((topic, i) => {
         const pos = positions[i];
         const r = radii[i];
-        const isH = hovered === i;
+        const isH = hoveredIdx === i;
         const pulse = r + Math.sin(time * 0.0015 + i * 0.7) * 2;
 
         // Core
@@ -240,7 +246,7 @@ export default function ConstellationClient({
       // Labels
       topics.forEach((topic, i) => {
         const pos = positions[i];
-        const isH = hovered === i;
+        const isH = hoveredIdx === i;
         const r = radii[i];
 
         ctx.textAlign = "center";
@@ -270,7 +276,7 @@ export default function ConstellationClient({
       running = false;
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [dimensions, topics, color, hovered]);
+  }, [dimensions, topics, color]);
 
   return (
     <div className="relative w-full h-screen overflow-hidden" style={{ background: "#03070f" }}>
@@ -280,7 +286,10 @@ export default function ConstellationClient({
         style={{ cursor: hovered != null ? "pointer" : "default" }}
         onMouseMove={onMouseMove}
         onClick={onClick}
-        onMouseLeave={() => setHovered(null)}
+        onMouseLeave={() => {
+          hoveredRef.current = null;
+          setHovered(null);
+        }}
       />
 
       {/* CRT scanlines */}

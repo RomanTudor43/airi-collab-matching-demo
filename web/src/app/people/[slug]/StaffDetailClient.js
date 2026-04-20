@@ -23,6 +23,7 @@ import { toPublicationSlug } from '@/lib/slug';
 import { containerVariants, itemVariants } from '@/lib/animations';
 import { useTranslations } from 'next-intl';
 import RichMarkdown from '@/components/shared/RichMarkdown';
+import ExpandableMarkdown from '@/components/shared/ExpandableMarkdown';
 
 // Tab Button Component
 function TabButton({ active, onClick, icon: Icon, label, count }) {
@@ -221,9 +222,12 @@ function TeamCard({ team, t }) {
 
         {/* Description */}
         {team.description && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
-            {team.description}
-          </p>
+          <ExpandableMarkdown
+            content={team.description}
+            previewLength={180}
+            collapsedTextClassName="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+            markdownClassName="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 prose-p:my-1 prose-headings:my-2"
+          />
         )}
 
         {/* Projects */}

@@ -609,6 +609,8 @@ export interface ApiGraphLinkGraphLink extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    isCrossCluster: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -617,8 +619,14 @@ export interface ApiGraphLinkGraphLink extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     score: Schema.Attribute.Decimal;
-    source: Schema.Attribute.Relation<'oneToOne', 'api::paper.paper'>;
-    target: Schema.Attribute.Relation<'oneToOne', 'api::paper.paper'>;
+    source: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::publication.publication'
+    >;
+    target: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::publication.publication'
+    >;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -694,40 +702,6 @@ export interface ApiNewsArticleNewsArticle extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiPaperPaper extends Struct.CollectionTypeSchema {
-  collectionName: 'papers';
-  info: {
-    displayName: 'Paper';
-    pluralName: 'papers';
-    singularName: 'paper';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    abstract: Schema.Attribute.Text;
-    attachment: Schema.Attribute.Media<'files'>;
-    authors: Schema.Attribute.JSON;
-    cited_by: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    doi: Schema.Attribute.String;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<'oneToMany', 'api::paper.paper'> &
-      Schema.Attribute.Private;
-    openAlexId: Schema.Attribute.String & Schema.Attribute.Unique;
-    pdf_url: Schema.Attribute.String;
-    publishedAt: Schema.Attribute.DateTime;
-    title: Schema.Attribute.String & Schema.Attribute.Required;
-    topics: Schema.Attribute.JSON;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    year: Schema.Attribute.Integer;
-  };
-}
-
 export interface ApiPartnerPartner extends Struct.CollectionTypeSchema {
   collectionName: 'partners';
   info: {
@@ -740,11 +714,15 @@ export interface ApiPartnerPartner extends Struct.CollectionTypeSchema {
     draftAndPublish: false;
   };
   attributes: {
+    body: Schema.Attribute.DynamicZone<
+      ['shared.section', 'shared.rich-text', 'shared.media', 'shared.slider']
+    >;
     country: Schema.Attribute.String;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    description: Schema.Attribute.Text;
+    description: Schema.Attribute.RichText;
+    heroImage: Schema.Attribute.Media<'images'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -753,6 +731,9 @@ export interface ApiPartnerPartner extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     logo: Schema.Attribute.Media<'images'>;
     name: Schema.Attribute.String & Schema.Attribute.Required;
+    partnershipStatus: Schema.Attribute.Enumeration<['current', 'former']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'current'>;
     projects: Schema.Attribute.Relation<'manyToMany', 'api::project.project'>;
     publishedAt: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
@@ -914,21 +895,39 @@ export interface ApiPublicationPublication extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    abstract: Schema.Attribute.Text;
     attachments: Schema.Attribute.Media<
       'files' | 'images' | 'videos' | 'audios',
       true
     >;
     authors: Schema.Attribute.Relation<'manyToMany', 'api::person.person'>;
     bibFile: Schema.Attribute.Media<'files'>;
+    cited_by: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    community: Schema.Attribute.Integer;
+    communityLabel: Schema.Attribute.String;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     description: Schema.Attribute.RichText;
+    doi: Schema.Attribute.String;
     domain: Schema.Attribute.Relation<
       'manyToOne',
       'api::department.department'
     >;
+    embedding: Schema.Attribute.JSON;
+    embeddingModel: Schema.Attribute.String;
+    embeddingSourceHash: Schema.Attribute.String;
+    embeddingUpdatedAt: Schema.Attribute.DateTime;
+    graphEligible: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    incomingGraphLinks: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::graph-link.graph-link'
+    >;
     kind: Schema.Attribute.String;
+    lastGraphIndexedAt: Schema.Attribute.DateTime;
+    lastImportedAt: Schema.Attribute.DateTime;
+    listingEligible: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<true>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -936,14 +935,23 @@ export interface ApiPublicationPublication extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     metadata: Schema.Attribute.JSON;
+    openAlexId: Schema.Attribute.String & Schema.Attribute.Unique;
+    outgoingGraphLinks: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::graph-link.graph-link'
+    >;
     pdfFile: Schema.Attribute.Media<'files'>;
     projects: Schema.Attribute.Relation<'manyToMany', 'api::project.project'>;
     publishedAt: Schema.Attribute.DateTime;
+    rawImportMetadata: Schema.Attribute.JSON;
     resources: Schema.Attribute.Relation<
       'manyToMany',
       'api::resource.resource'
     >;
+    secondaryClusters: Schema.Attribute.JSON;
     slug: Schema.Attribute.UID<'title'>;
+    sourceKind: Schema.Attribute.Enumeration<['manual', 'openAlexAutomated']> &
+      Schema.Attribute.DefaultTo<'manual'>;
     themes: Schema.Attribute.Relation<
       'manyToMany',
       'api::research-theme.research-theme'
@@ -951,6 +959,7 @@ export interface ApiPublicationPublication extends Struct.CollectionTypeSchema {
     title: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
+    topics: Schema.Attribute.JSON;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1062,6 +1071,51 @@ export interface ApiResourceResource extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     url: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
+export interface ApiResultResult extends Struct.CollectionTypeSchema {
+  collectionName: 'results';
+  info: {
+    description: 'Research outputs: datasets, code, press releases, videos, and other deliverables';
+    displayName: 'Result';
+    pluralName: 'results';
+    singularName: 'result';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    attachments: Schema.Attribute.Media<
+      'files' | 'images' | 'videos' | 'audios',
+      true
+    >;
+    body: Schema.Attribute.DynamicZone<
+      ['shared.section', 'shared.rich-text', 'shared.media', 'shared.slider']
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 500;
+      }>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::result.result'
+    > &
+      Schema.Attribute.Private;
+    projects: Schema.Attribute.Relation<'manyToMany', 'api::project.project'>;
+    publishedAt: Schema.Attribute.DateTime;
+    publishedDate: Schema.Attribute.Date;
+    slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
+    title: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -1656,13 +1710,13 @@ declare module '@strapi/strapi' {
       'api::global.global': ApiGlobalGlobal;
       'api::graph-link.graph-link': ApiGraphLinkGraphLink;
       'api::news-article.news-article': ApiNewsArticleNewsArticle;
-      'api::paper.paper': ApiPaperPaper;
       'api::partner.partner': ApiPartnerPartner;
       'api::person.person': ApiPersonPerson;
       'api::project.project': ApiProjectProject;
       'api::publication.publication': ApiPublicationPublication;
       'api::research-theme.research-theme': ApiResearchThemeResearchTheme;
       'api::resource.resource': ApiResourceResource;
+      'api::result.result': ApiResultResult;
       'api::seminar.seminar': ApiSeminarSeminar;
       'api::team.team': ApiTeamTeam;
       'plugin::content-releases.release': PluginContentReleasesRelease;

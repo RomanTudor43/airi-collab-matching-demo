@@ -77,13 +77,15 @@ const GRID_ROWS = Array.from({ length: Math.ceil(MAP_H / 220) + 1 }, (_, i) => i
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function PaperGraphClient({
-  papers,
+  publications = [],
   links,
   backHref,
   backLabel,
   topicLabel,
   accentColor = "#4ecdc4",
 }) {
+  const papers = publications;
+
   const containerRef = useRef(null);
   const svgRef = useRef(null);
 

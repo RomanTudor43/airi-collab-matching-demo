@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getPapersByCommunity, transformPaperData } from "@/lib/strapi";
+import { getGraphPublicationsByCommunity, transformGraphPublicationData } from "@/lib/strapi";
 import { slugify } from "@/lib/slug";
 import ConstellationClient from "../ConstellationClient";
 
@@ -22,20 +22,20 @@ export default async function CommunityTopicsPage({ params }) {
   if (!match) notFound();
   const communityId = parseInt(match[1], 10);
 
-  const papersRaw = await getPapersByCommunity(communityId);
-  const papers = transformPaperData(papersRaw);
+  const publicationsRaw = await getGraphPublicationsByCommunity(communityId);
+  const publications = transformGraphPublicationData(publicationsRaw);
 
-  if (papers.length === 0) notFound();
+  if (publications.length === 0) notFound();
 
   const communityLabel =
-    papers.find((p) => p.communityLabel)?.communityLabel ||
+    publications.find((p) => p.communityLabel)?.communityLabel ||
     `Community ${communityId}`;
 
   const commColor = COMMUNITY_COLORS[communityId % COMMUNITY_COLORS.length];
 
-  // Group papers by first topic
+  // Group publications by first topic
   const topicMap = {};
-  papers.forEach((p) => {
+  publications.forEach((p) => {
     const topic = p.topics?.[0] || "Other";
     if (!topicMap[topic]) topicMap[topic] = { label: topic, paperCount: 0, years: [] };
     topicMap[topic].paperCount += 1;
@@ -61,7 +61,7 @@ export default async function CommunityTopicsPage({ params }) {
       communityLabel={communityLabel}
       communitySlug={communitySlug}
       color={commColor}
-      totalPapers={papers.length}
+      totalPapers={publications.length}
     />
   );
 }

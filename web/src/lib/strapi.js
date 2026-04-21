@@ -686,7 +686,7 @@ export async function getPartnerBySlug(slug) {
  * @param {number} options.community - Optional community id filter
  * @returns {Promise<Array>}
  */
-export async function getPapers(options = {}) {
+export async function getGraphPublications(options = {}) {
   try {
     const { community } = options;
     const filters = {
@@ -721,19 +721,19 @@ export async function getPapers(options = {}) {
 
     return await fetchAllEntries('/publications', baseOptions, 100);
   } catch (error) {
-    console.error('Failed to fetch graph papers:', error);
+    console.error('Failed to fetch graph publications:', error);
     return [];
   }
 }
 
 /**
- * Get graph-eligible papers scoped to one community.
+ * Get graph-eligible publications scoped to one community.
  * @param {number} communityId
  * @returns {Promise<Array>}
  */
-export async function getPapersByCommunity(communityId) {
+export async function getGraphPublicationsByCommunity(communityId) {
   if (typeof communityId !== 'number' || !Number.isFinite(communityId)) return [];
-  return getPapers({ community: communityId });
+  return getGraphPublications({ community: communityId });
 }
 
 /**
@@ -758,16 +758,20 @@ export async function getGraphLinks() {
 }
 
 /**
- * Transform graph paper records into a frontend-friendly shape.
- * @param {Array|Object} strapiPapers
+ * Transform graph publication records into a frontend-friendly shape.
+ * @param {Array|Object} strapiPublications
  * @returns {Array}
  */
-export function transformPaperData(strapiPapers) {
-  const list = Array.isArray(strapiPapers) ? strapiPapers : strapiPapers ? [strapiPapers] : [];
+export function transformGraphPublicationData(strapiPublications) {
+  const list = Array.isArray(strapiPublications)
+    ? strapiPublications
+    : strapiPublications
+      ? [strapiPublications]
+      : [];
 
   return list
-    .map((paper) => {
-      const attributes = paper?.attributes ?? paper ?? {};
+    .map((publication) => {
+      const attributes = publication?.attributes ?? publication ?? {};
       const abstractText = stripHtml(attributes.abstract || attributes.description || '');
 
       const topics = Array.isArray(attributes.topics)
@@ -790,7 +794,7 @@ export function transformPaperData(strapiPapers) {
         : [];
 
       return {
-        id: paper?.id ?? null,
+        id: publication?.id ?? null,
         openAlexId: attributes.openAlexId || '',
         title: attributes.title || '',
         doi: attributes.doi || '',
@@ -803,16 +807,16 @@ export function transformPaperData(strapiPapers) {
         community: typeof attributes.community === 'number' ? attributes.community : null,
         communityLabel: attributes.communityLabel || '',
         secondaryClusters,
-        _strapi: paper,
+        _strapi: publication,
       };
     })
-    .filter((paper) => paper.id !== null && paper.title);
+    .filter((publication) => publication.id !== null && publication.title);
 }
 
 /**
- * Transform graph links into source/target paper ids.
+ * Transform graph links into source/target publication ids.
  * @param {Array|Object} strapiLinks
- * @param {Object} oaToIdMap - Mapping of OpenAlex ids to visible paper ids
+ * @param {Object} oaToIdMap - Mapping of OpenAlex ids to visible publication ids
  * @returns {Array}
  */
 export function transformGraphLinkData(strapiLinks, oaToIdMap = {}) {

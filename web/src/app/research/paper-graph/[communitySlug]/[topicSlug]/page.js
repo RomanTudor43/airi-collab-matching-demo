@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import {
-  getPapersByCommunity,
+  getGraphPublicationsByCommunity,
   getGraphLinks,
-  transformPaperData,
+  transformGraphPublicationData,
   transformGraphLinkData,
 } from "@/lib/strapi";
 import { slugify } from "@/lib/slug";
@@ -20,43 +20,43 @@ export async function generateMetadata({ params }) {
   return { title: `ICIA – ${topicSlug} · ${communitySlug}` };
 }
 
-export default async function TopicPapersPage({ params }) {
+export default async function TopicPublicationsPage({ params }) {
   const { communitySlug, topicSlug } = await params;
 
   const match = communitySlug.match(/^c-(\d+)$/);
   if (!match) notFound();
   const communityId = parseInt(match[1], 10);
 
-  const [papersRaw, linksRaw] = await Promise.all([
-    getPapersByCommunity(communityId),
+  const [publicationsRaw, linksRaw] = await Promise.all([
+    getGraphPublicationsByCommunity(communityId),
     getGraphLinks(),
   ]);
 
-  const allPapers = transformPaperData(papersRaw);
-  if (allPapers.length === 0) notFound();
+  const allPublications = transformGraphPublicationData(publicationsRaw);
+  if (allPublications.length === 0) notFound();
 
   // Filter to the topic matching the slug
-  const papers = allPapers.filter(
+  const publications = allPublications.filter(
     (p) => slugify(p.topics?.[0] || "other") === topicSlug
   );
-  if (papers.length === 0) notFound();
+  if (publications.length === 0) notFound();
 
-  // Build links scoped to visible papers only
+  // Build links scoped to visible publications only
   const oaToId = {};
-  papers.forEach((p) => { if (p.openAlexId) oaToId[p.openAlexId] = p.id; });
+  publications.forEach((p) => { if (p.openAlexId) oaToId[p.openAlexId] = p.id; });
   const links = transformGraphLinkData(linksRaw, oaToId);
 
   const communityLabel =
-    allPapers.find((p) => p.communityLabel)?.communityLabel ||
+    allPublications.find((p) => p.communityLabel)?.communityLabel ||
     `Community ${communityId}`;
 
-  const topicLabel = papers[0]?.topics?.[0] || topicSlug;
+  const topicLabel = publications[0]?.topics?.[0] || topicSlug;
   const commColor = COMMUNITY_COLORS[communityId % COMMUNITY_COLORS.length];
 
   return (
     <main className="overflow-hidden" style={{ background: "#03070f" }}>
       <PaperGraphClient
-        papers={papers}
+        publications={publications}
         links={links}
         backHref={`/research/paper-graph/${communitySlug}`}
         backLabel={communityLabel}

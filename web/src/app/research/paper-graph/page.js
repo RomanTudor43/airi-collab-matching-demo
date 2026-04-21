@@ -2,7 +2,12 @@ export const metadata = {
   title: "ICIA – Research Graph",
 };
 
-import { getPapers, getGraphLinks, transformPaperData, transformGraphLinkData } from "@/lib/strapi";
+import {
+  getGraphPublications,
+  getGraphLinks,
+  transformGraphPublicationData,
+  transformGraphLinkData,
+} from "@/lib/strapi";
 import GalaxyClient from "./GalaxyClient";
 
 const COMMUNITY_COLORS = [
@@ -13,12 +18,12 @@ const COMMUNITY_COLORS = [
 ];
 
 export default async function PaperGraphPage() {
-  const papersRaw = await getPapers();
-  const papers = transformPaperData(papersRaw);
+  const publicationsRaw = await getGraphPublications();
+  const publications = transformGraphPublicationData(publicationsRaw);
 
   // Build community index
   const communityMap = {};
-  papers.forEach((p) => {
+  publications.forEach((p) => {
     if (p.community == null) return;
     if (!communityMap[p.community]) {
       communityMap[p.community] = {
@@ -46,25 +51,25 @@ export default async function PaperGraphPage() {
         .map(([t]) => t),
     }));
 
-  // Build paper lookups
+  // Build publication lookups
   const oaToIdMap = {};
-  const paperById = {};
-  papers.forEach((p) => {
+  const publicationById = {};
+  publications.forEach((p) => {
     if (p.openAlexId) oaToIdMap[p.openAlexId] = p.id;
-    paperById[p.id] = p;
+    publicationById[p.id] = p;
   });
   
   const linksRaw = await getGraphLinks();
   const links = transformGraphLinkData(linksRaw, oaToIdMap);
   
-  const paperComm = {};
-  papers.forEach((p) => { if (p.community != null) paperComm[p.id] = p.community; });
+  const publicationComm = {};
+  publications.forEach((p) => { if (p.community != null) publicationComm[p.id] = p.community; });
   
   // Build inter-community link summary (cluster-to-cluster counts)
   const bridgeMap = {};
   links.forEach((l) => {
-    const sc = paperComm[l.sourceId];
-    const tc = paperComm[l.targetId];
+    const sc = publicationComm[l.sourceId];
+    const tc = publicationComm[l.targetId];
     if (sc == null || tc == null || sc === tc) return;
     const key = sc < tc ? `${sc}-${tc}` : `${tc}-${sc}`;
     if (!bridgeMap[key]) bridgeMap[key] = { source: Math.min(sc, tc), target: Math.max(sc, tc), count: 0 };
@@ -78,24 +83,24 @@ export default async function PaperGraphPage() {
     console.log(`[paper-graph] Bridge sample:`, interLinks.slice(0, 3).map(l => `c${l.source}↔c${l.target}:${l.count}`).join(', '));
   }
 
-  // Build paper-level cross-cluster links for hover preview
+  // Build publication-level cross-cluster links for hover preview
   // Group by cluster pair, limit to top links per pair
   const crossClusterLinks = links
     .filter((l) => {
-      const sc = paperComm[l.sourceId];
-      const tc = paperComm[l.targetId];
+      const sc = publicationComm[l.sourceId];
+      const tc = publicationComm[l.targetId];
       return sc != null && tc != null && sc !== tc;
     })
     .map((l) => {
-      const sourcePaper = paperById[l.sourceId];
-      const targetPaper = paperById[l.targetId];
+      const sourcePublication = publicationById[l.sourceId];
+      const targetPublication = publicationById[l.targetId];
       return {
         sourceId: l.sourceId,
         targetId: l.targetId,
-        sourceTitle: sourcePaper?.title || 'Unknown',
-        targetTitle: targetPaper?.title || 'Unknown',
-        sourceCluster: paperComm[l.sourceId],
-        targetCluster: paperComm[l.targetId],
+        sourceTitle: sourcePublication?.title || 'Unknown',
+        targetTitle: targetPublication?.title || 'Unknown',
+        sourceCluster: publicationComm[l.sourceId],
+        targetCluster: publicationComm[l.targetId],
         score: l.score,
       };
     })
@@ -117,7 +122,7 @@ export default async function PaperGraphPage() {
       communities={communities}
       interLinks={interLinks}
       crossClusterLinks={crossClusterLinks}
-      totalPapers={papers.length}
+      totalPapers={publications.length}
     />
   );
 }

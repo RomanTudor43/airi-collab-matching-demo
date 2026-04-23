@@ -701,6 +701,7 @@ export async function getGraphPublications(options = {}) {
       sort: ['cited_by:desc', 'year:desc'],
       filters,
       fields: [
+        'slug',
         'openAlexId',
         'title',
         'doi',
@@ -793,8 +794,17 @@ export function transformGraphPublicationData(strapiPublications) {
         ? attributes.secondaryClusters
         : [];
 
+      const slug = attributes.slug || toPublicationSlug({
+        slug: attributes.slug,
+        title: attributes.title,
+        year: attributes.year,
+      });
+      const publicationHref = slug ? `/research/publications/${encodeURIComponent(slug)}` : null;
+
       return {
         id: publication?.id ?? null,
+        slug,
+        publicationHref,
         openAlexId: attributes.openAlexId || '',
         title: attributes.title || '',
         doi: attributes.doi || '',

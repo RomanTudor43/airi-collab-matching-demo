@@ -2,12 +2,14 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // ─── Layout constants ────────────────────────────────────────────────────────
 const MAP_W = 2800;
 const MAP_H = 1800;
 const NODE_R = 18;
 const MIN_DIST = 160;
+const NODE_NAV_DRAG_TOLERANCE = 6;
 
 // ─── Seeded pseudo-random (LCG) ──────────────────────────────────────────────
 function makeRng(seed) {
@@ -85,9 +87,11 @@ export default function PaperGraphClient({
   accentColor = "#4ecdc4",
 }) {
   const papers = publications;
+  const router = useRouter();
 
   const containerRef = useRef(null);
   const svgRef = useRef(null);
+  const nodePressRef = useRef(null);
 
   // Filters
   const [minScore, setMinScore] = useState(0.5);
@@ -184,7 +188,32 @@ export default function PaperGraphClient({
   const onMouseUp = useCallback(() => {
     setPanning(false);
     panOrigin.current = null;
+    nodePressRef.current = null;
   }, []);
+
+  const onNodeMouseDown = useCallback((e, publicationId) => {
+    if (e.button !== 0) return;
+    nodePressRef.current = { publicationId, x: e.clientX, y: e.clientY };
+  }, []);
+
+  const onNodeMouseUp = useCallback((e, publication) => {
+    if (e.button !== 0 || !publication.publicationHref) return;
+    const press = nodePressRef.current;
+    nodePressRef.current = null;
+    if (!press || press.publicationId !== publication.id) return;
+
+    const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y);
+    if (moved > NODE_NAV_DRAG_TOLERANCE) return;
+
+    router.push(publication.publicationHref);
+  }, [router]);
+
+  const onNodeKeyDown = useCallback((e, publication) => {
+    if (!publication.publicationHref) return;
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    router.push(publication.publicationHref);
+  }, [router]);
 
   // ── Zoom on wheel ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -317,6 +346,7 @@ export default function PaperGraphClient({
       <div className="pointer-events-none absolute bottom-6 right-5 z-30 font-mono text-[9px] text-amber-500/30 text-right tracking-widest">
         <div>SCROLL TO ZOOM</div>
         <div>DRAG TO PAN</div>
+        <div>CLICK NODE TO OPEN PAGE</div>
         <div>HOVER NODE FOR INTEL</div>
       </div>
 
@@ -439,6 +469,7 @@ export default function PaperGraphClient({
         {papers.map((paper) => {
           const pos = paperPositions[paper.id];
           if (!pos) return null;
+          const isNavigable = !!paper.publicationHref;
           const isHot = hovered === paper.id;
           const isNear = connectedSet?.has(paper.id) && !isHot;
           const isDim = hovered && !isHot && !isNear;
@@ -450,9 +481,15 @@ export default function PaperGraphClient({
               key={paper.id}
               data-node="1"
               transform={`translate(${pos.x},${pos.y})`}
-              style={{ cursor: "pointer" }}
+              style={{ cursor: isNavigable ? "pointer" : "default" }}
+              role={isNavigable ? "link" : undefined}
+              tabIndex={isNavigable ? 0 : undefined}
+              aria-label={isNavigable ? `Open publication: ${paper.title}` : undefined}
               onMouseEnter={() => setHovered(paper.id)}
               onMouseLeave={() => setHovered(null)}
+              onMouseDown={(e) => onNodeMouseDown(e, paper.id)}
+              onMouseUp={(e) => onNodeMouseUp(e, paper)}
+              onKeyDown={(e) => onNodeKeyDown(e, paper)}
             >
               {(isHot || isNear) && (
                 <circle
@@ -567,8 +604,8 @@ function IntelPanel({ paper, links, paperById, sx, sy, scale }) {
         )}
         {paper.secondaryClusters?.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
-            {paper.secondaryClusters.map((sc) => (
-              <span key={sc.clusterId} className="text-purple-400/60 border border-purple-500/30 px-1.5 py-0.5 bg-purple-900/10"
+            {paper.secondaryClusters.map((sc, idx) => (
+              <span key={`${sc.clusterId ?? "cluster"}-${sc.distance ?? "distance"}-${idx}`} className="text-purple-400/60 border border-purple-500/30 px-1.5 py-0.5 bg-purple-900/10"
                 style={{ fontSize: 8, letterSpacing: "0.05em" }}
                 title={`Distance: ${(sc.distance || 0).toFixed(3)}`}>
                 ⟡ {sc.clusterLabel || `Cluster ${sc.clusterId}`}
@@ -578,8 +615,8 @@ function IntelPanel({ paper, links, paperById, sx, sy, scale }) {
         )}
         {paper.topics?.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
-            {paper.topics.map((t) => (
-              <span key={t} className="text-amber-400/70 border border-amber-500/30 px-1.5 py-0.5"
+            {paper.topics.map((t, idx) => (
+              <span key={`${t}-${idx}`} className="text-amber-400/70 border border-amber-500/30 px-1.5 py-0.5"
                 style={{ fontSize: 8, letterSpacing: "0.06em" }}>
                 {t}
               </span>
@@ -621,8 +658,8 @@ function IntelPanel({ paper, links, paperById, sx, sy, scale }) {
                 ⟡ RELATED IN OTHER CLUSTERS
               </div>
               <div className="space-y-1">
-                {crossLinks.map(({ paper: p, score }) => (
-                  <div key={p.id} className="flex items-start gap-1.5">
+                {crossLinks.map(({ paper: p, score }, idx) => (
+                  <div key={`${p.id ?? "paper"}-${score}-${idx}`} className="flex items-start gap-1.5">
                     <span className="text-orange-400/50 text-[7px] shrink-0 mt-0.5">
                       {(score * 100).toFixed(0)}%
                     </span>

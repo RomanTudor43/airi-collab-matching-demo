@@ -145,7 +145,7 @@ export function publicationJsonLd(pub) {
   };
 
   if (pub.year) data.datePublished = String(pub.year);
-  if (pub.description) data.description = pub.description;
+  if (pub.description || pub.abstract) data.description = pub.description || pub.abstract;
   if (pub.domain) data.about = pub.domain;
 
   const authors = Array.isArray(pub.authors)

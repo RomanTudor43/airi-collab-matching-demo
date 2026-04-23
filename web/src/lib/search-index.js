@@ -126,7 +126,7 @@ function buildPublicationEntries(publications) {
         ...authorNames,
         ...asArray(publication.topics),
       ],
-      snippet: publication.abstract || publication.description || `${authorNames.join(", ")}${publication.year ? ` · ${publication.year}` : ""}`,
+      snippet: publication.description || publication.abstract || `${authorNames.join(", ")}${publication.year ? ` · ${publication.year}` : ""}`,
     });
   });
 }

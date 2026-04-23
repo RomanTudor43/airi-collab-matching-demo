@@ -28,9 +28,11 @@ export async function generateMetadata({ params }) {
     const authors = Array.isArray(publication.authors)
       ? publication.authors.map((a) => a?.name || a).filter(Boolean).join(", ")
       : "";
+    const contentDescription = publication.description || publication.abstract || "";
+    const authorsDescription = authors ? `${publication.title} by ${authors}` : "";
     const description = authors
-      ? `${publication.title} by ${authors}`.slice(0, 160)
-      : (publication.description || publication.title || "").slice(0, 160);
+      ? (contentDescription || authorsDescription).slice(0, 160)
+      : (contentDescription || publication.title || "").slice(0, 160);
 
     return {
       title: publication.title || "Publication",

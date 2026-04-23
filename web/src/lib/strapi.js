@@ -565,7 +565,7 @@ export async function getProjectBySlug(slug) {
     const pubParams = createParams({
       filters: { projects: { slug: { $eq: slug } } },
       sort: 'year:desc',
-      fields: ['title', 'slug', 'year', 'kind', 'description'],
+      fields: ['title', 'slug', 'year', 'kind', 'description', 'abstract'],
       populate: {
         authors: PERSON_FLAT_POPULATE,
         pdfFile: { fields: ['name', 'url', 'mime', 'ext', 'size'] },
@@ -773,7 +773,7 @@ export function transformGraphPublicationData(strapiPublications) {
   return list
     .map((publication) => {
       const attributes = publication?.attributes ?? publication ?? {};
-      const abstractText = stripHtml(attributes.abstract || attributes.description || '');
+      const abstractText = stripHtml(attributes.description || attributes.abstract || '');
 
       const topics = Array.isArray(attributes.topics)
         ? attributes.topics.filter(Boolean).map((value) => String(value))
@@ -1321,7 +1321,8 @@ export function transformPublicationData(strapiPubs) {
       year: attributes.year ?? null,
       domain,
       kind: attributes.kind || '',
-      description: stripHtml(attributes.description) || '',
+      description: stripHtml(attributes.description || attributes.abstract || ''),
+      abstract: stripHtml(attributes.abstract || ''),
       authors,
       pdfFile,
       bibFile,
@@ -1538,7 +1539,7 @@ export function transformProjectData(strapiProjects) {
         title: pubData.title || '',
         year: pubData.year ?? null,
         kind: pubData.kind || '',
-        description: stripHtml(pubData.description || ''),
+        description: stripHtml(pubData.description || pubData.abstract || ''),
         authors: pubAuthors,
         domain: pubDomain,
         pdfFile: pubData.pdfFile

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getGraphPublicationsByCommunity, transformGraphPublicationData } from "@/lib/strapi";
-import { slugify } from "@/lib/slug";
 import ConstellationClient from "../ConstellationClient";
+import { buildMesoTopics } from "../meso";
 
 const COMMUNITY_COLORS = [
   "#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4", "#ffeaa7",
@@ -33,27 +33,7 @@ export default async function CommunityTopicsPage({ params }) {
 
   const commColor = COMMUNITY_COLORS[communityId % COMMUNITY_COLORS.length];
 
-  // Group publications by first topic
-  const topicMap = {};
-  publications.forEach((p) => {
-    const topic = p.topics?.[0] || "Other";
-    if (!topicMap[topic]) topicMap[topic] = { label: topic, paperCount: 0, years: [] };
-    topicMap[topic].paperCount += 1;
-    if (p.year) topicMap[topic].years.push(p.year);
-  });
-
-  const topics = Object.values(topicMap)
-    .sort((a, b) => b.paperCount - a.paperCount)
-    .map((t) => {
-      const yearMin = t.years.length ? Math.min(...t.years) : null;
-      const yearMax = t.years.length ? Math.max(...t.years) : null;
-      return {
-        label: t.label,
-        slug: slugify(t.label),
-        paperCount: t.paperCount,
-        yearRange: yearMin ? (yearMin === yearMax ? `${yearMin}` : `${yearMin}–${yearMax}`) : null,
-      };
-    });
+  const topics = buildMesoTopics(publications);
 
   return (
     <ConstellationClient

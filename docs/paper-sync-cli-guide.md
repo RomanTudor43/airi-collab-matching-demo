@@ -88,3 +88,44 @@ Run single-person import:
 ```bash
 python main.py --person "Adrian Groza"
 ```
+
+## Quality Artifacts
+
+Each run now writes quality diagnostics in `research-paper-graph/outputs/`.
+
+- `quality_<label>.json`: macro/meso quality metrics, label alignment score, and tuning hints
+- `topic_hierarchy_<label>.json`: topic superclusters plus per-paper supercluster assignments
+- `communities_<label>.json`: community assignments and labels
+
+Use these files to compare parameter profiles without changing code.
+
+## Tuning Knobs (.env)
+
+- `GRAPH_HDBSCAN_MIN_CLUSTER_SIZE`
+- `GRAPH_HDBSCAN_MIN_SAMPLES`
+- `GRAPH_SECONDARY_CLUSTER_DISTANCE_THRESHOLD`
+- `GRAPH_TOPIC_HDBSCAN_MIN_CLUSTER_SIZE`
+- `GRAPH_TOPIC_HDBSCAN_MIN_SAMPLES`
+- `GRAPH_MESO_MIN_NODE_PAPERS`
+- `GRAPH_MESO_MAX_NODES`
+- `GRAPH_MESO_MIN_NODES`
+
+Suggested target:
+
+- macro clusters: `6-10`
+- meso nodes per macro: `8-20`
+
+## Parameter Sweep Helper
+
+Use the helper script to generate or run matrix sweeps:
+
+```bash
+# Print commands only
+scripts/paper-graph-sweep.sh
+
+# Execute commands
+scripts/paper-graph-sweep.sh --run
+
+# Execute on one person slice
+scripts/paper-graph-sweep.sh --run --source "--person Adrian Groza"
+```

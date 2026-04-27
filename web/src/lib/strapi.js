@@ -713,6 +713,7 @@ export async function getGraphPublications(options = {}) {
         'community',
         'communityLabel',
         'secondaryClusters',
+        'metadata',
       ],
       populate: {
         authors: PERSON_FLAT_POPULATE,
@@ -794,6 +795,33 @@ export function transformGraphPublicationData(strapiPublications) {
         ? attributes.secondaryClusters
         : [];
 
+      const graphMetadata =
+        attributes.metadata && typeof attributes.metadata === 'object'
+          ? attributes.metadata.graph
+          : null;
+      const rawTopicSuperclusters =
+        graphMetadata && typeof graphMetadata === 'object'
+          ? graphMetadata.topicSuperclusters
+          : null;
+      const topicSuperclusters =
+        rawTopicSuperclusters && typeof rawTopicSuperclusters === 'object'
+          ? {
+              ids: Array.isArray(rawTopicSuperclusters.ids)
+                ? rawTopicSuperclusters.ids.filter((value) => Number.isInteger(value))
+                : [],
+              labels: Array.isArray(rawTopicSuperclusters.labels)
+                ? rawTopicSuperclusters.labels.filter(Boolean).map((value) => String(value))
+                : [],
+              primaryId: Number.isInteger(rawTopicSuperclusters.primaryId)
+                ? rawTopicSuperclusters.primaryId
+                : null,
+              primaryLabel:
+                typeof rawTopicSuperclusters.primaryLabel === 'string'
+                  ? rawTopicSuperclusters.primaryLabel
+                  : null,
+            }
+          : null;
+
       const slug = attributes.slug || toPublicationSlug({
         slug: attributes.slug,
         title: attributes.title,
@@ -817,6 +845,7 @@ export function transformGraphPublicationData(strapiPublications) {
         community: typeof attributes.community === 'number' ? attributes.community : null,
         communityLabel: attributes.communityLabel || '',
         secondaryClusters,
+        topicSuperclusters,
         _strapi: publication,
       };
     })

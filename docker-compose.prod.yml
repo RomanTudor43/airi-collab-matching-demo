@@ -73,6 +73,9 @@ services:
       NEXT_PUBLIC_STRAPI_URL: ${NEXT_PUBLIC_STRAPI_URL:-${PUBLIC_STRAPI_URL}}
       # Server-to-server base URL inside the Docker network.
       STRAPI_INTERNAL_URL: ${STRAPI_INTERNAL_URL:-http://strapi:1337}
+      GRAPH_MESO_MIN_NODE_PAPERS: ${GRAPH_MESO_MIN_NODE_PAPERS:-3}
+      GRAPH_MESO_MAX_NODES: ${GRAPH_MESO_MAX_NODES:-20}
+      GRAPH_MESO_MIN_NODES: ${GRAPH_MESO_MIN_NODES:-8}
     ports:
       - "3000:3000"
     depends_on:

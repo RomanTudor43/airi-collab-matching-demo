@@ -5,8 +5,8 @@ import {
   transformGraphPublicationData,
   transformGraphLinkData,
 } from "@/lib/strapi";
-import { slugify } from "@/lib/slug";
 import PaperGraphClient from "../../PaperGraphClient";
+import { buildMesoTopics, filterPublicationsForMesoTopic } from "../../meso";
 
 const COMMUNITY_COLORS = [
   "#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4", "#ffeaa7",
@@ -35,10 +35,11 @@ export default async function TopicPublicationsPage({ params }) {
   const allPublications = transformGraphPublicationData(publicationsRaw);
   if (allPublications.length === 0) notFound();
 
-  // Filter to the topic matching the slug
-  const publications = allPublications.filter(
-    (p) => slugify(p.topics?.[0] || "other") === topicSlug
-  );
+  const mesoTopics = buildMesoTopics(allPublications);
+  const selectedTopic = mesoTopics.find((topic) => topic.slug === topicSlug);
+  if (!selectedTopic) notFound();
+
+  const publications = filterPublicationsForMesoTopic(allPublications, selectedTopic);
   if (publications.length === 0) notFound();
 
   // Build links scoped to visible publications only
@@ -50,7 +51,7 @@ export default async function TopicPublicationsPage({ params }) {
     allPublications.find((p) => p.communityLabel)?.communityLabel ||
     `Community ${communityId}`;
 
-  const topicLabel = publications[0]?.topics?.[0] || topicSlug;
+  const topicLabel = selectedTopic.label;
   const commColor = COMMUNITY_COLORS[communityId % COMMUNITY_COLORS.length];
 
   return (

@@ -2,6 +2,7 @@ import json
 import hashlib
 import logging
 import os
+import re
 from collections import Counter, defaultdict
 from functools import lru_cache
 
@@ -23,11 +24,212 @@ TARGET_CLUSTER_RANGE = (6, 10)
 # Label for papers that don't fit any cluster (noise points in HDBSCAN)
 NOISE_CLUSTER_LABEL = "Interdisciplinary & Emerging"
 
+# Label generation and hygiene settings
+LABEL_MAX_PARTS = 2
+LABEL_MAX_LENGTH = 80
+REPRESENTATIVE_PAPERS_PER_CLUSTER = 6
+LOW_ALIGNMENT_THRESHOLD = 0.34
+
+LABEL_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "by",
+    "for",
+    "from",
+    "in",
+    "into",
+    "of",
+    "on",
+    "or",
+    "the",
+    "to",
+    "with",
+    "via",
+    "using",
+}
+
+LABEL_GENERIC_TOKENS = {
+    "analysis",
+    "application",
+    "applications",
+    "approach",
+    "approaches",
+    "case",
+    "cases",
+    "design",
+    "evaluation",
+    "framework",
+    "frameworks",
+    "method",
+    "methods",
+    "model",
+    "models",
+    "paper",
+    "performance",
+    "research",
+    "results",
+    "review",
+    "study",
+    "studies",
+    "system",
+    "systems",
+}
+
+GENERIC_TOPIC_SUFFIXES = [
+    " and applications",
+    " applications",
+    " and methods",
+    " methods",
+    " and techniques",
+    " techniques",
+    " studies",
+]
+
 
 @lru_cache(maxsize=None)
 def _load_sentence_transformer(model_name):
     log.info(f"Loading model ({model_name})...")
     return SentenceTransformer(model_name)
+
+
+def _tokenize_text(value):
+    if not value:
+        return []
+    return [token.lower() for token in re.findall(r"[A-Za-z0-9]+", value)]
+
+
+def _normalize_phrase(value):
+    return " ".join(_tokenize_text(value))
+
+
+def _sanitize_topic_phrase(topic):
+    if not isinstance(topic, str):
+        return ""
+
+    cleaned = re.sub(r"\s+", " ", topic).strip(" -:;,.\t\n")
+    if not cleaned:
+        return ""
+
+    lower_cleaned = cleaned.lower()
+    for suffix in GENERIC_TOPIC_SUFFIXES:
+        if lower_cleaned.endswith(suffix):
+            cleaned = cleaned[: -len(suffix)].strip(" -:;,.\t\n")
+            lower_cleaned = cleaned.lower()
+
+    tokens = [token for token in _tokenize_text(cleaned) if token not in LABEL_STOPWORDS]
+    if not tokens:
+        return ""
+    if all(token in LABEL_GENERIC_TOKENS for token in tokens):
+        return ""
+
+    if len(cleaned) > 60:
+        cleaned = f"{cleaned[:57].rstrip()}..."
+    return cleaned
+
+
+def _extract_title_phrases(title):
+    tokens = [
+        token
+        for token in _tokenize_text(title)
+        if token not in LABEL_STOPWORDS and token not in LABEL_GENERIC_TOKENS and len(token) > 2
+    ]
+    if not tokens:
+        return Counter()
+
+    phrases = Counter()
+    for token in tokens:
+        phrases[token] += 1
+
+    for index in range(len(tokens) - 1):
+        phrases[f"{tokens[index]} {tokens[index + 1]}"] += 2
+
+    return phrases
+
+
+def _choose_representative_indices(cluster_indices, embeddings, limit=REPRESENTATIVE_PAPERS_PER_CLUSTER):
+    if not cluster_indices:
+        return []
+    if embeddings is None or len(cluster_indices) <= limit:
+        return cluster_indices[:limit]
+
+    cluster_vectors = embeddings[cluster_indices]
+    centroid = cluster_vectors.mean(axis=0)
+    centroid_norm = np.linalg.norm(centroid)
+    if centroid_norm == 0:
+        return cluster_indices[:limit]
+
+    centroid = centroid / centroid_norm
+    scored = [(idx, float(np.dot(embeddings[idx], centroid))) for idx in cluster_indices]
+    scored.sort(key=lambda item: item[1], reverse=True)
+    return [idx for idx, _ in scored[:limit]]
+
+
+def _phrases_overlap(phrase_a, phrase_b):
+    tokens_a = set(_tokenize_text(phrase_a))
+    tokens_b = set(_tokenize_text(phrase_b))
+    if not tokens_a or not tokens_b:
+        return False
+    overlap = len(tokens_a & tokens_b)
+    return overlap / min(len(tokens_a), len(tokens_b)) >= 0.75
+
+
+def _select_label_phrases(candidates, max_parts=LABEL_MAX_PARTS):
+    best_by_normalized = {}
+    for phrase, score in candidates:
+        normalized = _normalize_phrase(phrase)
+        if not normalized:
+            continue
+        previous = best_by_normalized.get(normalized)
+        if previous is None or score > previous[1]:
+            best_by_normalized[normalized] = (phrase.strip(), score)
+
+    sorted_candidates = sorted(best_by_normalized.values(), key=lambda item: item[1], reverse=True)
+    selected = []
+    for phrase, _score in sorted_candidates:
+        if any(_phrases_overlap(phrase, existing) for existing in selected):
+            continue
+        selected.append(phrase)
+        if len(selected) >= max_parts:
+            break
+    return selected
+
+
+def _format_title_phrase(phrase):
+    if not phrase:
+        return ""
+    return " ".join(word.capitalize() for word in phrase.split())
+
+
+def _build_cluster_label(community_id, papers, cluster_indices, topic_counter, embeddings):
+    candidate_phrases = []
+
+    for topic, count in topic_counter.most_common(8):
+        candidate_phrases.append((topic, float(count) * 2.0))
+
+    representative_indices = _choose_representative_indices(cluster_indices, embeddings)
+    title_phrase_counter = Counter()
+    for index in representative_indices:
+        title_phrase_counter.update(_extract_title_phrases(papers[index].get("title") or ""))
+
+    for phrase, count in title_phrase_counter.most_common(12):
+        if " " not in phrase and count < 2:
+            continue
+        candidate_phrases.append((_format_title_phrase(phrase), float(count)))
+
+    selected = _select_label_phrases(candidate_phrases)
+    if not selected and topic_counter:
+        selected = [topic_counter.most_common(1)[0][0]]
+    if not selected:
+        return f"Cluster {community_id}"
+
+    label = " & ".join(selected[:LABEL_MAX_PARTS])
+    if len(label) > LABEL_MAX_LENGTH:
+        label = f"{label[: LABEL_MAX_LENGTH - 3].rstrip()}..."
+    return label
 
 
 def build_embeddings(papers, model_name="all-MiniLM-L6-v2"):
@@ -283,7 +485,7 @@ def detect_communities(filtered_papers, embeddings, links, resolution=1.0):
     
     if not result[0]:  # communities dict is empty
         log.warning("HDBSCAN produced no clusters, falling back to Louvain")
-        communities, labels = _cluster_with_louvain(filtered_papers, links, paper_ids, resolution)
+        communities, labels = _cluster_with_louvain(filtered_papers, links, paper_ids, resolution, embeddings)
         secondary_clusters = {}  # Louvain doesn't support soft membership
     else:
         communities, labels, secondary_clusters = result
@@ -374,12 +576,12 @@ def _cluster_with_hdbscan(filtered_papers, embeddings, paper_ids):
         secondary_clusters[paper_id] = secondaries[:2]
     
     # Generate labels from dominant topics
-    labels = _label_communities_from_topics(filtered_papers, communities)
+    labels = _label_communities_from_topics(filtered_papers, communities, embeddings)
     
     return communities, labels, secondary_clusters
 
 
-def _cluster_with_louvain(filtered_papers, links, paper_ids, resolution):
+def _cluster_with_louvain(filtered_papers, links, paper_ids, resolution, embeddings=None):
     """Fallback: use Louvain community detection on the similarity graph."""
     try:
         import networkx as nx
@@ -407,33 +609,37 @@ def _cluster_with_louvain(filtered_papers, links, paper_ids, resolution):
         for paper_id in members:
             communities[paper_id] = community_id
 
-    labels = _label_communities_from_topics(filtered_papers, communities)
+    labels = _label_communities_from_topics(filtered_papers, communities, embeddings)
     log.info(f"Louvain detected {len(communities_list)} communities")
 
     return communities, labels
 
 
-def _label_communities_from_topics(papers, communities):
-    """Generate human-readable cluster labels from dominant topics."""
-    topic_counts = {}
-    for paper in papers:
+def _label_communities_from_topics(papers, communities, embeddings=None):
+    """Generate cluster labels from dominant topics and representative paper titles."""
+    community_to_indices = defaultdict(list)
+    topic_counts = defaultdict(Counter)
+
+    for index, paper in enumerate(papers):
         community_id = communities.get(paper_identifier(paper))
         if community_id is None:
             continue
-        if community_id not in topic_counts:
-            topic_counts[community_id] = Counter()
+
+        community_to_indices[community_id].append(index)
         for topic in paper.get("topics", []):
-            topic_counts[community_id][topic] += 1
+            cleaned_topic = _sanitize_topic_phrase(topic)
+            if cleaned_topic:
+                topic_counts[community_id][cleaned_topic] += 1
 
     labels = {}
-    for community_id, counter in topic_counts.items():
-        top_topics = counter.most_common(3)
-        if top_topics:
-            # Use top 2 topics for concise label, fallback to 1 if only 1 exists
-            label_topics = [t for t, _ in top_topics[:2]]
-            labels[community_id] = " & ".join(label_topics)
-        else:
-            labels[community_id] = f"Cluster {community_id}"
+    for community_id, cluster_indices in community_to_indices.items():
+        labels[community_id] = _build_cluster_label(
+            community_id,
+            papers,
+            cluster_indices,
+            topic_counts[community_id],
+            embeddings,
+        )
 
     return labels
 
@@ -530,33 +736,35 @@ def cluster_topics(topics, embeddings, min_cluster_size=None, min_samples=None):
 
 
 def label_topic_clusters(clusters_to_topics):
-    """Generate labels for topic superclusters based on common theme."""
+    """Generate labels for topic superclusters from strongest topic phrases."""
     labels = {}
     for cluster_id, topics in clusters_to_topics.items():
         if not topics:
             labels[cluster_id] = f"Topic Group {cluster_id}"
             continue
-        
-        # Find common words/phrases in topics
-        word_counts = Counter()
+
+        phrase_counts = Counter()
+        token_counts = Counter()
         for topic in topics:
-            words = topic.lower().split()
-            for word in words:
-                # Skip common words
-                if len(word) > 3 and word not in {'and', 'the', 'for', 'with', 'from'}:
-                    word_counts[word] += 1
-        
-        # Use most common meaningful word(s) as label
-        top_words = word_counts.most_common(2)
-        if top_words:
-            label_parts = [w.title() for w, _ in top_words if _ > 1]
-            if label_parts:
-                labels[cluster_id] = " & ".join(label_parts[:2])
-            else:
-                # Fall back to shortest topic name
-                labels[cluster_id] = min(topics, key=len)[:40]
-        else:
-            labels[cluster_id] = topics[0][:40] if topics else f"Topic Group {cluster_id}"
+            cleaned_topic = _sanitize_topic_phrase(topic)
+            if cleaned_topic:
+                phrase_counts[cleaned_topic] += 1
+                for token in _tokenize_text(cleaned_topic):
+                    if token in LABEL_STOPWORDS or token in LABEL_GENERIC_TOKENS:
+                        continue
+                    token_counts[token] += 1
+
+        candidates = [(phrase, float(count) * 2.0) for phrase, count in phrase_counts.most_common(10)]
+        for token, count in token_counts.most_common(6):
+            candidates.append((_format_title_phrase(token), float(count)))
+
+        selected = _select_label_phrases(candidates)
+        if not selected and phrase_counts:
+            selected = [phrase_counts.most_common(1)[0][0]]
+        if not selected:
+            selected = [topics[0][:40] if topics else f"Topic Group {cluster_id}"]
+
+        labels[cluster_id] = " & ".join(selected[:LABEL_MAX_PARTS])
     
     return labels
 
@@ -614,6 +822,210 @@ def assign_paper_topic_clusters(papers, topic_to_cluster):
                 clusters.add(topic_to_cluster[topic])
         assignments[paper_id] = sorted(clusters)
     return assignments
+
+
+def build_paper_topic_superclusters(papers, topic_hierarchy):
+    """Build per-paper topic supercluster metadata for downstream sync/UI use."""
+    topic_to_cluster = topic_hierarchy.get("topic_to_cluster", {}) if topic_hierarchy else {}
+    cluster_labels = topic_hierarchy.get("cluster_labels", {}) if topic_hierarchy else {}
+    if not topic_to_cluster:
+        return {}
+
+    assignments = {}
+    for paper in papers:
+        paper_id = paper_identifier(paper)
+        if not paper_id:
+            continue
+
+        cluster_counter = Counter()
+        for topic in paper.get("topics", []):
+            cluster_id = topic_to_cluster.get(topic)
+            if cluster_id is not None:
+                cluster_counter[int(cluster_id)] += 1
+
+        if not cluster_counter:
+            assignments[paper_id] = {
+                "ids": [],
+                "labels": [],
+                "primaryId": None,
+                "primaryLabel": None,
+            }
+            continue
+
+        ordered_ids = [cluster_id for cluster_id, _ in cluster_counter.most_common()]
+        ordered_labels = [cluster_labels.get(cluster_id, f"Topic Group {cluster_id}") for cluster_id in ordered_ids]
+
+        assignments[paper_id] = {
+            "ids": ordered_ids,
+            "labels": ordered_labels,
+            "primaryId": ordered_ids[0],
+            "primaryLabel": ordered_labels[0],
+        }
+
+    return assignments
+
+
+def _community_index_map(papers, communities):
+    mapping = defaultdict(list)
+    for index, paper in enumerate(papers):
+        community_id = communities.get(paper_identifier(paper))
+        if community_id is not None:
+            mapping[int(community_id)].append(index)
+    return mapping
+
+
+def _cluster_label_alignment(community_id, label, papers, cluster_indices, embeddings):
+    label_tokens = {
+        token
+        for token in _tokenize_text(label)
+        if token not in LABEL_STOPWORDS and token not in LABEL_GENERIC_TOKENS
+    }
+    if not label_tokens:
+        return {
+            "communityId": int(community_id),
+            "label": label,
+            "score": 0.0,
+            "supportTokens": [],
+        }
+
+    topic_token_counter = Counter()
+    for index in cluster_indices:
+        for topic in papers[index].get("topics", []):
+            for token in _tokenize_text(_sanitize_topic_phrase(topic)):
+                if token in LABEL_STOPWORDS or token in LABEL_GENERIC_TOKENS:
+                    continue
+                topic_token_counter[token] += 1
+
+    title_token_counter = Counter()
+    representative_indices = _choose_representative_indices(cluster_indices, embeddings)
+    for index in representative_indices:
+        title_tokens = [
+            token
+            for token in _tokenize_text(papers[index].get("title") or "")
+            if token not in LABEL_STOPWORDS and token not in LABEL_GENERIC_TOKENS and len(token) > 2
+        ]
+        title_token_counter.update(title_tokens)
+
+    support_tokens = [token for token, _ in (topic_token_counter + title_token_counter).most_common(16)]
+    support_token_set = set(support_tokens)
+    overlap = len(label_tokens & support_token_set)
+    score = overlap / len(label_tokens)
+
+    return {
+        "communityId": int(community_id),
+        "label": label,
+        "score": round(float(score), 4),
+        "supportTokens": support_tokens[:8],
+    }
+
+
+def compute_graph_quality_metrics(
+    papers,
+    embeddings,
+    communities,
+    community_labels,
+    paper_topic_superclusters,
+):
+    """Compute tuning/quality metrics for macro and meso graph levels."""
+    metrics = {
+        "paperCount": len(papers),
+        "clusteredPaperCount": 0,
+        "macro": {
+            "clusterCount": 0,
+            "clusterSizes": [],
+            "largestClusterShare": 0.0,
+            "normalizedEntropy": 0.0,
+            "targetRange": list(TARGET_CLUSTER_RANGE),
+        },
+        "meso": {
+            "nodeCountByMacro": {},
+            "medianNodesPerMacro": 0.0,
+            "meanNodesPerMacro": 0.0,
+            "maxNodesPerMacro": 0,
+        },
+        "labels": {
+            "weightedAlignmentScore": 0.0,
+            "lowAlignmentClusters": [],
+            "lowAlignmentThreshold": LOW_ALIGNMENT_THRESHOLD,
+        },
+        "suggestedTuning": [],
+    }
+
+    community_indices = _community_index_map(papers, communities)
+    if not community_indices:
+        return metrics
+
+    cluster_sizes = sorted((len(indices) for indices in community_indices.values()), reverse=True)
+    clustered_count = sum(cluster_sizes)
+    metrics["clusteredPaperCount"] = clustered_count
+    metrics["macro"]["clusterCount"] = len(cluster_sizes)
+    metrics["macro"]["clusterSizes"] = cluster_sizes
+
+    if clustered_count > 0:
+        metrics["macro"]["largestClusterShare"] = round(cluster_sizes[0] / clustered_count, 4)
+
+    if len(cluster_sizes) > 1 and clustered_count > 0:
+        probabilities = np.array(cluster_sizes, dtype=np.float64) / float(clustered_count)
+        entropy = float(-(probabilities * np.log2(probabilities)).sum())
+        max_entropy = float(np.log2(len(cluster_sizes)))
+        metrics["macro"]["normalizedEntropy"] = round(entropy / max_entropy, 4) if max_entropy > 0 else 0.0
+
+    meso_counts = {}
+    for community_id, indices in community_indices.items():
+        meso_keys = set()
+        for index in indices:
+            assignment = paper_topic_superclusters.get(paper_identifier(papers[index]), {})
+            primary_id = assignment.get("primaryId")
+            if primary_id is not None:
+                meso_keys.add(int(primary_id))
+        meso_counts[int(community_id)] = len(meso_keys)
+
+    meso_values = list(meso_counts.values())
+    metrics["meso"]["nodeCountByMacro"] = meso_counts
+    if meso_values:
+        metrics["meso"]["medianNodesPerMacro"] = round(float(np.median(meso_values)), 2)
+        metrics["meso"]["meanNodesPerMacro"] = round(float(np.mean(meso_values)), 2)
+        metrics["meso"]["maxNodesPerMacro"] = int(max(meso_values))
+
+    alignments = []
+    weighted_alignment_sum = 0.0
+    for community_id, indices in community_indices.items():
+        label = community_labels.get(community_id, f"Cluster {community_id}")
+        alignment = _cluster_label_alignment(community_id, label, papers, indices, embeddings)
+        alignments.append(alignment)
+        weighted_alignment_sum += alignment["score"] * len(indices)
+
+    if clustered_count > 0:
+        metrics["labels"]["weightedAlignmentScore"] = round(weighted_alignment_sum / clustered_count, 4)
+
+    low_alignment = [
+        entry
+        for entry in alignments
+        if entry["score"] < LOW_ALIGNMENT_THRESHOLD
+    ]
+    low_alignment.sort(key=lambda entry: entry["score"])
+    metrics["labels"]["lowAlignmentClusters"] = low_alignment[:8]
+
+    if metrics["macro"]["clusterCount"] > TARGET_CLUSTER_RANGE[1]:
+        metrics["suggestedTuning"].append(
+            "Increase GRAPH_HDBSCAN_MIN_CLUSTER_SIZE or GRAPH_HDBSCAN_MIN_SAMPLES to reduce macro fragmentation."
+        )
+    elif metrics["macro"]["clusterCount"] < TARGET_CLUSTER_RANGE[0]:
+        metrics["suggestedTuning"].append(
+            "Decrease GRAPH_HDBSCAN_MIN_CLUSTER_SIZE or GRAPH_HDBSCAN_MIN_SAMPLES to increase macro granularity."
+        )
+
+    if metrics["meso"]["medianNodesPerMacro"] > 20:
+        metrics["suggestedTuning"].append(
+            "Increase GRAPH_TOPIC_HDBSCAN_MIN_CLUSTER_SIZE to reduce meso node count per macro cluster."
+        )
+
+    if metrics["labels"]["weightedAlignmentScore"] < 0.5:
+        metrics["suggestedTuning"].append(
+            "Inspect low-alignment clusters and adjust label hygiene or topic quality for stronger semantic labels."
+        )
+
+    return metrics
 
 
 def save_index(embeddings, papers, path):

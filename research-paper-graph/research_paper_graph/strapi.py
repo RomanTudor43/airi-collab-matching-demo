@@ -194,6 +194,7 @@ class StrapiClient:
                 "fields[9]": "embeddingModel",
                 "fields[10]": "embeddingSourceHash",
                 "fields[11]": "sourceKind",
+                "fields[12]": "metadata",
                 "populate[authors][fields][0]": "fullName",
             },
         )
@@ -232,6 +233,7 @@ class StrapiClient:
                     "embedding": attributes.get("embedding"),
                     "embeddingModel": attributes.get("embeddingModel"),
                     "embeddingSourceHash": attributes.get("embeddingSourceHash"),
+                    "metadata": attributes.get("metadata") if isinstance(attributes.get("metadata"), dict) else {},
                 }
             )
             publication_map[graph_id] = document_id
@@ -462,6 +464,8 @@ class StrapiClient:
         community_id=None,
         community_label=None,
         secondary_clusters=None,
+        topic_superclusters=None,
+        existing_metadata=None,
         indexed_at=None,
         clear_missing=False,
     ):
@@ -491,6 +495,25 @@ class StrapiClient:
             payload["secondaryClusters"] = secondary_clusters
         elif clear_missing:
             payload["secondaryClusters"] = None
+
+        base_metadata = existing_metadata if isinstance(existing_metadata, dict) else {}
+        metadata = dict(base_metadata)
+        graph_metadata = metadata.get("graph")
+        if not isinstance(graph_metadata, dict):
+            graph_metadata = {}
+
+        has_existing_topic_superclusters = "topicSuperclusters" in graph_metadata
+        if topic_superclusters and topic_superclusters.get("ids"):
+            graph_metadata["topicSuperclusters"] = topic_superclusters
+        elif clear_missing and has_existing_topic_superclusters:
+            graph_metadata.pop("topicSuperclusters", None)
+
+        if graph_metadata:
+            metadata["graph"] = graph_metadata
+            payload["metadata"] = metadata
+        elif clear_missing and "graph" in metadata:
+            metadata.pop("graph", None)
+            payload["metadata"] = metadata or None
 
         return payload
 

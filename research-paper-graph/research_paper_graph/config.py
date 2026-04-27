@@ -14,6 +14,7 @@ class RuntimeSettings:
     graph_ai_model: str
     graph_hdbscan_min_cluster_size: int
     graph_hdbscan_min_samples: int
+    graph_secondary_cluster_distance_threshold: float
     graph_topic_hdbscan_min_cluster_size: int
     graph_topic_hdbscan_min_samples: int
 
@@ -47,6 +48,9 @@ def load_runtime_settings(current_file=None):
         graph_ai_model=os.getenv("GRAPH_AI_MODEL", "all-MiniLM-L6-v2"),
         graph_hdbscan_min_cluster_size=int(os.getenv("GRAPH_HDBSCAN_MIN_CLUSTER_SIZE", "20")),
         graph_hdbscan_min_samples=int(os.getenv("GRAPH_HDBSCAN_MIN_SAMPLES", "5")),
+        graph_secondary_cluster_distance_threshold=float(
+            os.getenv("GRAPH_SECONDARY_CLUSTER_DISTANCE_THRESHOLD", "0.7")
+        ),
         graph_topic_hdbscan_min_cluster_size=int(os.getenv("GRAPH_TOPIC_HDBSCAN_MIN_CLUSTER_SIZE", "3")),
         graph_topic_hdbscan_min_samples=int(os.getenv("GRAPH_TOPIC_HDBSCAN_MIN_SAMPLES", "2")),
     )

@@ -4,6 +4,7 @@ import argparse
 import logging
 
 from .config import load_runtime_settings
+from . import graph as gg
 from .pipeline import build_graph_artifacts, save_paper_snapshot
 from .sources import fetch_papers
 from .strapi_sync import (
@@ -22,6 +23,7 @@ def _apply_runtime_graph_settings(settings):
     """Override graph module clustering knobs from environment settings."""
     gg.HDBSCAN_MIN_CLUSTER_SIZE = settings.graph_hdbscan_min_cluster_size
     gg.HDBSCAN_MIN_SAMPLES = settings.graph_hdbscan_min_samples
+    gg.SECONDARY_CLUSTER_DISTANCE_THRESHOLD = settings.graph_secondary_cluster_distance_threshold
     gg.TOPIC_HDBSCAN_MIN_CLUSTER_SIZE = settings.graph_topic_hdbscan_min_cluster_size
     gg.TOPIC_HDBSCAN_MIN_SAMPLES = settings.graph_topic_hdbscan_min_samples
 
@@ -56,6 +58,8 @@ def build_parser():
 
 
 def run(args):
+    _apply_runtime_graph_settings(SETTINGS)
+
     sim_thresh = SETTINGS.graph_similarity_threshold
     dup_thresh = SETTINGS.graph_duplicate_threshold
     model_name = SETTINGS.graph_ai_model

@@ -305,6 +305,53 @@ class StrapiClient:
         log.info(f"  Loaded {len(graph_macros)} graph macros")
         return graph_macros
 
+    def load_graph_mesos(self):
+        """Load graph meso records for assignment mapping."""
+        log.info("Loading graph mesos from Strapi...")
+        mesos = self._fetch_all_pages(
+            "graph-mesos",
+            {
+                "fields[0]": "documentId",
+                "fields[1]": "name",
+                "fields[2]": "slug",
+                "fields[3]": "keywords",
+                "fields[4]": "description",
+                "fields[5]": "isActive",
+                "fields[6]": "sortOrder",
+                "fields[7]": "publishedAt",
+                "populate[macro][fields][0]": "documentId",
+                "populate[macro][fields][1]": "id",
+            },
+        )
+
+        graph_mesos = []
+        for meso in mesos:
+            attributes = meso.get("attributes", meso)
+            document_id = meso.get("documentId") or meso.get("id")
+            if not document_id:
+                continue
+            macro_data = self._extract_relation_items(attributes.get("macro"))
+            macro_id = None
+            if macro_data:
+                macro_id = macro_data[0].get("documentId") or macro_data[0].get("id")
+            graph_mesos.append(
+                {
+                    "documentId": document_id,
+                    "name": attributes.get("name") or "",
+                    "slug": attributes.get("slug") or "",
+                    "keywords": attributes.get("keywords") or "",
+                    "description": self._extract_blocks_text(attributes.get("description")),
+                    "isActive": attributes.get("isActive", True),
+                    "sortOrder": attributes.get("sortOrder"),
+                    "publishedAt": attributes.get("publishedAt"),
+                    "macro": macro_id,
+                }
+            )
+
+        graph_mesos.sort(key=lambda meso: (meso.get("slug") or "").lower())
+        log.info(f"  Loaded {len(graph_mesos)} graph mesos")
+        return graph_mesos
+
     def get_publication_source_kind(self, document_id):
         return self._pub_source_kind.get(document_id)
 
@@ -637,6 +684,37 @@ class StrapiClient:
             return True
         except requests.exceptions.RequestException as exc:
             log.error(f"Failed to link publications: {exc}")
+            return False
+
+    def create_graph_meso(self, payload):
+        """Create a graph meso entry."""
+        if "publishedAt" not in payload:
+            payload = {**payload, "publishedAt": self._utc_now()}
+        try:
+            response = requests.post(
+                f"{self.api_url}/graph-mesos",
+                headers=self.headers,
+                json={"data": payload},
+            )
+            response.raise_for_status()
+            created = response.json().get("data", {})
+            return created.get("documentId") or created.get("id")
+        except requests.exceptions.RequestException as exc:
+            log.error(f"Failed to create graph meso: {exc}")
+            return None
+
+    def update_graph_meso(self, document_id, payload):
+        """Update a graph meso entry."""
+        try:
+            response = requests.put(
+                f"{self.api_url}/graph-mesos/{document_id}",
+                headers=self.headers,
+                json={"data": payload},
+            )
+            response.raise_for_status()
+            return True
+        except requests.exceptions.RequestException as exc:
+            log.error(f"Failed to update graph meso {document_id}: {exc}")
             return False
 
     def clear_graph_links(self):

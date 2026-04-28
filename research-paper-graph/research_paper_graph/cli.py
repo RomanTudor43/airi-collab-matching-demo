@@ -11,6 +11,7 @@ from .strapi_sync import (
     create_client,
     replace_graph_links,
     update_macro_assignments,
+    update_meso_assignments,
     update_graph_metadata,
     upload_publications,
 )
@@ -119,12 +120,21 @@ def run(args):
 
     update_graph_metadata(strapi, global_graph, global_pub_map, logger=log)
 
-    update_macro_assignments(
+    _macro_updated, macro_map = update_macro_assignments(
         strapi,
         global_graph,
         global_papers,
         global_pub_map,
         model_name,
+        logger=log,
+    )
+
+    update_meso_assignments(
+        strapi,
+        global_graph,
+        global_papers,
+        global_pub_map,
+        macro_map,
         logger=log,
     )
 

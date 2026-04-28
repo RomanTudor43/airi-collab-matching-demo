@@ -10,6 +10,11 @@ Date: 2026-04-28
 - Intersections are based on cross-links, not tags.
 - Meso links are always visible and weighted by strength; hover emphasizes linked nodes and edges.
 
+## Progress (as of 2026-04-28)
+- Step 1 implemented: macro assignments are regenerated on global rebuild for non-manual papers.
+- Step 2 implemented: meso nodes are upserted from topic superclusters and meso tags assigned for non-manual papers.
+- Pending: Step 3 (frontend placement), Step 4 (meso link rendering), Step 5 (intersection view).
+
 ## Decisions locked
 - Intersection view is based on cross-links (GraphLink edges that connect papers in different macros).
 - No GraphIntersection content type.
@@ -28,6 +33,8 @@ Date: 2026-04-28
 - Meso view lines are aesthetic only (spatial proximity), not link-based.
 - graphMacroPrimary/graphMacroTags/graphMesoTags exist in Strapi but are not used for placement.
 - Meso UI uses metadata.graph.topicSuperclusters, not graphMesoTags.
+- Pipeline now writes graphMacroPrimary/graphMacroTags on global rebuild for non-manual papers.
+- Pipeline now writes graphMesoTags and upserts GraphMeso nodes on global rebuild for non-manual papers.
 
 ### Implications
 - Changing graphMacroPrimary/graphMacroTags/graphMesoTags currently has no effect on placement.
@@ -117,6 +124,12 @@ Tasks:
 3. For each non-manual paper, compute macro scores and select primary + tags.
 4. Update graphMacroPrimary and graphMacroTags for non-manual papers only.
 
+Status:
+- Implemented in research-paper-graph/research_paper_graph/strapi_sync.py as update_macro_assignments.
+- Wired into global rebuild in research-paper-graph/research_paper_graph/cli.py.
+- Returns a paper_id -> macro_id map for downstream meso majority votes.
+- Tag rule: top-N (default 3), excluding the primary.
+
 ### Step 2: Pipeline meso assignment
 Files:
 - research-paper-graph/research_paper_graph/graph.py (use existing topic superclusters)
@@ -128,6 +141,16 @@ Tasks:
 2. Create/update GraphMeso entries for each supercluster id.
 3. Assign GraphMeso.macro by majority macroPrimary.
 4. Write graphMesoTags for non-manual papers only.
+
+Status:
+- Implemented in research-paper-graph/research_paper_graph/strapi_sync.py as update_meso_assignments.
+- Wired into global rebuild in research-paper-graph/research_paper_graph/cli.py after macro assignment.
+- Uses slug sc-<id> for stable identity.
+- Name uses the cluster label; if labels collide, it appends "(<id>)" for uniqueness.
+- Keywords use the base label (without the id suffix).
+- Macro is assigned by majority vote from the macro map produced in Step 1.
+- Newly created GraphMeso entries are auto-published.
+- Limitation: papers without topic superclusters (e.g., missing topics/abstracts) will not get graphMesoTags.
 
 ### Step 3: Frontend placement
 Files:

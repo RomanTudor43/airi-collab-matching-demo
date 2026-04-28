@@ -5,6 +5,7 @@ from . import graph as gg
 from .strapi import StrapiClient
 
 DEFAULT_MACRO_TAG_TOP_N = 3
+MESO_SLUG_PREFIX = "sc-"
 
 
 def _build_macro_text(macro):
@@ -211,7 +212,7 @@ def update_macro_assignments(
     macros = strapi.load_graph_macros()
     if not macros:
         log.warning("No graph macros found; skipping macro assignment")
-        return 0
+        return 0, {}
 
     active_macros = [macro for macro in macros if macro.get("isActive", True)]
     if not active_macros:
@@ -221,7 +222,7 @@ def update_macro_assignments(
     macro_embeddings = gg.build_text_embeddings(macro_texts, model_name)
     if len(macro_embeddings) == 0:
         log.warning("No macro embeddings produced; skipping macro assignment")
-        return 0
+        return 0, {}
 
     macro_ids = [macro["documentId"] for macro in active_macros]
 
@@ -254,6 +255,7 @@ def update_macro_assignments(
     updated = 0
     skipped_manual = 0
     skipped_missing = 0
+    paper_macro_map = {}
 
     for paper in papers:
         paper_id = gg.paper_identifier(paper)
@@ -296,9 +298,141 @@ def update_macro_assignments(
 
         if strapi.update_publication(document_id, payload):
             updated += 1
+            paper_macro_map[paper_id] = primary_id
 
     log.info(
         "Macro assignments: %s updated, %s manual skipped, %s missing/empty",
+        updated,
+        skipped_manual,
+        skipped_missing,
+    )
+    return updated, paper_macro_map
+
+
+def _build_meso_slug(cluster_id):
+    return f"{MESO_SLUG_PREFIX}{int(cluster_id)}"
+
+
+def _build_meso_name(cluster_id, cluster_labels):
+    label = cluster_labels.get(cluster_id)
+    if isinstance(label, str) and label.strip():
+        return label.strip()
+    return f"Topic Group {cluster_id}"
+
+
+def update_meso_assignments(strapi, graph, papers, pub_map, paper_macro_map=None, logger=None):
+    """Create/update graph meso nodes and assign meso tags for non-manual papers."""
+    log = logger or logging.getLogger("paper-sync")
+
+    topic_hierarchy = graph.topic_hierarchy or {}
+    cluster_labels = topic_hierarchy.get("cluster_labels", {})
+    paper_superclusters = graph.paper_topic_superclusters or {}
+
+    if not paper_superclusters:
+        log.warning("No topic superclusters available; skipping meso assignment")
+        return 0
+
+    if paper_macro_map is None:
+        paper_macro_map = {}
+        log.warning("No macro assignments map provided; meso macro links may be empty")
+
+    # Build macro majority per meso from current macro assignments.
+    macro_votes = {}
+    for paper in papers:
+        paper_id = gg.paper_identifier(paper)
+        if not paper_id:
+            continue
+        assignment = paper_superclusters.get(paper_id, {})
+        primary_id = assignment.get("primaryId")
+        if primary_id is None:
+            continue
+        macro_id = paper_macro_map.get(paper_id)
+        if not macro_id:
+            continue
+        votes = macro_votes.setdefault(int(primary_id), {})
+        votes[macro_id] = votes.get(macro_id, 0) + 1
+
+    existing_mesos = strapi.load_graph_mesos()
+    meso_by_slug = {meso.get("slug"): meso for meso in existing_mesos if meso.get("slug")}
+
+    cluster_ids = set()
+    for assignment in paper_superclusters.values():
+        ids = assignment.get("ids") or []
+        for cid in ids:
+            if isinstance(cid, int):
+                cluster_ids.add(cid)
+            elif isinstance(cid, str) and cid.isdigit():
+                cluster_ids.add(int(cid))
+
+    if not cluster_ids:
+        log.warning("No meso cluster ids found; skipping meso assignment")
+        return 0
+
+    base_labels = {}
+    label_counts = {}
+    for cluster_id in cluster_ids:
+        label = _build_meso_name(cluster_id, cluster_labels)
+        base_labels[cluster_id] = label
+        label_counts[label] = label_counts.get(label, 0) + 1
+
+    meso_id_by_cluster = {}
+    for cluster_id in sorted(cluster_ids):
+        slug = _build_meso_slug(cluster_id)
+        base_label = base_labels[cluster_id]
+        name = f"{base_label} ({cluster_id})" if label_counts.get(base_label, 0) > 1 else base_label
+        keywords = base_label
+        macro_id = None
+        votes = macro_votes.get(int(cluster_id), {})
+        if votes:
+            macro_id = max(votes.items(), key=lambda item: item[1])[0]
+
+        payload = {
+            "name": name,
+            "slug": slug,
+            "keywords": keywords,
+            "macro": macro_id,
+        }
+
+        existing = meso_by_slug.get(slug)
+        if existing:
+            strapi.update_graph_meso(existing["documentId"], payload)
+            meso_id_by_cluster[int(cluster_id)] = existing["documentId"]
+        else:
+            created_id = strapi.create_graph_meso(payload)
+            if created_id:
+                meso_id_by_cluster[int(cluster_id)] = created_id
+
+    updated = 0
+    skipped_manual = 0
+    skipped_missing = 0
+
+    for paper in papers:
+        paper_id = gg.paper_identifier(paper)
+        if not paper_id:
+            skipped_missing += 1
+            continue
+        document_id = pub_map.get(paper_id) or strapi.get_publication_id_by_openalex(paper_id)
+        if not document_id:
+            skipped_missing += 1
+            continue
+
+        source_kind = strapi.get_publication_source_kind(document_id)
+        if source_kind == "manual":
+            skipped_manual += 1
+            continue
+
+        assignment = paper_superclusters.get(paper_id, {})
+        ids = assignment.get("ids") or []
+        meso_ids = [meso_id_by_cluster.get(int(cid)) for cid in ids if meso_id_by_cluster.get(int(cid))]
+        if not meso_ids:
+            skipped_missing += 1
+            continue
+
+        if strapi.update_publication(document_id, {"graphMesoTags": meso_ids}):
+            updated += 1
+
+    log.info(
+        "Meso assignments: %s updated, %s manual skipped, %s missing/empty",
         updated,
         skipped_manual,
         skipped_missing,

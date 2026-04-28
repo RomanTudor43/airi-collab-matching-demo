@@ -26,11 +26,11 @@
     },
     "sourceKind": {
       "type": "enumeration",
+      "default": "manual",
       "enum": [
         "manual",
         "openAlexAutomated"
-      ],
-      "default": "manual"
+      ]
     },
     "graphEligible": {
       "type": "boolean",
@@ -162,6 +162,24 @@
       "relation": "oneToMany",
       "target": "api::graph-link.graph-link",
       "mappedBy": "target"
+    },
+    "graphMacroPrimary": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::graph-macro.graph-macro",
+      "inversedBy": "publicationsPrimary"
+    },
+    "graphMacroTags": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::graph-macro.graph-macro",
+      "mappedBy": "publicationsTagged"
+    },
+    "graphMesoTags": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::graph-meso.graph-meso",
+      "mappedBy": "publications"
     }
   }
 }

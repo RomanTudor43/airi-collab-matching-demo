@@ -633,6 +633,93 @@ export interface ApiGraphLinkGraphLink extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiGraphMacroGraphMacro extends Struct.CollectionTypeSchema {
+  collectionName: 'graph_macros';
+  info: {
+    displayName: 'GraphMacro';
+    pluralName: 'graph-macros';
+    singularName: 'graph-macro';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Blocks;
+    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    keywords: Schema.Attribute.Text & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::graph-macro.graph-macro'
+    > &
+      Schema.Attribute.Private;
+    mesos: Schema.Attribute.Relation<'oneToMany', 'api::graph-meso.graph-meso'>;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    publicationsPrimary: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::publication.publication'
+    >;
+    publicationsTagged: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::publication.publication'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    sortOrder: Schema.Attribute.Integer;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiGraphMesoGraphMeso extends Struct.CollectionTypeSchema {
+  collectionName: 'graph_mesos';
+  info: {
+    displayName: 'GraphMeso';
+    pluralName: 'graph-mesos';
+    singularName: 'graph-meso';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Blocks;
+    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    keywords: Schema.Attribute.Text;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::graph-meso.graph-meso'
+    > &
+      Schema.Attribute.Private;
+    macro: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::graph-macro.graph-macro'
+    >;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    publications: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::publication.publication'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    sortOrder: Schema.Attribute.Integer;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiNewsArticleNewsArticle extends Struct.CollectionTypeSchema {
   collectionName: 'news_articles';
   info: {
@@ -919,6 +1006,18 @@ export interface ApiPublicationPublication extends Struct.CollectionTypeSchema {
     embeddingSourceHash: Schema.Attribute.String;
     embeddingUpdatedAt: Schema.Attribute.DateTime;
     graphEligible: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    graphMacroPrimary: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::graph-macro.graph-macro'
+    >;
+    graphMacroTags: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::graph-macro.graph-macro'
+    >;
+    graphMesoTags: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::graph-meso.graph-meso'
+    >;
     incomingGraphLinks: Schema.Attribute.Relation<
       'oneToMany',
       'api::graph-link.graph-link'
@@ -1071,51 +1170,6 @@ export interface ApiResourceResource extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     url: Schema.Attribute.String & Schema.Attribute.Required;
-  };
-}
-
-export interface ApiResultResult extends Struct.CollectionTypeSchema {
-  collectionName: 'results';
-  info: {
-    description: 'Research outputs: datasets, code, press releases, videos, and other deliverables';
-    displayName: 'Result';
-    pluralName: 'results';
-    singularName: 'result';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    attachments: Schema.Attribute.Media<
-      'files' | 'images' | 'videos' | 'audios',
-      true
-    >;
-    body: Schema.Attribute.DynamicZone<
-      ['shared.section', 'shared.rich-text', 'shared.media', 'shared.slider']
-    >;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    description: Schema.Attribute.Text &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 500;
-      }>;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::result.result'
-    > &
-      Schema.Attribute.Private;
-    projects: Schema.Attribute.Relation<'manyToMany', 'api::project.project'>;
-    publishedAt: Schema.Attribute.DateTime;
-    publishedDate: Schema.Attribute.Date;
-    slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
-    title: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.Unique;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
   };
 }
 
@@ -1709,6 +1763,8 @@ declare module '@strapi/strapi' {
       'api::event.event': ApiEventEvent;
       'api::global.global': ApiGlobalGlobal;
       'api::graph-link.graph-link': ApiGraphLinkGraphLink;
+      'api::graph-macro.graph-macro': ApiGraphMacroGraphMacro;
+      'api::graph-meso.graph-meso': ApiGraphMesoGraphMeso;
       'api::news-article.news-article': ApiNewsArticleNewsArticle;
       'api::partner.partner': ApiPartnerPartner;
       'api::person.person': ApiPersonPerson;
@@ -1716,7 +1772,6 @@ declare module '@strapi/strapi' {
       'api::publication.publication': ApiPublicationPublication;
       'api::research-theme.research-theme': ApiResearchThemeResearchTheme;
       'api::resource.resource': ApiResourceResource;
-      'api::result.result': ApiResultResult;
       'api::seminar.seminar': ApiSeminarSeminar;
       'api::team.team': ApiTeamTeam;
       'plugin::content-releases.release': PluginContentReleasesRelease;

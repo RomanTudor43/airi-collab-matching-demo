@@ -4,7 +4,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-const PARTICLE_COUNT_PER = 40; // particles per community
+const PARTICLE_COUNT_PER = 40; // particles per macro
 const STAR_COUNT = 400;
 const BRIDGE_OPACITY = 0.35; // Increased for better visibility on dark background
 
@@ -30,13 +30,23 @@ function buildStars(count, w, h) {
   }));
 }
 
-// ─── Layout communities in a nice spread ─────────────────────────────────────
-function layoutCommunities(communities, w, h) {
+const seedFromId = (value) => {
+  const text = String(value ?? "");
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+// ─── Layout macros in a nice spread ─────────────────────────────────────
+function layoutMacros(macros, w, h) {
   const PAD = 160;
   const minDist = 220;
-  const rng = makeRng(0xc0ffee + communities.length);
+  const rng = makeRng(0xc0ffee + macros.length);
 
-  const positions = communities.map(() => ({
+  const positions = macros.map(() => ({
     x: PAD + rng() * (w - PAD * 2),
     y: PAD + rng() * (h - PAD * 2),
   }));
@@ -64,15 +74,15 @@ function layoutCommunities(communities, w, h) {
   return positions;
 }
 
-// ─── Build particles for each community ──────────────────────────────────────
-function buildParticles(communities, positions) {
+// ─── Build particles for each macro ─────────────────────────────────────
+function buildParticles(macros, positions) {
   const allParticles = [];
-  communities.forEach((comm, ci) => {
-    const cx = positions[ci].x;
-    const cy = positions[ci].y;
-    const count = Math.min(PARTICLE_COUNT_PER, Math.max(12, comm.paperCount));
-    const radius = 30 + Math.sqrt(comm.paperCount) * 6;
-    const rng = makeRng(0xbead + comm.id * 17);
+  macros.forEach((macro, mi) => {
+    const cx = positions[mi].x;
+    const cy = positions[mi].y;
+    const count = Math.min(PARTICLE_COUNT_PER, Math.max(12, macro.paperCount));
+    const radius = 30 + Math.sqrt(macro.paperCount) * 6;
+    const rng = makeRng(0xbead + seedFromId(macro.id) * 17);
 
     for (let i = 0; i < count; i++) {
       const angle = rng() * Math.PI * 2;
@@ -81,7 +91,7 @@ function buildParticles(communities, positions) {
       const orbitSpeed = (rng() * 0.0004 + 0.0001) * (rng() > 0.5 ? 1 : -1);
       const size = rng() * 2.5 + 0.8;
       allParticles.push({
-        communityIdx: ci,
+        macroIdx: mi,
         cx, cy,
         angle,
         orbitRadius,
@@ -95,11 +105,11 @@ function buildParticles(communities, positions) {
   return allParticles;
 }
 
-// ─── Build inter-community bridges ───────────────────────────────────────────
-function buildBridges(communities, interLinks, positions) {
+// ─── Build inter-macro bridges ───────────────────────────────────────────
+function buildBridges(macros, interLinks, positions) {
   return interLinks.map((link) => {
-    const si = communities.findIndex((c) => c.id === link.source);
-    const ti = communities.findIndex((c) => c.id === link.target);
+    const si = macros.findIndex((c) => c.id === link.source);
+    const ti = macros.findIndex((c) => c.id === link.target);
     if (si < 0 || ti < 0) return null;
     return {
       x1: positions[si].x, y1: positions[si].y,
@@ -113,12 +123,12 @@ function buildBridges(communities, interLinks, positions) {
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export default function GalaxyClient({ communities, interLinks, crossClusterLinks = [], totalPapers }) {
+export default function GalaxyClient({ macros, interLinks, crossClusterLinks = [], totalPapers }) {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
   const router = useRouter();
 
-  const [hovered, setHovered] = useState(null); // community index
+  const [hovered, setHovered] = useState(null); // macro index
   const [hoveredBridge, setHoveredBridge] = useState(null); // bridge info for tooltip
   const [dimensions, setDimensions] = useState({ w: 1200, h: 800 });
 
@@ -137,23 +147,23 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
     return () => window.removeEventListener("resize", update);
   }, []);
 
-  // ── Build layout data when dimensions or communities change ─────────────
+  // ── Build layout data when dimensions or macros change ─────────────
   useEffect(() => {
     const { w, h } = dimensions;
-    const positions = layoutCommunities(communities, w, h);
-    const particles = buildParticles(communities, positions);
-    const bridges = buildBridges(communities, interLinks, positions);
+    const positions = layoutMacros(macros, w, h);
+    const particles = buildParticles(macros, positions);
+    const bridges = buildBridges(macros, interLinks, positions);
     const stars = buildStars(STAR_COUNT, w, h);
-    const radii = communities.map(
+    const radii = macros.map(
       (c) => 30 + Math.sqrt(c.paperCount) * 6
     );
 
-    // Map cluster IDs to positions for cross-cluster link rendering
+    // Map macro IDs to positions for cross-macro link rendering
     const clusterIdToIdx = {};
-    communities.forEach((c, i) => { clusterIdToIdx[c.id] = i; });
+    macros.forEach((c, i) => { clusterIdToIdx[c.id] = i; });
 
     dataRef.current = { positions, particles, bridges, stars, radii, clusterIdToIdx };
-  }, [communities, interLinks, dimensions]);
+  }, [macros, interLinks, dimensions]);
 
   // ── Hit-test for clusters ───────────────────────────────────────────────
   const hitTest = useCallback((mx, my) => {
@@ -256,20 +266,23 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     
-    // First check cluster hit
+    // First check macro hit
     const idx = hitTest(mx, my);
     if (idx >= 0) {
-      router.push(`/research/paper-graph/c-${communities[idx].id}`);
+      const macroSlug = macros[idx]?.slug || macros[idx]?.id;
+      if (macroSlug) {
+        router.push(`/research/paper-graph/${macroSlug}`);
+      }
       return;
     }
     
     // Then check bridge hit
     const bridgeInfo = hitTestBridge(mx, my);
     if (bridgeInfo && bridgeInfo.links.length > 0) {
-      // Navigate to the source cluster's view (user can explore links from there)
-      router.push(`/research/paper-graph/c-${bridgeInfo.source}`);
+      // Navigate to the source macro's view (user can explore links from there)
+      router.push(`/research/paper-graph/${bridgeInfo.source}`);
     }
-  }, [hitTest, hitTestBridge, communities, router]);
+  }, [hitTest, hitTestBridge, macros, router]);
 
   // ── Animation loop ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -354,15 +367,15 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
       });
 
       // ── Nebula glows (bottom layer) ────────────────────────
-      communities.forEach((comm, ci) => {
-        const pos = positions[ci];
-        const r = radii[ci];
-        const isHov = hoveredIdx === ci;
-        const pulseR = r + Math.sin(time * 0.001 + ci) * 4;
+      macros.forEach((macro, mi) => {
+        const pos = positions[mi];
+        const r = radii[mi];
+        const isHov = hoveredIdx === mi;
+        const pulseR = r + Math.sin(time * 0.001 + mi) * 4;
         const glowR = pulseR * (isHov ? 2.2 : 1.8);
 
         const grad = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, glowR);
-        const color = comm.color;
+        const color = macro.color;
         grad.addColorStop(0, color + (isHov ? "30" : "18"));
         grad.addColorStop(0.5, color + (isHov ? "15" : "08"));
         grad.addColorStop(1, color + "00");
@@ -375,12 +388,12 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
 
       // ── Particles ──────────────────────────────────────────
       particles.forEach((p) => {
-        const isHov = hoveredIdx === p.communityIdx;
+        const isHov = hoveredIdx === p.macroIdx;
         p.angle += p.orbitSpeed * (isHov ? 1.8 : 1);
         const pulse = Math.sin(time * p.pulseSpeed + p.pulseOffset) * 0.35 + 0.65;
         const x = p.cx + Math.cos(p.angle) * p.orbitRadius;
         const y = p.cy + Math.sin(p.angle) * p.orbitRadius;
-        const color = communities[p.communityIdx].color;
+        const color = macros[p.macroIdx].color;
 
         ctx.globalAlpha = pulse * (isHov ? 1 : 0.7);
         ctx.fillStyle = color;
@@ -394,13 +407,13 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
       ctx.shadowBlur = 0;
 
       // ── Orbit rings ────────────────────────────────────────
-      communities.forEach((comm, ci) => {
-        const pos = positions[ci];
-        const r = radii[ci];
-        const isHov = hoveredIdx === ci;
-        const pulseR = r + Math.sin(time * 0.001 + ci) * 4;
+      macros.forEach((macro, mi) => {
+        const pos = positions[mi];
+        const r = radii[mi];
+        const isHov = hoveredIdx === mi;
+        const pulseR = r + Math.sin(time * 0.001 + mi) * 4;
 
-        ctx.strokeStyle = comm.color + (isHov ? "60" : "25");
+        ctx.strokeStyle = macro.color + (isHov ? "60" : "25");
         ctx.lineWidth = isHov ? 1.5 : 0.8;
         ctx.setLineDash(isHov ? [] : [4, 6]);
         ctx.beginPath();
@@ -410,29 +423,29 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
       });
 
       // ── Labels ─────────────────────────────────────────────
-      communities.forEach((comm, ci) => {
-        const pos = positions[ci];
-        const isHov = hoveredIdx === ci;
+      macros.forEach((macro, mi) => {
+        const pos = positions[mi];
+        const isHov = hoveredIdx === mi;
 
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
         // Community name
         ctx.font = `${isHov ? "bold " : ""}11px monospace`;
-        ctx.fillStyle = comm.color + (isHov ? "ee" : "aa");
-        const label = comm.label.length > 32 ? comm.label.slice(0, 32) + "…" : comm.label;
+        ctx.fillStyle = macro.color + (isHov ? "ee" : "aa");
+        const label = macro.label.length > 32 ? macro.label.slice(0, 32) + "…" : macro.label;
         ctx.fillText(label, pos.x, pos.y - 4);
 
         // Paper count
         ctx.font = "9px monospace";
-        ctx.fillStyle = comm.color + "60";
-        ctx.fillText(`${comm.paperCount} papers`, pos.x, pos.y + 10);
+        ctx.fillStyle = macro.color + "60";
+        ctx.fillText(`${macro.paperCount} papers`, pos.x, pos.y + 10);
 
         // Hover extras
-        if (isHov && comm.topTopics?.length > 0) {
+        if (isHov && macro.topTopics?.length > 0) {
           ctx.font = "8px monospace";
-          ctx.fillStyle = comm.color + "80";
-          const topicLine = comm.topTopics.slice(0, 3).join(" · ");
+          ctx.fillStyle = macro.color + "80";
+          const topicLine = macro.topTopics.slice(0, 3).join(" · ");
           ctx.fillText(topicLine, pos.x, pos.y + 22);
         }
       });
@@ -445,7 +458,7 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
       running = false;
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [dimensions, communities]);
+  }, [dimensions, macros]);
 
   return (
     <div
@@ -476,7 +489,7 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
           }}
         >
           <div className="text-amber-400 font-bold mb-1">
-            {hoveredBridge.count} cross-cluster links
+            {hoveredBridge.count} cross-macro links
           </div>
           {hoveredBridge.links.length > 0 && (
             <div className="space-y-1.5 mt-2">
@@ -521,7 +534,7 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
           ◈ GALACTIC RESEARCH INTELLIGENCE DIVISION
         </div>
         <div className="text-amber-500/40 text-[10px] tracking-widest mt-0.5">
-          SECTOR MAP &nbsp;·&nbsp; {communities.length} CLUSTERS &nbsp;·&nbsp; {totalPapers} PAPERS
+          MACRO MAP &nbsp;·&nbsp; {macros.length} MACROS &nbsp;·&nbsp; {totalPapers} PAPERS
         </div>
       </div>
 
@@ -533,23 +546,23 @@ export default function GalaxyClient({ communities, interLinks, crossClusterLink
 
       {/* Bottom-right hint */}
       <div className="pointer-events-none absolute bottom-6 right-5 z-20 font-mono text-[9px] text-amber-500/30 text-right tracking-widest">
-        <div>CLICK CLUSTER TO EXPLORE</div>
+        <div>CLICK MACRO TO EXPLORE</div>
         <div>HOVER FOR DETAILS</div>
       </div>
 
       {/* Bottom-left legend */}
       <div className="pointer-events-none absolute bottom-6 left-5 z-20 font-mono text-[10px]">
-        <div className="text-amber-500/50 tracking-widest mb-2">CLUSTERS</div>
-        {communities.slice(0, 8).map((comm, i) => (
-          <div key={comm.id} className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full" style={{ background: comm.color }} />
-            <span style={{ color: comm.color + "aa" }}>
-              {comm.label.length > 24 ? comm.label.slice(0, 24) + "…" : comm.label}
+        <div className="text-amber-500/50 tracking-widest mb-2">MACROS</div>
+        {macros.slice(0, 8).map((macro, i) => (
+          <div key={macro.id} className="flex items-center gap-2 mb-1">
+            <div className="w-2 h-2 rounded-full" style={{ background: macro.color }} />
+            <span style={{ color: macro.color + "aa" }}>
+              {macro.label.length > 24 ? macro.label.slice(0, 24) + "…" : macro.label}
             </span>
           </div>
         ))}
-        {communities.length > 8 && (
-          <div className="text-amber-500/30 mt-1">+{communities.length - 8} more</div>
+        {macros.length > 8 && (
+          <div className="text-amber-500/30 mt-1">+{macros.length - 8} more</div>
         )}
       </div>
     </div>

@@ -3,49 +3,65 @@ export const metadata = {
 };
 
 import {
+  getGraphMacros,
   getGraphPublications,
   getGraphLinks,
+  transformGraphMacroData,
   transformGraphPublicationData,
   transformGraphLinkData,
 } from "@/lib/strapi";
 import GalaxyClient from "./GalaxyClient";
 
-const COMMUNITY_COLORS = [
+const MACRO_COLORS = [
   "#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4", "#ffeaa7",
   "#dda0dd", "#98d8c8", "#f7dc6f", "#bb8fce", "#85c1e9",
   "#f8c471", "#82e0aa", "#f1948a", "#aed6f1", "#d5a6bd",
   "#a3e4d7", "#f9e79f", "#d2b4de", "#abebc6", "#fadbd8",
 ];
 
+const sortMacros = (a, b) => {
+  const aOrder = typeof a.sortOrder === "number" ? a.sortOrder : Number.POSITIVE_INFINITY;
+  const bOrder = typeof b.sortOrder === "number" ? b.sortOrder : Number.POSITIVE_INFINITY;
+  if (aOrder !== bOrder) return aOrder - bOrder;
+  return (a.name || "").localeCompare(b.name || "", "en", { sensitivity: "base" });
+};
+
 export default async function PaperGraphPage() {
-  const publicationsRaw = await getGraphPublications();
+  const [macrosRaw, publicationsRaw] = await Promise.all([
+    getGraphMacros(),
+    getGraphPublications(),
+  ]);
+  const macros = transformGraphMacroData(macrosRaw).filter((macro) => macro.isActive !== false);
   const publications = transformGraphPublicationData(publicationsRaw);
 
-  // Build community index
-  const communityMap = {};
+  const macroMap = {};
+  macros.forEach((macro) => {
+    if (!macro.slug) return;
+    macroMap[macro.slug] = {
+      ...macro,
+      id: macro.slug,
+      label: macro.name,
+      paperCount: 0,
+      topicCounts: {},
+    };
+  });
+
   publications.forEach((p) => {
-    if (p.community == null) return;
-    if (!communityMap[p.community]) {
-      communityMap[p.community] = {
-        id: p.community,
-        label: p.communityLabel || `Cluster ${p.community}`,
-        paperCount: 0,
-        topicCounts: {},
-      };
-    }
-    communityMap[p.community].paperCount += 1;
+    const macroSlug = p.graphMacroPrimary?.slug;
+    if (!macroSlug || !macroMap[macroSlug]) return;
+    const entry = macroMap[macroSlug];
+    entry.paperCount += 1;
     (p.topics || []).forEach((t) => {
-      communityMap[p.community].topicCounts[t] =
-        (communityMap[p.community].topicCounts[t] || 0) + 1;
+      entry.topicCounts[t] = (entry.topicCounts[t] || 0) + 1;
     });
   });
 
-  const communities = Object.values(communityMap)
-    .sort((a, b) => b.paperCount - a.paperCount)
-    .map((comm, ci) => ({
-      ...comm,
-      color: COMMUNITY_COLORS[ci % COMMUNITY_COLORS.length],
-      topTopics: Object.entries(comm.topicCounts)
+  const macroList = Object.values(macroMap)
+    .sort(sortMacros)
+    .map((macro, idx) => ({
+      ...macro,
+      color: MACRO_COLORS[idx % MACRO_COLORS.length],
+      topTopics: Object.entries(macro.topicCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
         .map(([t]) => t),
@@ -62,34 +78,37 @@ export default async function PaperGraphPage() {
   const linksRaw = await getGraphLinks();
   const links = transformGraphLinkData(linksRaw, oaToIdMap);
   
-  const publicationComm = {};
-  publications.forEach((p) => { if (p.community != null) publicationComm[p.id] = p.community; });
+  const publicationMacro = {};
+  publications.forEach((p) => {
+    const macroSlug = p.graphMacroPrimary?.slug;
+    if (macroSlug) publicationMacro[p.id] = macroSlug;
+  });
   
-  // Build inter-community link summary (cluster-to-cluster counts)
+  // Build inter-macro link summary (macro-to-macro counts)
   const bridgeMap = {};
   links.forEach((l) => {
-    const sc = publicationComm[l.sourceId];
-    const tc = publicationComm[l.targetId];
-    if (sc == null || tc == null || sc === tc) return;
+    const sc = publicationMacro[l.sourceId];
+    const tc = publicationMacro[l.targetId];
+    if (!sc || !tc || sc === tc) return;
     const key = sc < tc ? `${sc}-${tc}` : `${tc}-${sc}`;
-    if (!bridgeMap[key]) bridgeMap[key] = { source: Math.min(sc, tc), target: Math.max(sc, tc), count: 0 };
+    if (!bridgeMap[key]) bridgeMap[key] = { source: sc < tc ? sc : tc, target: sc < tc ? tc : sc, count: 0 };
     bridgeMap[key].count += 1;
   });
   const interLinks = Object.values(bridgeMap);
   
-  // Debug log for cross-cluster links
-  console.log(`[paper-graph] ${links.length} total links, ${interLinks.length} cluster bridges`);
+  // Debug log for cross-macro links
+  console.log(`[paper-graph] ${links.length} total links, ${interLinks.length} macro bridges`);
   if (interLinks.length > 0) {
-    console.log(`[paper-graph] Bridge sample:`, interLinks.slice(0, 3).map(l => `c${l.source}↔c${l.target}:${l.count}`).join(', '));
+    console.log(`[paper-graph] Bridge sample:`, interLinks.slice(0, 3).map(l => `${l.source}↔${l.target}:${l.count}`).join(', '));
   }
 
-  // Build publication-level cross-cluster links for hover preview
-  // Group by cluster pair, limit to top links per pair
+  // Build publication-level cross-macro links for hover preview
+  // Group by macro pair, limit to top links per pair
   const crossClusterLinks = links
     .filter((l) => {
-      const sc = publicationComm[l.sourceId];
-      const tc = publicationComm[l.targetId];
-      return sc != null && tc != null && sc !== tc;
+      const sc = publicationMacro[l.sourceId];
+      const tc = publicationMacro[l.targetId];
+      return sc && tc && sc !== tc;
     })
     .map((l) => {
       const sourcePublication = publicationById[l.sourceId];
@@ -99,19 +118,19 @@ export default async function PaperGraphPage() {
         targetId: l.targetId,
         sourceTitle: sourcePublication?.title || 'Unknown',
         targetTitle: targetPublication?.title || 'Unknown',
-        sourceCluster: publicationComm[l.sourceId],
-        targetCluster: publicationComm[l.targetId],
+        sourceCluster: publicationMacro[l.sourceId],
+        targetCluster: publicationMacro[l.targetId],
         score: l.score,
       };
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, 200); // Limit for performance
 
-  if (communities.length === 0) {
+  if (macroList.length === 0) {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ background: "#03070f" }}>
         <div className="font-mono text-amber-500/40 text-sm">
-          No community data yet. Run the paper-sync script to generate clusters.
+          No macro data yet. Run the paper-sync script to assign macro tags.
         </div>
       </main>
     );
@@ -119,7 +138,7 @@ export default async function PaperGraphPage() {
 
   return (
     <GalaxyClient
-      communities={communities}
+      macros={macroList}
       interLinks={interLinks}
       crossClusterLinks={crossClusterLinks}
       totalPapers={publications.length}

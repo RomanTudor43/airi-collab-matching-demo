@@ -1,19 +1,28 @@
 import { notFound } from "next/navigation";
 import {
-  getGraphPublicationsByCommunity,
+  getGraphMacros,
+  getGraphPublicationsByMacroSlug,
   getGraphLinks,
+  transformGraphMacroData,
   transformGraphPublicationData,
   transformGraphLinkData,
 } from "@/lib/strapi";
 import PaperGraphClient from "../../PaperGraphClient";
 import { buildMesoTopics, filterPublicationsForMesoTopic } from "../../meso";
 
-const COMMUNITY_COLORS = [
+const MACRO_COLORS = [
   "#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4", "#ffeaa7",
   "#dda0dd", "#98d8c8", "#f7dc6f", "#bb8fce", "#85c1e9",
   "#f8c471", "#82e0aa", "#f1948a", "#aed6f1", "#d5a6bd",
   "#a3e4d7", "#f9e79f", "#d2b4de", "#abebc6", "#fadbd8",
 ];
+
+const sortMacros = (a, b) => {
+  const aOrder = typeof a.sortOrder === "number" ? a.sortOrder : Number.POSITIVE_INFINITY;
+  const bOrder = typeof b.sortOrder === "number" ? b.sortOrder : Number.POSITIVE_INFINITY;
+  if (aOrder !== bOrder) return aOrder - bOrder;
+  return (a.name || "").localeCompare(b.name || "", "en", { sensitivity: "base" });
+};
 
 export async function generateMetadata({ params }) {
   const { communitySlug, topicSlug } = await params;
@@ -21,16 +30,20 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function TopicPublicationsPage({ params }) {
-  const { communitySlug, topicSlug } = await params;
+  const { communitySlug: macroSlug, topicSlug } = await params;
 
-  const match = communitySlug.match(/^c-(\d+)$/);
-  if (!match) notFound();
-  const communityId = parseInt(match[1], 10);
-
-  const [publicationsRaw, linksRaw] = await Promise.all([
-    getGraphPublicationsByCommunity(communityId),
+  const [macrosRaw, publicationsRaw, linksRaw] = await Promise.all([
+    getGraphMacros(),
+    getGraphPublicationsByMacroSlug(macroSlug),
     getGraphLinks(),
   ]);
+
+  const macros = transformGraphMacroData(macrosRaw)
+    .filter((macro) => macro.isActive !== false)
+    .sort(sortMacros);
+  const macroIndex = macros.findIndex((macro) => macro.slug === macroSlug);
+  if (macroIndex < 0) notFound();
+  const macro = macros[macroIndex];
 
   const allPublications = transformGraphPublicationData(publicationsRaw);
   if (allPublications.length === 0) notFound();
@@ -47,22 +60,19 @@ export default async function TopicPublicationsPage({ params }) {
   publications.forEach((p) => { if (p.openAlexId) oaToId[p.openAlexId] = p.id; });
   const links = transformGraphLinkData(linksRaw, oaToId);
 
-  const communityLabel =
-    allPublications.find((p) => p.communityLabel)?.communityLabel ||
-    `Community ${communityId}`;
-
   const topicLabel = selectedTopic.label;
-  const commColor = COMMUNITY_COLORS[communityId % COMMUNITY_COLORS.length];
+  const macroLabel = macro?.name || macroSlug;
+  const macroColor = MACRO_COLORS[macroIndex % MACRO_COLORS.length];
 
   return (
     <main className="overflow-hidden" style={{ background: "#03070f" }}>
       <PaperGraphClient
         publications={publications}
         links={links}
-        backHref={`/research/paper-graph/${communitySlug}`}
-        backLabel={communityLabel}
+        backHref={`/research/paper-graph/${macroSlug}`}
+        backLabel={macroLabel}
         topicLabel={topicLabel}
-        accentColor={commColor}
+        accentColor={macroColor}
       />
     </main>
   );

@@ -13,40 +13,28 @@ const MESO_MIN_NODE_PAPERS = toIntEnv(process.env.GRAPH_MESO_MIN_NODE_PAPERS, DE
 const MESO_MAX_NODES = toIntEnv(process.env.GRAPH_MESO_MAX_NODES, DEFAULT_MAX_NODES);
 const MESO_MIN_NODES = toIntEnv(process.env.GRAPH_MESO_MIN_NODES, DEFAULT_MIN_NODES);
 
-const normalizeTopicFallback = (publication) => {
-  const topic = publication.topics?.[0] || "Other";
-  const key = `topic-${slugify(topic) || "other"}`;
-  return {
-    key,
-    label: topic,
-    allKeys: [key],
-  };
-};
-
 export function getPublicationMesoMembership(publication) {
-  const topicSuperclusters = publication.topicSuperclusters;
-  const ids = Array.isArray(topicSuperclusters?.ids)
-    ? topicSuperclusters.ids.filter((value) => Number.isInteger(value))
-    : [];
-  const labels = Array.isArray(topicSuperclusters?.labels)
-    ? topicSuperclusters.labels.filter(Boolean).map((value) => String(value))
+  const mesoTags = Array.isArray(publication.graphMesoTags)
+    ? publication.graphMesoTags
     : [];
 
-  if (!ids.length) {
-    return normalizeTopicFallback(publication);
+  if (!mesoTags.length) {
+    return null;
   }
 
-  const primaryId = Number.isInteger(topicSuperclusters?.primaryId)
-    ? topicSuperclusters.primaryId
-    : ids[0];
-  const primaryLabel =
-    typeof topicSuperclusters?.primaryLabel === "string" && topicSuperclusters.primaryLabel.trim()
-      ? topicSuperclusters.primaryLabel.trim()
-      : labels[0] || `Topic Group ${primaryId}`;
+  const primary = mesoTags[0] || {};
+  const primaryKey = primary.slug || (primary.id != null ? `meso-${primary.id}` : "");
+  const primaryLabel = primary.name || primary.slug || "Meso";
 
-  const allKeys = ids.map((clusterId) => `sc-${clusterId}`);
+  const allKeys = mesoTags
+    .map((tag) => tag.slug || (tag.id != null ? `meso-${tag.id}` : ""))
+    .filter(Boolean);
+
+  if (!primaryKey || !allKeys.length) {
+    return null;
+  }
   return {
-    key: `sc-${primaryId}`,
+    key: primaryKey,
     label: primaryLabel,
     allKeys,
   };
@@ -84,6 +72,9 @@ export function buildMesoTopics(publications, options = {}) {
   const nodeMap = {};
   publications.forEach((publication) => {
     const membership = getPublicationMesoMembership(publication);
+    if (!membership) {
+      return;
+    }
     const existing = nodeMap[membership.key];
     if (!existing) {
       nodeMap[membership.key] = buildNode(publication, membership);
@@ -147,6 +138,7 @@ export function filterPublicationsForMesoTopic(publications, topicNode) {
   const memberKeys = new Set(topicNode.memberKeys || []);
   return publications.filter((publication) => {
     const membership = getPublicationMesoMembership(publication);
+    if (!membership) return false;
     if (memberKeys.has(membership.key)) {
       return true;
     }

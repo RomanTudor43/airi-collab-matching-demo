@@ -13,7 +13,8 @@ Date: 2026-04-28
 ## Progress (as of 2026-04-28)
 - Step 1 implemented: macro assignments are regenerated on global rebuild for non-manual papers.
 - Step 2 implemented: meso nodes are upserted from topic superclusters and meso tags assigned for non-manual papers.
-- Pending: Step 3 (frontend placement), Step 4 (meso link rendering), Step 5 (intersection view).
+- Step 3 implemented: frontend placement now uses graphMacroPrimary and graphMesoTags.
+- Pending: Step 4 (meso link rendering), Step 5 (intersection view).
 
 ## Decisions locked
 - Intersection view is based on cross-links (GraphLink edges that connect papers in different macros).
@@ -35,6 +36,8 @@ Date: 2026-04-28
 - Meso UI uses metadata.graph.topicSuperclusters, not graphMesoTags.
 - Pipeline now writes graphMacroPrimary/graphMacroTags on global rebuild for non-manual papers.
 - Pipeline now writes graphMesoTags and upserts GraphMeso nodes on global rebuild for non-manual papers.
+- Frontend galaxy now uses macros (graphMacroPrimary) instead of community.
+- Macro and meso routes use macro slug and meso slug respectively.
 
 ### Implications
 - Changing graphMacroPrimary/graphMacroTags/graphMesoTags currently has no effect on placement.
@@ -162,6 +165,13 @@ Tasks:
 1. Replace community-based placement with graphMacroPrimary.
 2. Remove community fallback logic.
 3. Meso topics built from graphMesoTags and GraphMeso metadata.
+
+Status:
+- Implemented in web/src/app/research/paper-graph/page.js (macro nodes + macro bridges).
+- Macro route now uses slug (web/src/app/research/paper-graph/[communitySlug]/page.js).
+- Meso route uses macro slug + meso slug (web/src/app/research/paper-graph/[communitySlug]/[topicSlug]/page.js).
+- Meso membership derives from graphMesoTags (web/src/app/research/paper-graph/meso.js).
+- Data fetch updated to populate graphMacroPrimary/graphMacroTags/graphMesoTags (web/src/lib/strapi.js).
 
 ### Step 4: Meso link rendering
 Files:

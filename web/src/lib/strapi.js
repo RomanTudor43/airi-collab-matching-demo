@@ -684,16 +684,19 @@ export async function getPartnerBySlug(slug) {
  * Get graph-eligible publications for the paper graph views.
  * @param {Object} options
  * @param {number} options.community - Optional community id filter
+ * @param {string} options.macroSlug - Optional macro slug filter
  * @returns {Promise<Array>}
  */
 export async function getGraphPublications(options = {}) {
   try {
-    const { community } = options;
+    const { community, macroSlug } = options;
     const filters = {
       graphEligible: { $eq: true },
     };
 
-    if (typeof community === 'number' && Number.isFinite(community)) {
+    if (typeof macroSlug === 'string' && macroSlug.trim()) {
+      filters.graphMacroPrimary = { slug: { $eq: macroSlug.trim() } };
+    } else if (typeof community === 'number' && Number.isFinite(community)) {
       filters.community = { $eq: community };
     }
 
@@ -718,6 +721,9 @@ export async function getGraphPublications(options = {}) {
       populate: {
         authors: PERSON_FLAT_POPULATE,
         pdfFile: { fields: ['url'] },
+        graphMacroPrimary: { fields: ['name', 'slug', 'sortOrder', 'isActive'] },
+        graphMacroTags: { fields: ['name', 'slug'] },
+        graphMesoTags: { fields: ['name', 'slug'] },
       },
     };
 
@@ -736,6 +742,55 @@ export async function getGraphPublications(options = {}) {
 export async function getGraphPublicationsByCommunity(communityId) {
   if (typeof communityId !== 'number' || !Number.isFinite(communityId)) return [];
   return getGraphPublications({ community: communityId });
+}
+
+/**
+ * Get graph-eligible publications scoped to one macro slug.
+ * @param {string} macroSlug
+ * @returns {Promise<Array>}
+ */
+export async function getGraphPublicationsByMacroSlug(macroSlug) {
+  if (typeof macroSlug !== 'string' || !macroSlug.trim()) return [];
+  return getGraphPublications({ macroSlug });
+}
+
+/**
+ * Get graph macros for the paper graph views.
+ * @returns {Promise<Array>}
+ */
+export async function getGraphMacros() {
+  try {
+    const baseOptions = {
+      sort: ['sortOrder:asc', 'name:asc'],
+      fields: ['name', 'slug', 'sortOrder', 'isActive'],
+    };
+    return await fetchAllEntries('/graph-macros', baseOptions, 100);
+  } catch (error) {
+    console.error('Failed to fetch graph macros:', error);
+    return [];
+  }
+}
+
+/**
+ * Transform graph macro records into a frontend-friendly shape.
+ * @param {Array|Object} strapiMacros
+ * @returns {Array}
+ */
+export function transformGraphMacroData(strapiMacros) {
+  const list = Array.isArray(strapiMacros) ? strapiMacros : strapiMacros ? [strapiMacros] : [];
+
+  return list
+    .map((macro) => {
+      const attributes = macro?.attributes ?? macro ?? {};
+      return {
+        id: macro?.documentId ?? macro?.id ?? null,
+        name: attributes.name || '',
+        slug: attributes.slug || '',
+        sortOrder: typeof attributes.sortOrder === 'number' ? attributes.sortOrder : null,
+        isActive: attributes.isActive !== false,
+      };
+    })
+    .filter((macro) => macro.id !== null && macro.slug && macro.name);
 }
 
 /**
@@ -829,6 +884,43 @@ export function transformGraphPublicationData(strapiPublications) {
       });
       const publicationHref = slug ? `/research/publications/${encodeURIComponent(slug)}` : null;
 
+      const macroPrimaryEntry = attributes.graphMacroPrimary?.data ?? attributes.graphMacroPrimary;
+      const macroPrimaryAttributes = macroPrimaryEntry?.attributes ?? macroPrimaryEntry ?? {};
+      const graphMacroPrimary = macroPrimaryEntry
+        ? {
+            id: macroPrimaryEntry?.documentId ?? macroPrimaryEntry?.id ?? null,
+            slug: macroPrimaryAttributes.slug || '',
+            name: macroPrimaryAttributes.name || '',
+            sortOrder:
+              typeof macroPrimaryAttributes.sortOrder === 'number'
+                ? macroPrimaryAttributes.sortOrder
+                : null,
+            isActive: macroPrimaryAttributes.isActive !== false,
+          }
+        : null;
+
+      const graphMacroTags = toArray(attributes.graphMacroTags?.data ?? attributes.graphMacroTags)
+        .map((entry) => {
+          const entryAttributes = entry?.attributes ?? entry ?? {};
+          return {
+            id: entry?.documentId ?? entry?.id ?? null,
+            slug: entryAttributes.slug || '',
+            name: entryAttributes.name || '',
+          };
+        })
+        .filter((entry) => entry.id !== null || entry.slug || entry.name);
+
+      const graphMesoTags = toArray(attributes.graphMesoTags?.data ?? attributes.graphMesoTags)
+        .map((entry) => {
+          const entryAttributes = entry?.attributes ?? entry ?? {};
+          return {
+            id: entry?.documentId ?? entry?.id ?? null,
+            slug: entryAttributes.slug || '',
+            name: entryAttributes.name || '',
+          };
+        })
+        .filter((entry) => entry.id !== null || entry.slug || entry.name);
+
       return {
         id: publication?.id ?? null,
         slug,
@@ -846,6 +938,9 @@ export function transformGraphPublicationData(strapiPublications) {
         communityLabel: attributes.communityLabel || '',
         secondaryClusters,
         topicSuperclusters,
+        graphMacroPrimary,
+        graphMacroTags,
+        graphMesoTags,
         _strapi: publication,
       };
     })

@@ -271,6 +271,18 @@ def build_embeddings(papers, model_name="all-MiniLM-L6-v2"):
     return papers_with_text, embeddings
 
 
+def build_text_embeddings(texts, model_name="all-MiniLM-L6-v2"):
+    """Encode arbitrary text strings into normalized embedding vectors."""
+    if not texts:
+        return np.array([])
+
+    model = _load_sentence_transformer(model_name)
+    log.info(f"Encoding {len(texts)} texts...")
+    embeddings = model.encode(texts, show_progress_bar=False, convert_to_numpy=True)
+    embeddings = np.asarray(embeddings, dtype=np.float32)
+    return _normalize_embeddings(embeddings)
+
+
 def paper_identifier(paper):
     return paper.get("graphId") or paper.get("openAlexId")
 

@@ -1,7 +1,23 @@
 import logging
 from datetime import datetime, timezone
 
+from . import graph as gg
 from .strapi import StrapiClient
+
+DEFAULT_MACRO_TAG_TOP_N = 3
+
+
+def _build_macro_text(macro):
+    parts = [macro.get("name"), macro.get("keywords"), macro.get("description")]
+    return " ".join(part.strip() for part in parts if isinstance(part, str) and part.strip())
+
+
+def _build_paper_text(paper):
+    title = (paper.get("title") or "").strip()
+    abstract = (paper.get("abstract") or "").strip()
+    if abstract:
+        return f"{title} {abstract}".strip()
+    return title
 
 
 def create_client(settings):
@@ -177,4 +193,114 @@ def update_graph_metadata(strapi, graph, pub_map, logger=None):
             updated += 1
 
     log.info(f"Graph metadata: {updated} publications updated")
+    return updated
+
+
+def update_macro_assignments(
+    strapi,
+    graph,
+    papers,
+    pub_map,
+    model_name,
+    tag_top_n=DEFAULT_MACRO_TAG_TOP_N,
+    logger=None,
+):
+    """Assign macro primary and tag relations for non-manual publications."""
+    log = logger or logging.getLogger("paper-sync")
+
+    macros = strapi.load_graph_macros()
+    if not macros:
+        log.warning("No graph macros found; skipping macro assignment")
+        return 0
+
+    active_macros = [macro for macro in macros if macro.get("isActive", True)]
+    if not active_macros:
+        active_macros = macros
+
+    macro_texts = [_build_macro_text(macro) for macro in active_macros]
+    macro_embeddings = gg.build_text_embeddings(macro_texts, model_name)
+    if len(macro_embeddings) == 0:
+        log.warning("No macro embeddings produced; skipping macro assignment")
+        return 0
+
+    macro_ids = [macro["documentId"] for macro in active_macros]
+
+    paper_embeddings = {}
+    for paper, embedding in zip(graph.filtered_papers, graph.embeddings):
+        paper_id = gg.paper_identifier(paper)
+        if paper_id:
+            paper_embeddings[paper_id] = embedding
+
+    missing_papers = []
+    missing_texts = []
+    for paper in papers:
+        paper_id = gg.paper_identifier(paper)
+        if not paper_id or paper_id in paper_embeddings:
+            continue
+        text = _build_paper_text(paper)
+        if not text:
+            continue
+        missing_papers.append(paper)
+        missing_texts.append(text)
+
+    if missing_texts:
+        missing_embeddings = gg.build_text_embeddings(missing_texts, model_name)
+        for paper, embedding in zip(missing_papers, missing_embeddings):
+            paper_id = gg.paper_identifier(paper)
+            if paper_id:
+                paper_embeddings[paper_id] = embedding
+
+    tag_top_n = max(0, int(tag_top_n or 0))
+    updated = 0
+    skipped_manual = 0
+    skipped_missing = 0
+
+    for paper in papers:
+        paper_id = gg.paper_identifier(paper)
+        if not paper_id:
+            skipped_missing += 1
+            continue
+        document_id = pub_map.get(paper_id) or strapi.get_publication_id_by_openalex(paper_id)
+        if not document_id:
+            skipped_missing += 1
+            continue
+
+        source_kind = strapi.get_publication_source_kind(document_id)
+        if source_kind == "manual":
+            skipped_manual += 1
+            continue
+
+        embedding = paper_embeddings.get(paper_id)
+        if embedding is None:
+            skipped_missing += 1
+            continue
+
+        scores = macro_embeddings.dot(embedding)
+        ranked = sorted(range(len(macro_ids)), key=lambda idx: float(scores[idx]), reverse=True)
+        if not ranked:
+            skipped_missing += 1
+            continue
+
+        primary_id = macro_ids[ranked[0]]
+        tag_ids = []
+        if tag_top_n > 0 and len(ranked) > 1:
+            for idx in ranked[1:]:
+                if len(tag_ids) >= tag_top_n:
+                    break
+                tag_ids.append(macro_ids[idx])
+
+        payload = {
+            "graphMacroPrimary": primary_id,
+            "graphMacroTags": tag_ids,
+        }
+
+        if strapi.update_publication(document_id, payload):
+            updated += 1
+
+    log.info(
+        "Macro assignments: %s updated, %s manual skipped, %s missing/empty",
+        updated,
+        skipped_manual,
+        skipped_missing,
+    )
     return updated

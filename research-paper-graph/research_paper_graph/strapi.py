@@ -141,6 +141,32 @@ class StrapiClient:
                 return [data]
         return []
 
+    def _extract_blocks_text(self, value):
+        """Flatten rich text blocks into plain text for embedding input."""
+        parts = []
+
+        def walk(node):
+            if isinstance(node, str):
+                text = node.strip()
+                if text:
+                    parts.append(text)
+                return
+            if isinstance(node, dict):
+                text = node.get("text")
+                if isinstance(text, str):
+                    trimmed = text.strip()
+                    if trimmed:
+                        parts.append(trimmed)
+                for child in node.values():
+                    walk(child)
+                return
+            if isinstance(node, list):
+                for item in node:
+                    walk(item)
+
+        walk(value)
+        return " ".join(parts).strip()
+
     def load_existing_publications(self):
         """Pre-fetch all publications for dedup lookups."""
         log.info("Loading existing publications from Strapi...")
@@ -240,6 +266,44 @@ class StrapiClient:
 
         log.info(f"  Loaded {len(graph_publications)} graph-eligible publications")
         return graph_publications, publication_map
+
+    def load_graph_macros(self):
+        """Load graph macro records for assignment scoring."""
+        log.info("Loading graph macros from Strapi...")
+        macros = self._fetch_all_pages(
+            "graph-macros",
+            {
+                "fields[0]": "documentId",
+                "fields[1]": "name",
+                "fields[2]": "slug",
+                "fields[3]": "keywords",
+                "fields[4]": "description",
+                "fields[5]": "isActive",
+                "fields[6]": "sortOrder",
+            },
+        )
+
+        graph_macros = []
+        for macro in macros:
+            attributes = macro.get("attributes", macro)
+            document_id = macro.get("documentId") or macro.get("id")
+            if not document_id:
+                continue
+            graph_macros.append(
+                {
+                    "documentId": document_id,
+                    "name": attributes.get("name") or "",
+                    "slug": attributes.get("slug") or "",
+                    "keywords": attributes.get("keywords") or "",
+                    "description": self._extract_blocks_text(attributes.get("description")),
+                    "isActive": attributes.get("isActive", True),
+                    "sortOrder": attributes.get("sortOrder"),
+                }
+            )
+
+        graph_macros.sort(key=lambda macro: (macro.get("name") or "").lower())
+        log.info(f"  Loaded {len(graph_macros)} graph macros")
+        return graph_macros
 
     def get_publication_source_kind(self, document_id):
         return self._pub_source_kind.get(document_id)

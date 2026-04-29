@@ -47,6 +47,16 @@ class StrapiClient:
         fallback_slug = slugify(fallback)
         return fallback_slug or f"publication-{int(datetime.now(timezone.utc).timestamp())}"
 
+    def _build_pdf_filename(self, paper_data):
+        title_slug = slugify(paper_data.get("title") or "")
+        if title_slug:
+            return f"{title_slug}.pdf"
+
+        openalex_id = str(paper_data.get("openAlexId") or "")
+        fallback = openalex_id.rstrip("/").split("/")[-1] if openalex_id else ""
+        fallback_slug = slugify(fallback)
+        return f"{fallback_slug or 'publication'}.pdf"
+
     def build_import_create_payload(self, paper_data, author_ids=None, attachment_id=None):
         """Build the create payload for a new imported publication.
 
@@ -506,17 +516,27 @@ class StrapiClient:
                 files=files,
             )
             upload_response.raise_for_status()
-            return upload_response.json()[0]["id"]
+            uploaded_file = upload_response.json()[0]
+            attachment_id = uploaded_file["id"]
+            log.info(f"  Uploaded PDF to Strapi media library: {attachment_id}")
+            return attachment_id
         except Exception as exc:
             log.warning(f"  PDF download/upload failed: {exc}")
             return None
 
     def create_publication(self, paper_data, author_ids=None):
         """Create a publication entry in Strapi from a processed paper."""
+        attachment_id = paper_data.get("attachment")
+        if not attachment_id:
+            attachment_id = self.upload_pdf(
+                paper_data.get("pdf_url"),
+                self._build_pdf_filename(paper_data),
+            )
+
         payload = self.build_import_create_payload(
             paper_data,
             author_ids=author_ids,
-            attachment_id=paper_data.get("attachment"),
+            attachment_id=attachment_id,
         )
 
         try:

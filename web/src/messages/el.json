@@ -96,6 +96,8 @@
     "LatestNews": {
       "title": "Τελευταία Νέα",
       "viewAll": "Προβολή Όλων των Νέων →",
+      "viewArticle": "Προβολή άρθρου",
+      "readMore": "Διαβάστε περισσότερα",
       "emptyState": "Τα άρθρα ειδήσεων θα εμφανιστούν εδώ μόλις δημοσιευτούν.",
       "visitNews": "Επισκεφθείτε Νέα & Εκδηλώσεις →"
     },
@@ -772,6 +774,16 @@
       "emptyState": "Δεν υπάρχουν διαθέσιμα νέα αυτή τη στιγμή.",
       "noImage": "Χωρίς εικόνα",
       "readMore": "Διαβάστε περισσότερα",
+      "viewArticle": "Προβολή άρθρου",
+      "article": {
+        "backToNews": "Επιστροφή στα Νέα",
+        "readOnLinkedIn": "Διαβάστε στο LinkedIn",
+        "gallery": "Συλλογή",
+        "tags": "Ετικέτες",
+        "relatedProjects": "Σχετικά έργα",
+        "featuredPeople": "Προβεβλημένα άτομα",
+        "relatedDepartments": "Σχετικά τμήματα"
+      },
       "categories": {
         "all": "Όλα",
         "announcement": "Ανακοινώσεις",
@@ -803,7 +815,9 @@
     "tabs": {
       "researchers": "Ερευνητές",
       "staff": "Προσωπικό",
+      "students": "Φοιτητές",
       "visiting": "Επισκέπτες Ερευνητές",
+      "external": "Εξωτερικοί Συνεργάτες",
       "alumni": "Απόφοιτοι"
     },
     "results": "Βρέθηκε {count} αποτέλεσμα για \"{query}\"",
@@ -937,10 +951,15 @@
       "officialWebsite": "Επίσημος Ιστότοπος",
       "documentation": "Τεκμηρίωση",
       "tabs": {
-        "overview": "Επισκόπηση",
-        "people": "Άνθρωποι",
-        "resources": "Πόροι",
-        "publications": "Δημοσιεύσεις"
+        "about": "Σχετικά",
+        "team": "Ομάδα",
+        "research": "Έρευνα",
+        "publications": "Δημοσιεύσεις",
+        "results": "Αποτελέσματα",
+        "news": "Νέα",
+        "partners": "Συνεργάτες",
+        "contact": "Επικοινωνία",
+        "resources": "Πόροι"
       },
       "abstract": "Περίληψη",
       "researchDomains": "Ερευνητικοί Τομείς",
@@ -966,7 +985,20 @@
         "planned": "Προγραμματισμένο",
         "completed": "Ολοκληρωμένο",
         "archived": "Αρχειοθετημένο"
-      }
+      },
+      "attachment": "Συνημμένο",
+      "attachments": "Συνημμένα",
+      "contactInformation": "Στοιχεία επικοινωνίας",
+      "contactMethods": "Μέθοδοι επικοινωνίας",
+      "generalSupport": "Γενική υποστήριξη",
+      "noContact": "Δεν υπάρχουν διαθέσιμα στοιχεία επικοινωνίας",
+      "noNews": "Η ενσωμάτωση ειδήσεων έρχεται σύντομα",
+      "noPartners": "Δεν υπάρχουν συνεργάτες",
+      "noResearch": "Δεν υπάρχει διαθέσιμο ερευνητικό περιεχόμενο",
+      "noResults": "Δεν υπάρχουν διαθέσιμα αποτελέσματα",
+      "resultCount": "{count} αποτέλεσμα",
+      "resultCountPlural": "{count} αποτελέσματα",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Δημοσιεύσεις",
@@ -1031,6 +1063,12 @@
         "master": "Περισσότερες ενημερώσεις έρχονται σύντομα για την ενότητα Μεταπτυχιακού.",
         "bachelor": "Περισσότερες ενημερώσεις έρχονται σύντομα για την ενότητα Πτυχίου."
       }
+    },
+    "resultDetails": {
+      "notFound": "Το αποτέλεσμα δεν βρέθηκε",
+      "attachments": "Συνημμένα",
+      "backToProjects": "Επιστροφή στο Έργα",
+      "attachment": "attachment"
     }
   },
   "resources": {

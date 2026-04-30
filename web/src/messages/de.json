@@ -96,6 +96,8 @@
     "LatestNews": {
       "title": "Neueste Nachrichten",
       "viewAll": "Alle ansehen →",
+      "viewArticle": "Artikel ansehen",
+      "readMore": "Mehr lesen",
       "emptyState": "Nachrichten werden hier nach der Veröffentlichung angezeigt.",
       "visitNews": "Zu News & Events →"
     },
@@ -772,6 +774,7 @@
       "emptyState": "Derzeit keine Nachrichten verfügbar.",
       "noImage": "Kein Bild",
       "readMore": "Weiterlesen",
+      "viewArticle": "Artikel ansehen",
       "categories": {
         "all": "Alle",
         "announcement": "Ankündigungen",
@@ -780,6 +783,15 @@
         "award": "Auszeichnungen",
         "press": "Presse",
         "other": "Sonstige"
+      },
+      "article": {
+        "backToNews": "Zurück zu den Nachrichten",
+        "readOnLinkedIn": "Auf LinkedIn lesen",
+        "gallery": "Galerie",
+        "tags": "Schlagwörter",
+        "relatedProjects": "Verwandte Projekte",
+        "featuredPeople": "Vorgestellte Personen",
+        "relatedDepartments": "Verwandte Abteilungen"
       }
     },
     "open-project-calls": {
@@ -803,7 +815,9 @@
     "tabs": {
       "researchers": "Forscher",
       "staff": "Mitarbeiter",
+      "students": "Studenten",
       "visiting": "Gastforscher",
+      "external": "Externe Mitarbeiter",
       "alumni": "Alumni"
     },
     "results": "{count} Ergebnis gefunden für \"{query}\"",
@@ -937,10 +951,15 @@
       "officialWebsite": "Offizielle Website",
       "documentation": "Dokumentation",
       "tabs": {
-        "overview": "Übersicht",
-        "people": "Team",
-        "resources": "Ressourcen",
-        "publications": "Publikationen"
+        "about": "Über",
+        "team": "Team",
+        "research": "Forschung",
+        "publications": "Publikationen",
+        "results": "Ergebnisse",
+        "news": "Neuigkeiten",
+        "partners": "Partner",
+        "contact": "Kontakt",
+        "resources": "Ressourcen"
       },
       "abstract": "Zusammenfassung",
       "researchDomains": "Forschungsbereiche",
@@ -966,7 +985,20 @@
         "planned": "Geplant",
         "completed": "Abgeschlossen",
         "archived": "Archiviert"
-      }
+      },
+      "attachment": "Anhang",
+      "attachments": "Anhänge",
+      "contactInformation": "Kontaktinformationen",
+      "contactMethods": "Kontaktmethoden",
+      "generalSupport": "Allgemeine Unterstützung",
+      "noContact": "Keine Kontaktinformationen verfügbar",
+      "noNews": "Neuigkeiten-Integration demnächst verfügbar",
+      "noPartners": "Keine Partner aufgeführt",
+      "noResearch": "Kein Forschungsinhalt verfügbar",
+      "noResults": "Keine Ergebnisse verfügbar",
+      "resultCount": "{count} Ergebnis",
+      "resultCountPlural": "{count} Ergebnisse",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Publikationen",
@@ -1031,6 +1063,12 @@
         "master": "Weitere Updates folgen.",
         "bachelor": "Weitere Updates folgen."
       }
+    },
+    "resultDetails": {
+      "notFound": "Ergebnis nicht gefunden",
+      "attachments": "Anhänge",
+      "backToProjects": "Zurück zum Projekt",
+      "attachment": "attachment"
     }
   },
   "resources": {

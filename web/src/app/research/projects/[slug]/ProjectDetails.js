@@ -17,17 +17,75 @@ import {
   FaBookOpen,
   FaFilePdf,
   FaUserTie,
+  FaNewspaper,
+  FaFlask,
+  FaPhone,
+  FaCog,
+  FaEnvelope,
+  FaGithub,
+  FaLink,
 } from 'react-icons/fa';
 import { containerVariants, itemVariants } from '@/lib/animations';
 import { useTranslations } from 'next-intl';
 import BodyContentImage from '@/components/shared/BodyContentImage';
 import RichMarkdown from '@/components/shared/RichMarkdown';
+import ExpandableMarkdown from '@/components/shared/ExpandableMarkdown';
+import { getProjectPhase, getPhaseColorClasses } from '@/lib/projectPhase';
 
 // Helper to get person path
 function getPersonPath(person) {
   const slug = person?.slug ? encodeURIComponent(person.slug) : '';
   if (!slug) return '/people';
   return `/people/${slug}`;
+}
+
+function parseProjectDate(value) {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatProjectDate(value) {
+  const date = parseProjectDate(value);
+  if (!date) return null;
+
+  const hasExplicitTime = typeof value === 'string' && /T\d{2}:\d{2}/.test(value);
+  const options = hasExplicitTime
+    ? {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }
+    : {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      };
+
+  return new Intl.DateTimeFormat(undefined, {
+    ...options,
+  }).format(date);
+}
+
+function truncateText(value, maxLength = 180) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return '';
+  if (raw.length <= maxLength) return raw;
+  return `${raw.slice(0, maxLength).trimEnd()}...`;
+}
+
+function hasNewsLink(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function getNewsCategoryLabel(category, t) {
+  const normalized = typeof category === 'string' ? category.trim().toLowerCase() : 'other';
+  const key = normalized || 'other';
+  if (t.has(`newsCategories.${key}`)) return t(`newsCategories.${key}`);
+  if (t.has('newsCategories.other')) return t('newsCategories.other');
+  return key.replace(/[-_]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 // Tab Button Component
@@ -160,11 +218,21 @@ function PartnerCard({ partner }) {
 }
 
 // Info Card Component
-function InfoCard({ icon: Icon, label, value, href }) {
+function InfoCard({ icon: Icon, label, value, href, color = 'blue' }) {
+  const colorClasses = {
+    blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    purple: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+    green: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+    gray: 'bg-gray-100 dark:bg-gray-900/30 text-gray-600 dark:text-gray-400',
+  };
+  
+  const bgClass = colorClasses[color]?.split(' ')[0] || colorClasses.blue.split(' ')[0];
+  const textClass = colorClasses[color]?.split(' ').slice(2).join(' ') || colorClasses.blue.split(' ').slice(2).join(' ');
+  
   const content = (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 flex items-center gap-3">
-      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-        <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+      <div className={`p-2 ${bgClass} rounded-lg`}>
+        <Icon className={`w-5 h-5 ${textClass}`} />
       </div>
       <div>
         <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -190,29 +258,72 @@ function InfoCard({ icon: Icon, label, value, href }) {
 
 // Resource Card Component
 function ResourceCard({ resource, t }) {
+  const iconMap = {
+    database: FaDatabase,
+    github: FaGithub,
+    tool: FaCog,
+    code: FaFileAlt,
+    document: FaFileAlt,
+    book: FaBookOpen,
+    api: FaCog,
+    cloud: FaDatabase,
+    ai: FaLightbulb,
+    link: FaExternalLinkAlt,
+  };
+  
+  const categoryColors = {
+    resource: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    tool: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    software: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    documentation: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+    api: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    library: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+    framework: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+    learning: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
+    other: "bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300",
+  };
+  
+  const IconComponent = iconMap[resource.icon] || FaLink;
+  const categoryColor = categoryColors[resource.category] || categoryColors.other;
+  const categoryLabel = t.has(`categories.${resource.category}`) 
+    ? t(`categories.${resource.category}`) 
+    : resource.category || 'Other';
+
   return (
     <motion.a
-      href={resource.source_url || resource.url}
+      href={resource.url}
       target="_blank"
       rel="noopener noreferrer"
       variants={itemVariants}
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 hover:shadow-lg transition-all duration-300 group"
+      className="group relative flex flex-col h-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-6 shadow-sm hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300"
     >
-      <div className="flex items-start gap-3">
-        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg flex-shrink-0">
-          <FaDatabase className="w-5 h-5 text-green-600 dark:text-green-400" />
+      {/* Header with icon and category */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform shadow-sm">
+          <IconComponent className="w-6 h-6" />
         </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-            {resource.title}
-          </h4>
-          {resource.platform && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {t("platform")} {resource.platform}
-            </p>
-          )}
+        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${categoryColor}`}>
+          {categoryLabel}
+        </span>
+      </div>
+
+      {/* Title */}
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+        {resource.title}
+      </h3>
+
+      {/* Description */}
+      {resource.description && (
+        <div className="mb-4 flex-grow text-gray-600 dark:text-gray-400 text-sm leading-relaxed line-clamp-3">
+          {typeof resource.description === 'string' ? resource.description : ''}
         </div>
-        <FaExternalLinkAlt className="w-4 h-4 text-gray-400 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors flex-shrink-0" />
+      )}
+
+      {/* Footer with link indicator */}
+      <div className="flex items-center justify-end pt-3 border-t border-gray-100 dark:border-gray-800 mt-auto">
+        <span className="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 font-semibold group-hover:translate-x-1 transition-transform">
+          {t("visitResource")} <FaExternalLinkAlt className="w-3 h-3" />
+        </span>
       </div>
     </motion.a>
   );
@@ -312,15 +423,93 @@ function PublicationCard({ publication, t }) {
   );
 }
 
-const PHASE_STYLES = {
-  ongoing:   'bg-green-100  dark:bg-green-900/30  text-green-700  dark:text-green-300',
-  planned:   'bg-blue-100   dark:bg-blue-900/30   text-blue-700   dark:text-blue-300',
-  completed: 'bg-gray-100   dark:bg-gray-700      text-gray-600   dark:text-gray-300',
-  archived:  'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
-};
+function NewsCard({ item, t }) {
+  const categoryLabel = getNewsCategoryLabel(item.category, t);
+  const publishedLabel = formatProjectDate(item.date);
+  const articleSlug = item?.slug ? encodeURIComponent(item.slug) : '';
+  const viewArticleLabel = t.has('viewArticle') ? t('viewArticle') : t('viewDetails');
+
+  return (
+    <motion.article
+      variants={itemVariants}
+      className="group flex flex-col h-full overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+    >
+      <div className="relative h-52 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+        {item.image ? (
+          <img
+            src={item.image}
+            alt={item.title || t('tabs.news')}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-blue-100 via-slate-100 to-cyan-100 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 flex items-center justify-center text-blue-500 dark:text-blue-300">
+            <FaNewspaper className="w-10 h-10" />
+          </div>
+        )}
+        <div className="absolute top-3 left-3">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wide bg-white/90 dark:bg-gray-900/85 text-slate-700 dark:text-slate-200 border border-white/60 dark:border-gray-700/80 backdrop-blur-sm">
+            {categoryLabel}
+          </span>
+        </div>
+      </div>
+
+      <div className="p-5 flex-1 flex flex-col gap-3">
+        {publishedLabel && (
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+            {publishedLabel}
+          </p>
+        )}
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-snug line-clamp-2">
+          {item.title || t('tabs.news')}
+        </h3>
+        {item.summary && (
+          <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-3 flex-1">
+            {item.summary}
+          </p>
+        )}
+        {Array.isArray(item.tags) && item.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {item.tags.slice(0, 3).map((tag) => (
+              <span
+                key={tag}
+                className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="px-5 pb-5 pt-1 mt-auto flex flex-wrap items-center gap-4">
+        {articleSlug && (
+          <Link
+            href={`/news&events/news/${articleSlug}`}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+          >
+            {viewArticleLabel}
+            <FaExternalLinkAlt className="w-3 h-3" />
+          </Link>
+        )}
+        {hasNewsLink(item.linkUrl) && (
+          <a
+            href={item.linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+          >
+            {t('openArticle')}
+            <FaExternalLinkAlt className="w-3 h-3" />
+          </a>
+        )}
+      </div>
+    </motion.article>
+  );
+}
 
 export default function ProjectDetails({ project }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('about');
   const t = useTranslations("research.projectDetails");
 
   if (!project) {
@@ -340,27 +529,125 @@ export default function ProjectDetails({ project }) {
   const partners = (project.partnersData && project.partnersData.length > 0)
     ? project.partnersData
     : (project.partners || []).map((name) => ({ name, slug: '' }));
-  
-  const getTranslatedPhase = (phase) => {
-    if (!phase) return "";
-    const lowerPhase = phase.toLowerCase();
-    return t.has(`phases.${lowerPhase}`) ? t(`phases.${lowerPhase}`) : phase;
+  const projectNews = project.news || [];
+
+  const phase = getProjectPhase(project.startDate, project.endDate);
+  const phaseLabelKey = phase.status === 'ended'
+    ? (t.has('phases.ended') ? 'phases.ended' : 'phases.completed')
+    : `phases.${phase.status}`;
+  const phaseLabel = t.has(phaseLabelKey) ? t(phaseLabelKey) : t('phase');
+  const startLabel = formatProjectDate(phase.start);
+  const endLabel = formatProjectDate(phase.end);
+  const rawTimelineEvents = (project.timeline || [])
+    .map((event) => {
+      const parsedDate = parseProjectDate(event?.date);
+      return {
+        label: event?.label || t('timelineEventFallback'),
+        date: event?.date || '',
+        parsedDate,
+        dateLabel: formatProjectDate(event?.date),
+        description: truncateText(event?.description, 165),
+      };
+    })
+    .filter((event) => !!event.parsedDate)
+    .sort((a, b) => {
+      return a.parsedDate.getTime() - b.parsedDate.getTime();
+    });
+
+  const visibleTimelineEvents = rawTimelineEvents.filter((event) => {
+    if (!event.parsedDate) return false;
+    if (phase.start && event.parsedDate < phase.start) return false;
+    if (phase.end && event.parsedDate > phase.end) return false;
+    return true;
+  });
+
+  const now = new Date();
+  let phaseProgress = 0;
+  if (phase.status === 'ended') {
+    phaseProgress = 100;
+  } else if (phase.status === 'planned') {
+    phaseProgress = 0;
+  } else if (phase.status === 'ongoing' && phase.start && phase.end) {
+    const total = phase.end.getTime() - phase.start.getTime();
+    const elapsed = now.getTime() - phase.start.getTime();
+    phaseProgress = total > 0 ? Math.max(0, Math.min(100, Math.round((elapsed / total) * 100))) : 50;
+  } else if (phase.status === 'ongoing') {
+    phaseProgress = 55;
+  }
+
+  const hasRange = phase.start && phase.end && phase.end.getTime() > phase.start.getTime();
+  const timelineEvents = visibleTimelineEvents.map((event, index, list) => {
+    let markerPosition = 0;
+
+    if (hasRange) {
+      const total = phase.end.getTime() - phase.start.getTime();
+      const elapsed = event.parsedDate.getTime() - phase.start.getTime();
+      markerPosition = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+    } else if (list.length === 1) {
+      markerPosition = 50;
+    } else if (list.length > 1) {
+      markerPosition = Math.round((index / (list.length - 1)) * 100);
+    }
+
+    let state = 'upcoming';
+    if (markerPosition <= phaseProgress - 4) state = 'past';
+    else if (Math.abs(markerPosition - phaseProgress) <= 6) state = 'current';
+
+    return {
+      ...event,
+      markerPosition,
+      state,
+    };
+  });
+
+  const eventStateStyles = {
+    past: {
+      card: 'border-blue-200 bg-blue-50/90 dark:border-blue-500/40 dark:bg-blue-500/10',
+      dot: 'bg-blue-500 shadow-[0_0_0_4px_rgba(59,130,246,0.15)]',
+    },
+    current: {
+      card: 'border-emerald-300 bg-emerald-50/95 dark:border-emerald-400/60 dark:bg-emerald-500/15 ring-2 ring-emerald-200/70 dark:ring-emerald-400/30',
+      dot: 'bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.2)] animate-pulse',
+    },
+    upcoming: {
+      card: 'border-slate-200 bg-slate-50/90 dark:border-slate-600/60 dark:bg-slate-800/60 opacity-90',
+      dot: 'bg-slate-400 dark:bg-slate-300',
+    },
   };
 
+  const isOpenEndedTimeline = !!phase.start && !phase.end;
+  const openEndedTrackStyle = isOpenEndedTimeline
+    ? {
+        backgroundImage:
+          'repeating-linear-gradient(to bottom, rgba(34, 211, 238, 0.75) 0px, rgba(34, 211, 238, 0.75) 8px, rgba(34, 211, 238, 0.12) 8px, rgba(34, 211, 238, 0.12) 16px)',
+      }
+    : undefined;
+
   const markdownClassName = 'prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300';
+  const resolveMediaSource = (media) => {
+    if (!media) return '';
+    if (typeof media === 'string') return media;
+    return media.url || media.src || '';
+  };
 
   const peopleCount = teams.length + contributors.length;
+  const resultsCount = project.results?.length || 0;
+  const hasResearch = project.researchContent && project.researchContent.length > 0;
+  const hasContact = project.contactInfo?.contactEntries?.length > 0 || project.contactInfo?.generalInfo;
+  
   const tabs = [
-    { id: 'overview', label: t('tabs.overview'), icon: FaInfoCircle },
-    { id: 'team', label: t('tabs.people'), icon: FaUsers, count: peopleCount > 0 ? peopleCount : undefined },
+    { id: 'about', label: t('tabs.about'), icon: FaInfoCircle },
+    { id: 'team', label: t('tabs.team'), icon: FaUsers, count: peopleCount > 0 ? peopleCount : undefined },
+    { id: 'research', label: t('tabs.research'), icon: FaFlask },
+    { id: 'publications', label: t('tabs.publications'), icon: FaBookOpen, count: project.publications?.length },
+    { id: 'results', label: t('tabs.results'), icon: FaCog, count: resultsCount > 0 ? resultsCount : undefined },
+    { id: 'news', label: t('tabs.news'), icon: FaNewspaper, count: projectNews.length > 0 ? projectNews.length : undefined },
+    { id: 'partners', label: t('tabs.partners'), icon: FaHandshake, count: partners.length > 0 ? partners.length : undefined },
+    { id: 'contact', label: t('tabs.contact'), icon: FaPhone },
   ];
 
   if (project.resources && project.resources.length > 0) {
-    tabs.push({ id: 'resources', label: t('tabs.resources'), icon: FaDatabase, count: project.resources.length });
-  }
-
-  if (project.publications && project.publications.length > 0) {
-    tabs.push({ id: 'publications', label: t('tabs.publications'), icon: FaBookOpen, count: project.publications.length });
+    tabs.splice(5, 0, { id: 'resources', label: t('tabs.resources'), icon: FaDatabase, count: project.resources.length });
   }
 
   return (
@@ -426,13 +713,10 @@ export default function ProjectDetails({ project }) {
         {/* Quick Info Cards */}
         <motion.div
           variants={containerVariants}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 -mt-12 mb-8 relative z-10"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 -mt-12 mb-8 relative z-10"
         >
           {project.region && (
             <InfoCard icon={FaMapMarkerAlt} label={t("region")} value={project.region} />
-          )}
-          {project.phase && (
-            <InfoCard icon={FaChartLine} label={t("phase")} value={getTranslatedPhase(project.phase)} />
           )}
           {project.partners && project.partners.length > 0 && (
             <InfoCard
@@ -445,34 +729,6 @@ export default function ProjectDetails({ project }) {
             />
           )}
         </motion.div>
-
-        {/* External Links */}
-        {(project.officialUrl || project.docUrl) && (
-          <motion.div variants={itemVariants} className="flex flex-wrap gap-3 mb-8">
-            {project.officialUrl && (
-              <a
-                href={project.officialUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <FaExternalLinkAlt className="w-4 h-4" />
-                <span>{t("officialWebsite")}</span>
-              </a>
-            )}
-            {project.docUrl && (
-              <a
-                href={project.docUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                <FaFileAlt className="w-4 h-4" />
-                <span>{t("documentation")}</span>
-              </a>
-            )}
-          </motion.div>
-        )}
 
         {/* Tabs */}
         <motion.div variants={itemVariants} className="flex flex-wrap gap-2 mb-8">
@@ -495,13 +751,170 @@ export default function ProjectDetails({ project }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {activeTab === 'overview' && (
+          {activeTab === 'about' && (
             <motion.div
               initial="hidden"
               animate="visible"
               variants={containerVariants}
               className="space-y-8"
             >
+              {/* Project Phase */}
+              <motion.div
+                variants={itemVariants}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <FaChartLine className="text-blue-500" />
+                    {t("phase")}
+                  </h2>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${getPhaseColorClasses(phase.status)}`}>
+                    {phaseLabel}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                      {t("start")}
+                    </p>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {startLabel || t("phaseNoDate")}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                      {t("end")}
+                    </p>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {endLabel || (phase.status === 'ongoing' ? t("phaseOpenEnded") : t("phaseNoDate"))}
+                    </p>
+                  </div>
+                </div>
+
+                
+                <div className="mt-8">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-8 text-center md:text-left">
+                    {t("timeline")}
+                  </h3>
+
+                  {timelineEvents.length > 0 ? (
+                    <div className="relative pb-8">
+                      {/* Vertical line track */}
+                      <div
+                        className={`absolute left-[28px] md:left-1/2 top-[10px] bottom-[56px] w-[3px] -translate-x-1/2 ${isOpenEndedTimeline ? '' : 'bg-gray-200/60 dark:bg-gray-700/50'}`}
+                        style={openEndedTrackStyle}
+                      />
+                      
+                      {/* Active line fill wrapper */}
+                      {isOpenEndedTimeline ? (
+                        <div className="absolute left-[28px] md:left-1/2 top-[10px] bottom-[56px] w-[3px] -translate-x-1/2 z-0 pointer-events-none">
+                          <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-cyan-400/80 to-transparent animate-pulse" />
+                        </div>
+                      ) : (
+                        <div className="absolute left-[28px] md:left-1/2 top-[10px] bottom-[56px] w-[3px] -translate-x-1/2 z-0 overflow-hidden">
+                          <div 
+                            className="absolute top-0 left-0 w-full bg-gradient-to-b from-blue-500 via-cyan-500 to-emerald-500 transition-all duration-1000"
+                            style={{ height: `${Math.max(1, phaseProgress)}%` }}
+                          />
+                        </div>
+                      )}
+                        <div className="relative z-10 pt-2 pb-2 flex flex-col">
+                        {/* Start Node */}
+                        <div className="relative w-full h-8 -mt-4 mb-6 group">
+                          {/* Cross line */}
+                          <div className="absolute top-1/2 left-[28px] md:left-1/2 w-12 md:w-32 -translate-x-1/2 h-[2px] bg-gray-200/80 dark:bg-gray-700/80 z-10 transition-colors duration-300 group-hover:bg-gray-300 dark:group-hover:bg-gray-600" />
+                          
+                          {/* Desktop: Label on the left */}
+                          <div className="hidden md:flex absolute top-1/2 right-1/2 mr-20 -translate-y-1/2 items-center gap-3">
+                             <span className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("start")}</span>
+                             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">{startLabel || t("phaseNoDate")}</span>
+                          </div>
+                          
+                          {/* Mobile: Label on the right */}
+                          <div className="flex md:hidden absolute top-1/2 left-[60px] -translate-y-1/2 items-center gap-2 whitespace-nowrap">
+                             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("start")}</span>
+                             <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">{startLabel || t("phaseNoDate")}</span>
+                          </div>
+                        </div>
+                        {timelineEvents.map((event, index, list) => {
+                          const stateStyle = eventStateStyles[event.state] || eventStateStyles.upcoming;
+                          
+                          // Chronological proportional spacing
+                          let spacingStyle = {};
+                          if (index > 0) {
+                            const prev = list[index - 1].markerPosition;
+                            const diff = event.markerPosition - prev;
+                            const averageGap = list.length > 1 ? 100 / (list.length - 1) : 100;
+                            const gapRatio = averageGap > 0 ? diff / averageGap : 1;
+                            // Scale spacing by relative temporal gap while keeping visual readability bounds.
+                            const dynamicMargin = Math.max(18, Math.min(120, Math.round(28 * gapRatio)));
+                            spacingStyle = { marginTop: `${dynamicMargin}px` };
+                          } else {
+                            spacingStyle = { marginTop: '0.5rem' };
+                          }
+
+                          return (
+                            <div key={`timeline-${event.label}-${index}`} className="relative flex items-start group" style={spacingStyle}>
+                              {/* Center Dot */}
+                              <div className="absolute left-[28px] md:left-1/2 -translate-x-1/2 flex items-center justify-center w-8 h-8 bg-gray-50 dark:bg-gray-800 rounded-full border-[3px] border-white dark:border-gray-900 shadow-sm transition-transform duration-300 group-hover:scale-110 z-20">
+                                <span className={`w-3.5 h-3.5 rounded-full ${stateStyle.dot}`} title={event.label} />
+                              </div>
+
+                              {/* Card lane (single-sided to avoid overlap collisions) */}
+                              <div className="w-full pl-16 py-1 md:pl-12 md:w-1/2">
+                                <div className="text-left group-hover:-translate-y-0.5 transition-transform duration-300">
+                                  <div className={`inline-block w-full md:max-w-sm p-3.5 rounded-xl border ${stateStyle.card} shadow-sm group-hover:shadow-md`}>
+                                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white leading-snug pr-2 mb-1.5">
+                                      {event.label}
+                                    </h4>
+                                    {event.dateLabel && (
+                                      <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">{event.dateLabel}</p>
+                                    )}
+                                    {event.description && (
+                                      <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed pt-2">{event.description}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+                          );
+                        })}
+                        {/* End Node */}
+                        <div className="relative w-full h-8 mt-8 group">
+                          {/* Cross line */}
+                          <div className="absolute top-1/2 left-[28px] md:left-1/2 w-12 md:w-32 -translate-x-1/2 h-[2px] bg-gray-200/80 dark:bg-gray-700/80 z-10 transition-colors duration-300 group-hover:bg-gray-300 dark:group-hover:bg-gray-600" />
+
+                          {isOpenEndedTimeline && (
+                            <>
+                              <div className="absolute left-[28px] md:left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-3 h-3 rounded-full bg-cyan-400 dark:bg-cyan-300 shadow-[0_0_0_6px_rgba(34,211,238,0.2)] animate-pulse" />
+                              <div className="absolute left-[28px] md:left-1/2 top-[calc(50%+10px)] -translate-x-1/2 z-10 w-[2px] h-10 bg-gradient-to-b from-cyan-400/80 to-transparent" />
+                            </>
+                          )}
+                          
+                          {/* Desktop: Label on the right */}
+                          <div className="hidden md:flex absolute top-1/2 left-1/2 ml-20 -translate-y-1/2 items-center gap-3">
+                             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">{endLabel || (phase.status === 'ongoing' ? t("phaseOpenEnded") : t("phaseNoDate"))}</span>
+                             <span className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("end")}</span>
+                          </div>
+
+                          {/* Mobile: Label on the right */}
+                          <div className="flex md:hidden absolute top-1/2 left-[60px] -translate-y-1/2 items-center gap-2 whitespace-nowrap">
+                             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("end")}</span>
+                             <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">{endLabel || (phase.status === 'ongoing' ? t("phaseOpenEnded") : t("phaseNoDate"))}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
+                      {t("noTimeline")}
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+
               {/* Abstract */}
               {project.abstract && (
                 <motion.div
@@ -618,38 +1031,6 @@ export default function ProjectDetails({ project }) {
                   </div>
                 </motion.div>
               )}
-
-              {/* Partners */}
-              {partners && partners.length > 0 && (
-                <motion.div
-                  variants={itemVariants}
-                  className="rounded-3xl border border-gray-100 dark:border-gray-800 bg-white/60 dark:bg-gray-900/40 backdrop-blur-sm p-6 md:p-10 shadow-sm mt-8"
-                >
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="p-3 bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400 rounded-xl">
-                      <FaHandshake className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {t("partners")}
-                      </h2>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Collaborating organizations on this project.
-                      </p>
-                    </div>
-                  </div>
-                  <motion.div
-                    initial="hidden"
-                    animate="visible"
-                    variants={containerVariants}
-                    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5"
-                  >
-                    {partners.map(partner => (
-                      <PartnerCard key={partner.slug || partner.name} partner={partner} />
-                    ))}
-                  </motion.div>
-                </motion.div>
-              )}
             </motion.div>
           )}
 
@@ -677,6 +1058,14 @@ export default function ProjectDetails({ project }) {
                           </span>
                         )}
                       </div>
+                      {team.description && (
+                        <ExpandableMarkdown
+                          content={team.description}
+                          previewLength={190}
+                          collapsedTextClassName="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+                          markdownClassName="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 prose-p:my-1 prose-headings:my-2"
+                        />
+                      )}
                       {team.members.length > 0 ? (
                         <motion.div
                           initial="hidden"
@@ -833,6 +1222,379 @@ export default function ProjectDetails({ project }) {
                   <FaBookOpen className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
                   <p className="text-gray-500 dark:text-gray-400">
                     {t("noPublications")}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Research Tab */}
+          {activeTab === 'research' && (
+            <div className="space-y-6">
+              {project.researchContent && project.researchContent.length > 0 ? (
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={containerVariants}
+                  className="space-y-8"
+                >
+                  {project.researchContent.map((block, index) => {
+                    if (block.__component === 'shared.rich-text') {
+                      return (
+                        <motion.div
+                          key={index}
+                          variants={itemVariants}
+                          className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6"
+                        >
+                          <RichMarkdown
+                            className={markdownClassName}
+                            content={block.body}
+                          />
+                        </motion.div>
+                      );
+                    }
+                    if (block.__component === 'shared.section') {
+                      return (
+                        <motion.div
+                          key={index}
+                          variants={itemVariants}
+                          className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6"
+                        >
+                          {block.heading && (
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                              {block.heading}
+                            </h2>
+                          )}
+                          {block.subheading && (
+                            <h3 className="text-lg text-gray-600 dark:text-gray-400 mb-3">
+                              {block.subheading}
+                            </h3>
+                          )}
+                          {block.body && (
+                            <RichMarkdown className={markdownClassName} content={block.body} />
+                          )}
+                          {block.media && (
+                            <div className="mt-6 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                              <BodyContentImage
+                                src={block.media}
+                                alt={block.heading || project.title || 'Research media'}
+                                className="w-full"
+                                portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                                landscapeClassName="w-full max-h-[36rem] object-contain"
+                              />
+                            </div>
+                          )}
+                        </motion.div>
+                      );
+                    }
+                    if (block.__component === 'shared.media' && block.file) {
+                      const mediaSrc = resolveMediaSource(block.file);
+                      if (!mediaSrc) return null;
+                      return (
+                        <motion.figure
+                          key={index}
+                          variants={itemVariants}
+                          className="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800"
+                        >
+                          <BodyContentImage
+                            src={mediaSrc}
+                            alt={project.title || 'Research media'}
+                            className="w-full"
+                            portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                            landscapeClassName="w-full max-h-[40rem] object-contain"
+                          />
+                        </motion.figure>
+                      );
+                    }
+                    if (block.__component === 'shared.media' && block.media) {
+                      const mediaSrc = resolveMediaSource(block.media);
+                      if (!mediaSrc) return null;
+                      return (
+                        <motion.figure
+                          key={index}
+                          variants={itemVariants}
+                          className="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800"
+                        >
+                          <BodyContentImage
+                            src={mediaSrc}
+                            alt={project.title || 'Research media'}
+                            className="w-full"
+                            portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                            landscapeClassName="w-full max-h-[40rem] object-contain"
+                          />
+                        </motion.figure>
+                      );
+                    }
+                    if (block.__component === 'shared.media') {
+                      const mediaSrc = resolveMediaSource(block.url || block.src || block.image);
+                      if (!mediaSrc) return null;
+                      return (
+                        <motion.figure
+                          key={index}
+                          variants={itemVariants}
+                          className="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800"
+                        >
+                          <BodyContentImage
+                            src={mediaSrc}
+                            alt={project.title || 'Research media'}
+                            className="w-full"
+                            portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                            landscapeClassName="w-full max-h-[40rem] object-contain"
+                          />
+                        </motion.figure>
+                      );
+                    }
+                    if (block.__component === 'shared.slider' && Array.isArray(block.files) && block.files.length > 0) {
+                      return (
+                        <motion.div
+                          key={index}
+                          variants={itemVariants}
+                          className="grid gap-4 sm:grid-cols-2"
+                        >
+                          {block.files.map((file, fileIndex) => (
+                            <figure key={fileIndex} className="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                              <BodyContentImage
+                                src={file}
+                                alt={`${project.title || 'Project'} research media ${fileIndex + 1}`}
+                                landscapeClassName="w-full max-h-[24rem] object-cover"
+                                portraitClassName="mx-auto w-auto max-w-full max-h-[60vh] object-contain"
+                              />
+                            </figure>
+                          ))}
+                        </motion.div>
+                      );
+                    }
+                    return null;
+                  })}
+                </motion.div>
+              ) : (
+                <div className="text-center py-12">
+                  <FaFlask className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t('noResearch')}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Results Tab */}
+          {activeTab === 'results' && (
+            <div className="space-y-6">
+              {project.results && project.results.length > 0 ? (
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={containerVariants}
+                  className="grid gap-4 md:grid-cols-2"
+                >
+                  {project.results.map((result) => (
+                    <Link
+                      key={result.id}
+                      href={`/research/results/${result.slug}`}
+                      className="block group"
+                    >
+                      <motion.div
+                        variants={itemVariants}
+                        className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 hover:shadow-lg transition h-full flex flex-col"
+                      >
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 mb-2">
+                          {result.title}
+                        </h3>
+                        {result.description && (
+                          <p className="text-gray-600 dark:text-gray-300 line-clamp-3 mb-3 flex-1">
+                            {result.description}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mt-auto">
+                          {result.publishedDate && (
+                            <span>
+                              {new Date(result.publishedDate).toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'long' 
+                              })}
+                            </span>
+                          )}
+                          {result.attachments?.length > 0 && (
+                            <span>
+                              📎 {result.attachments.length} {result.attachments.length === 1 ? t('attachment') : t('attachments')}
+                            </span>
+                          )}
+                        </div>
+                      </motion.div>
+                    </Link>
+                  ))}
+                </motion.div>
+              ) : (
+                <div className="text-center py-12">
+                  <FaCog className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t('noResults')}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* News Tab */}
+          {activeTab === 'news' && (
+            <div className="space-y-6">
+              {projectNews.length > 0 ? (
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={containerVariants}
+                  className="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
+                >
+                  {projectNews.map((item) => (
+                    <NewsCard
+                      key={item.id || item.slug || item.title}
+                      item={item}
+                      t={t}
+                    />
+                  ))}
+                </motion.div>
+              ) : (
+                <div className="text-center py-12">
+                  <FaNewspaper className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t('noNews')}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Partners Tab */}
+          {activeTab === 'partners' && (
+            <div className="space-y-6">
+              {partners && partners.length > 0 ? (
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={containerVariants}
+                  className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+                >
+                  {partners.map((partner) => (
+                    <PartnerCard key={partner.id} partner={partner} />
+                  ))}
+                </motion.div>
+              ) : (
+                <div className="text-center py-12">
+                  <FaHandshake className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t('noPartners')}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contact Tab */}
+          {activeTab === 'contact' && (
+            <div className="space-y-6">
+              {project.contactInfo ? (
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={containerVariants}
+                >
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+                    {t('contactInformation')}
+                  </h2>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Left Column: Contact Entries */}
+                    <motion.div
+                      variants={itemVariants}
+                      className="space-y-4"
+                    >
+                      {project.contactInfo.contactEntries && project.contactInfo.contactEntries.length > 0 ? (
+                        <>
+                          {project.contactInfo.contactEntries.map((entry, index) => {
+                            const getIcon = (type) => {
+                              switch(type) {
+                                case 'email': return FaEnvelope;
+                                case 'phone': return FaPhone;
+                                case 'address': return FaMapMarkerAlt;
+                                case 'website': return FaExternalLinkAlt;
+                                case 'social': return FaUserTie;
+                                default: return FaInfoCircle;
+                              }
+                            };
+                            
+                            const getIconColor = (type) => {
+                              switch(type) {
+                                case 'email': return 'text-blue-600';
+                                case 'phone': return 'text-green-600';
+                                case 'address': return 'text-red-600';
+                                case 'website': return 'text-purple-600';
+                                case 'social': return 'text-cyan-600';
+                                default: return 'text-gray-600';
+                              }
+                            };
+                            
+                            const linkValue = (type, value) => {
+                              if (type === 'email') {
+                                return <a href={`mailto:${value}`} className="text-blue-600 dark:text-blue-400 hover:underline break-all">{value}</a>;
+                              }
+                              if (type === 'phone') {
+                                return <a href={`tel:${value}`} className="text-blue-600 dark:text-blue-400 hover:underline">{value}</a>;
+                              }
+                              if (type === 'website') {
+                                return <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline break-all">{value}</a>;
+                              }
+                              return <span className="text-gray-700 dark:text-gray-300">{value}</span>;
+                            };
+                            
+                            const Icon = getIcon(entry.type);
+                            
+                            return (
+                              <div key={index} className="flex items-start gap-3 p-4 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
+                                <div className="mt-1 flex-shrink-0">
+                                  <Icon className={`w-5 h-5 ${getIconColor(entry.type)}`} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-gray-900 dark:text-white mb-1">
+                                    {entry.label}
+                                  </div>
+                                  <div className="mb-1">
+                                    {linkValue(entry.type, entry.value)}
+                                  </div>
+                                  {entry.description && (
+                                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                                      {entry.description}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </>
+                      ) : null}
+                    </motion.div>
+                    
+                    {/* Right Column: General Info */}
+                    {project.contactInfo.generalInfo && (
+                      <motion.div
+                        variants={itemVariants}
+                        className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border border-gray-200 dark:border-gray-700"
+                      >
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                          {t('generalSupport')}
+                        </h3>
+                        <div className="prose dark:prose-invert max-w-none">
+                          <RichMarkdown content={project.contactInfo.generalInfo} />
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                </motion.div>
+              ) : (
+                <div className="text-center py-12">
+                  <FaPhone className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t('noContact')}
                   </p>
                 </div>
               )}

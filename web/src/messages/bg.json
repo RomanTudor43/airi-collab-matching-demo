@@ -96,6 +96,9 @@
     "LatestNews": {
       "title": "Последни новини",
       "viewAll": "Вижте всички новини →",
+      "viewArticle": "Вижте статията",
+      "readMore": "Прочетете повече",
+      "viewArticle": "Вижте статията",
       "emptyState": "Новинарските статии ще се появят тук след публикуването им.",
       "visitNews": "Посетете Новини и Събития →"
     },
@@ -772,6 +775,7 @@
       "emptyState": "Няма налични новини в момента.",
       "noImage": "Няма изображение",
       "readMore": "Прочетете повече",
+      "viewArticle": "Вижте статията",
       "categories": {
         "all": "Всички",
         "announcement": "Обявления",
@@ -780,6 +784,15 @@
         "award": "Награди",
         "press": "Преса",
         "other": "Други"
+      },
+      "article": {
+        "backToNews": "Обратно към новините",
+        "readOnLinkedIn": "Прочетете в LinkedIn",
+        "gallery": "Галерия",
+        "tags": "Етикети",
+        "relatedProjects": "Свързани проекти",
+        "featuredPeople": "Представени хора",
+        "relatedDepartments": "Свързани отдели"
       }
     },
     "open-project-calls": {
@@ -803,7 +816,9 @@
     "tabs": {
       "researchers": "Изследователи",
       "staff": "Персонал",
+      "students": "Студенти",
       "visiting": "Гост-изследователи",
+      "external": "Външни сътрудници",
       "alumni": "Алумни"
     },
     "results": "Намерен е {count} резултат за \"{query}\"",
@@ -937,10 +952,15 @@
       "officialWebsite": "Официален уебсайт",
       "documentation": "Документация",
       "tabs": {
-        "overview": "Общ преглед",
-        "people": "Хора",
-        "resources": "Ресурси",
-        "publications": "Публикации"
+        "about": "За",
+        "team": "Екип",
+        "research": "Изследване",
+        "publications": "Публикации",
+        "results": "Резултати",
+        "news": "Новини",
+        "partners": "Партньори",
+        "contact": "Контакт",
+        "resources": "Ресурси"
       },
       "abstract": "Резюме",
       "researchDomains": "Изследователски домейни",
@@ -966,7 +986,20 @@
         "planned": "Планиран",
         "completed": "Завършен",
         "archived": "Архивиран"
-      }
+      },
+      "attachment": "Прикачен файл",
+      "attachments": "Прикачени файлове",
+      "contactInformation": "Информация за контакт",
+      "contactMethods": "Методи на контакт",
+      "generalSupport": "Обща подкрепа",
+      "noContact": "Няма налична информация за контакт",
+      "noNews": "Интеграцията на новини предстои",
+      "noPartners": "Няма изброени партньори",
+      "noResearch": "Няма налично изследователско съдържание",
+      "noResults": "Няма налични резултати",
+      "resultCount": "{count} резултат",
+      "resultCountPlural": "{count} резултати",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Публикации",
@@ -1031,6 +1064,12 @@
         "master": "Очаквайте скоро повече актуализации за секцията Магистърска програма.",
         "bachelor": "Очаквайте скоро повече актуализации за секцията Бакалавърска програма."
       }
+    },
+    "resultDetails": {
+      "notFound": "Резултатът не е намерен",
+      "attachments": "Прикачени файлове",
+      "backToProjects": "Обратно към проектите",
+      "attachment": "attachment"
     }
   },
   "resources": {

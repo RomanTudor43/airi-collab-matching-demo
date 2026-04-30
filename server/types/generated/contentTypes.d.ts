@@ -731,6 +731,7 @@ export interface ApiNewsArticleNewsArticle extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    author: Schema.Attribute.Relation<'manyToOne', 'api::person.person'>;
     body: Schema.Attribute.DynamicZone<
       [
         'shared.section',
@@ -873,6 +874,7 @@ export interface ApiPersonPerson extends Struct.CollectionTypeSchema {
       'api::publication.publication'
     >;
     publishedAt: Schema.Attribute.DateTime;
+    scholarId: Schema.Attribute.String;
     slug: Schema.Attribute.UID<'fullName'> & Schema.Attribute.Required;
     socialLinks: Schema.Attribute.Component<'shared.contact-link', true>;
     title: Schema.Attribute.Enumeration<
@@ -892,10 +894,14 @@ export interface ApiPersonPerson extends Struct.CollectionTypeSchema {
         'alumni',
         'visitor',
         'visiting_researcher',
+        'student',
         'external',
       ]
     > &
       Schema.Attribute.DefaultTo<'researcher'>;
+    type_alumni: Schema.Attribute.Enumeration<['alumni_AIRI', 'alumni_UTCN']>;
+    type_external: Schema.Attribute.Enumeration<['mentor']>;
+    type_student: Schema.Attribute.Enumeration<['highschool', 'university']>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -917,16 +923,16 @@ export interface ApiProjectProject extends Struct.CollectionTypeSchema {
     body: Schema.Attribute.DynamicZone<
       ['shared.section', 'shared.rich-text', 'shared.media', 'shared.slider']
     >;
+    contactInfo: Schema.Attribute.Component<'project.contact-info', false>;
     contributors: Schema.Attribute.Relation<'manyToMany', 'api::person.person'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    docUrl: Schema.Attribute.Text;
     domains: Schema.Attribute.Relation<
       'manyToMany',
       'api::department.department'
     >;
-    featured: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    endDate: Schema.Attribute.Date;
     heroImage: Schema.Attribute.Media<'images'>;
     isIndustryEngagement: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<false>;
@@ -936,12 +942,11 @@ export interface ApiProjectProject extends Struct.CollectionTypeSchema {
       'api::project.project'
     > &
       Schema.Attribute.Private;
-    officialUrl: Schema.Attribute.Text;
+    news: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::news-article.news-article'
+    >;
     partners: Schema.Attribute.Relation<'manyToMany', 'api::partner.partner'>;
-    phase: Schema.Attribute.Enumeration<
-      ['planned', 'ongoing', 'completed', 'archived']
-    > &
-      Schema.Attribute.DefaultTo<'ongoing'>;
     publications: Schema.Attribute.Relation<
       'manyToMany',
       'api::publication.publication'
@@ -951,11 +956,16 @@ export interface ApiProjectProject extends Struct.CollectionTypeSchema {
       ['local', 'regional', 'national', 'international', 'other']
     > &
       Schema.Attribute.DefaultTo<'national'>;
+    researchContent: Schema.Attribute.DynamicZone<
+      ['shared.section', 'shared.rich-text', 'shared.media', 'shared.slider']
+    >;
     resources: Schema.Attribute.Relation<
       'manyToMany',
       'api::resource.resource'
     >;
+    results: Schema.Attribute.Relation<'manyToMany', 'api::result.result'>;
     slug: Schema.Attribute.UID<'title'>;
+    startDate: Schema.Attribute.Date & Schema.Attribute.Required;
     teams: Schema.Attribute.Relation<'manyToMany', 'api::team.team'>;
     themes: Schema.Attribute.Relation<
       'manyToMany',
@@ -1170,6 +1180,51 @@ export interface ApiResourceResource extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     url: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
+export interface ApiResultResult extends Struct.CollectionTypeSchema {
+  collectionName: 'results';
+  info: {
+    description: 'Research outputs: datasets, code, press releases, videos, and other deliverables';
+    displayName: 'Result';
+    pluralName: 'results';
+    singularName: 'result';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    attachments: Schema.Attribute.Media<
+      'files' | 'images' | 'videos' | 'audios',
+      true
+    >;
+    body: Schema.Attribute.DynamicZone<
+      ['shared.section', 'shared.rich-text', 'shared.media', 'shared.slider']
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 500;
+      }>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::result.result'
+    > &
+      Schema.Attribute.Private;
+    projects: Schema.Attribute.Relation<'manyToMany', 'api::project.project'>;
+    publishedAt: Schema.Attribute.DateTime;
+    publishedDate: Schema.Attribute.Date;
+    slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
+    title: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -1772,6 +1827,7 @@ declare module '@strapi/strapi' {
       'api::publication.publication': ApiPublicationPublication;
       'api::research-theme.research-theme': ApiResearchThemeResearchTheme;
       'api::resource.resource': ApiResourceResource;
+      'api::result.result': ApiResultResult;
       'api::seminar.seminar': ApiSeminarSeminar;
       'api::team.team': ApiTeamTeam;
       'plugin::content-releases.release': PluginContentReleasesRelease;

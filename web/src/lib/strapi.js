@@ -33,7 +33,9 @@ const DEFAULT_REVALIDATE_SECONDS = 60; // 1 minute
 export const PERSON_TYPE_FILTERS = {
   staff: ['staff', 'personal'],
   researchers: ['researcher', 'research'],
-  visiting: ['visiting', 'visitor', 'visiting_researcher', 'visiting researcher', 'external', 'collaborator'],
+  visiting: ['visiting', 'visitor', 'visiting_researcher', 'visiting researcher'],
+  students: ['student'],
+  external: ['external', 'collaborator'],
   alumni: ['alumni', 'alumnus'], 
 };
 
@@ -77,6 +79,30 @@ const resolveMediaUrl = (media) => {
   if (/^https?:\/\//i.test(url)) return url;
   const baseUrl = getStrapiPublicUrl();
   return `${baseUrl}${url.startsWith('/') ? url : `/${url}`}`;
+};
+
+const resolveMediaData = (media) => {
+  if (!media) return null;
+
+  const data = Array.isArray(media?.data) ? media.data[0] : media?.data ?? media;
+  if (!data) return null;
+
+  const attrs = data?.attributes ?? data ?? {};
+  const url = attrs.url;
+  if (!url) return null;
+
+  const fullUrl = /^https?:\/\//i.test(url) 
+    ? url 
+    : `${getStrapiPublicUrl()}${url.startsWith('/') ? url : `/${url}`}`;
+
+  return {
+    url: fullUrl,
+    mime: attrs.mime || '',
+    alt: attrs.alternativeText || '',
+    caption: attrs.caption || '',
+    width: attrs.width || null,
+    height: attrs.height || null,
+  };
 };
 
 const setPopulate = (params, baseKey, config = {}) => {
@@ -171,7 +197,7 @@ const createParams = ({ fields = [], populate = {}, filters = null, sort = null,
   return params;
 };
 
-const PERSON_FIELDS = ['fullName', 'slug', 'title', 'email', 'phone', 'type'];
+const PERSON_FIELDS = ['fullName', 'slug', 'title', 'email', 'phone', 'type', 'scholarId', 'type_alumni', 'type_student', 'type_external'];
 
 const PERSON_FLAT_POPULATE = {
   fields: PERSON_FIELDS,
@@ -193,7 +219,7 @@ const DEPARTMENT_POPULATE = {
 
 
 const PROJECT_POPULATE = {
-  fields: ['title', 'slug', 'abstract', 'region', 'phase', 'docUrl', 'officialUrl', 'featured', 'isIndustryEngagement'],
+  fields: ['title', 'slug', 'abstract', 'region', 'startDate', 'endDate', 'isIndustryEngagement'],
   populate: {
     heroImage: {
       fields: ['url', 'formats', 'alternativeText'],
@@ -219,11 +245,13 @@ const STAFF_TYPE_LABELS = {
   personal: 'Staff', // legacy name
   researcher: 'Researchers',
   research: 'Researchers',
+  student: 'Students',
   alumni: 'Alumni',
   alumnus: 'Alumni',
   visiting: 'Visiting Researchers',
   visitor: 'Visiting Researchers',
   'visiting researcher': 'Visiting Researchers',
+  visiting_researcher: 'Visiting Researchers',
   external: 'External',
   collaborator: 'External',
 };
@@ -385,6 +413,9 @@ export async function getStaff(options = {}) {
         portrait: {
           fields: ['url', 'formats', 'alternativeText'],
         },
+        socialLinks: {
+          fields: ['label', 'url', 'icon'],
+        },
       },
     };
 
@@ -452,7 +483,7 @@ export async function getPersonTeams(slug) {
         members: {
           populate: { person: PERSON_FLAT_POPULATE },
         },
-        projects: { fields: ['title', 'slug', 'abstract', 'phase'] },
+        projects: { fields: ['title', 'slug', 'abstract', 'startDate', 'endDate'] },
       },
     });
     const data = await fetchAPI(`/teams?${params.toString()}`);
@@ -479,7 +510,7 @@ export async function getDepartmentTeams(departmentSlug) {
         members: {
           populate: { person: PERSON_FLAT_POPULATE },
         },
-        projects: { fields: ['title', 'slug', 'abstract', 'phase'] },
+        projects: { fields: ['title', 'slug', 'abstract', 'startDate', 'endDate'] },
       },
     });
     const data = await fetchAPI(`/teams?${params.toString()}`);
@@ -496,12 +527,11 @@ export async function getDepartmentTeams(departmentSlug) {
  */
 export async function getProjects(options = {}) {
   try {
-    const { domainSlug, themeSlug, featured, publicationState = 'preview' } = options;
+    const { domainSlug, themeSlug, publicationState = 'preview' } = options;
 
     const filters = {};
     if (domainSlug) filters.domains = { slug: { $eq: domainSlug } };
     if (themeSlug) filters.themes = { slug: { $eq: themeSlug } };
-    if (featured !== undefined) filters.featured = { $eq: featured };
 
     const params = createParams({
       sort: 'title:asc',
@@ -556,6 +586,33 @@ export async function getProjectBySlug(slug) {
             },
           },
         },
+        researchContent: {
+          on: {
+            'shared.rich-text': { fields: ['body'] },
+            'shared.section': {
+              fields: ['heading', 'subheading', 'body'],
+              populate: { media: { fields: ['url', 'formats', 'alternativeText'] } },
+            },
+            'shared.media': {
+              populate: { file: { fields: ['url', 'formats', 'alternativeText'] } },
+            },
+            'shared.slider': {
+              populate: { files: { fields: ['url', 'formats', 'alternativeText'] } },
+            },
+          },
+        },
+        contactInfo: {
+          fields: ['generalInfo'],
+          populate: {
+            contactEntries: { fields: ['label', 'type', 'value', 'description'] },
+          },
+        },
+        results: {
+          fields: ['title', 'slug', 'description', 'publishedDate'],
+          populate: {
+            attachments: { fields: ['name', 'url', 'mime', 'ext'] },
+          },
+        },
         teams: {
           populate: {
             members: { populate: { person: PERSON_WITH_IMAGE_POPULATE } },
@@ -563,8 +620,14 @@ export async function getProjectBySlug(slug) {
           },
         },
         contributors: PERSON_WITH_IMAGE_POPULATE,
+        news: {
+          fields: ['title', 'slug', 'summary', 'category', 'publishedDate', 'linkUrl', 'tags'],
+          populate: {
+            heroImage: { fields: ['url', 'formats', 'alternativeText'] },
+          },
+        },
         timeline: {},
-        resources: { fields: ['title', 'slug', 'url', 'icon', 'category'] },
+        resources: { fields: ['title', 'slug', 'url', 'icon', 'category', 'description'] },
       },
     });
 
@@ -580,18 +643,24 @@ export async function getProjectBySlug(slug) {
       },
     });
 
-    const [projectData, pubData] = await Promise.all([
-      fetchAPI(`/projects?${projectParams.toString()}`),
-      fetchAPI(`/publications?${pubParams.toString()}`),
-    ]);
+    const projectData = await fetchAPI(`/projects?${projectParams.toString()}`);
 
     const project = projectData.data?.[0];
     if (!project) return null;
 
+    // Publications are optional for this view; do not block project rendering if this call fails.
+    let publications = [];
+    try {
+      const pubData = await fetchAPI(`/publications?${pubParams.toString()}`);
+      publications = pubData?.data ?? [];
+    } catch (error) {
+      console.warn('Failed to fetch publications for project:', slug, error);
+    }
+
     // Inject publications into the project so transformProjectData can pick them up.
     // Works for both Strapi v4 (attributes wrapper) and v5 (flat object).
     const attrs = project?.attributes ?? project;
-    attrs.publications = pubData.data ?? [];
+    attrs.publications = publications;
 
     return project;
   } catch (error) {
@@ -615,7 +684,7 @@ export async function getPartners() {
         fields: ['url', 'formats', 'alternativeText'],
       },
       projects: {
-        fields: ['title', 'slug', 'featured', 'isIndustryEngagement'],
+        fields: ['title', 'slug', 'isIndustryEngagement'],
       },
     },
   };
@@ -653,7 +722,7 @@ export async function getPartnerBySlug(slug) {
           fields: ['url', 'formats', 'alternativeText'],
         },
         projects: {
-          fields: ['title', 'slug', 'abstract', 'phase', 'featured', 'isIndustryEngagement'],
+          fields: ['title', 'slug', 'abstract', 'isIndustryEngagement'],
           populate: {
             heroImage: {
               fields: ['url', 'formats', 'alternativeText'],
@@ -1090,6 +1159,7 @@ export async function getNewsArticles(options = {}) {
       pagination: pageSize ? { pageSize } : null,
       populate: {
         heroImage: { fields: ['url', 'formats', 'alternativeText'] },
+        author: PERSON_FLAT_POPULATE,
       },
     });
     const data = await fetchAPI(`/news-articles?${params.toString()}`);
@@ -1097,6 +1167,129 @@ export async function getNewsArticles(options = {}) {
   } catch (error) {
     console.error('Failed to fetch news articles:', error);
     return [];
+  }
+}
+
+/**
+ * Get a single news article by slug with full body content
+ * @param {string} slug - The article's slug
+ * @returns {Promise<Object|null>} The news article or null if not found
+ */
+export async function getNewsArticleBySlug(slug) {
+  try {
+    if (!slug) return null;
+
+    const params = createParams({
+      publicationState: 'preview',
+      filters: { slug: { $eq: slug } },
+      fields: ['title', 'slug', 'summary', 'category', 'publishedDate', 'linkUrl', 'tags'],
+      populate: {
+        heroImage: { fields: ['url', 'formats', 'alternativeText', 'width', 'height'] },
+        gallery: { fields: ['url', 'formats', 'alternativeText', 'caption', 'width', 'height'] },
+        author: PERSON_FLAT_POPULATE,
+        relatedDepartments: DEPARTMENT_POPULATE,
+        relatedProjects: {
+          fields: ['title', 'slug', 'abstract', 'startDate', 'endDate'],
+          populate: {
+            heroImage: { fields: ['url', 'formats', 'alternativeText'] },
+          },
+        },
+        featuredPeople: PERSON_FLAT_POPULATE,
+        body: {
+          on: {
+            'shared.rich-text': { fields: ['body'] },
+            'shared.section': {
+              fields: ['heading', 'subheading', 'body'],
+              populate: { media: { fields: ['url', 'alternativeText', 'caption', 'width', 'height', 'mime'] } },
+            },
+            'shared.media': {
+              populate: { file: { fields: ['url', 'alternativeText', 'caption', 'width', 'height', 'mime'] } },
+            },
+            'shared.slider': {
+              populate: { files: { fields: ['url', 'alternativeText', 'caption', 'width', 'height', 'mime'] } },
+            },
+            'shared.quote': { fields: ['title', 'body'] },
+          },
+        },
+      },
+    });
+
+    const data = await fetchAPI(`/news-articles?${params.toString()}`);
+    return data.data?.[0] || null;
+  } catch (error) {
+    console.error('Failed to fetch news article by slug:', error);
+    return null;
+  }
+}
+
+/**
+ * Get all results from Strapi
+ * @param {Object} options - Options for the query
+ * @returns {Promise<Array>} Array of results
+ */
+export async function getResults(options = {}) {
+  try {
+    const params = createParams({
+      sort: 'publishedDate:desc',
+      fields: ['title', 'slug', 'description', 'publishedDate'],
+      populate: {
+        attachments: { fields: ['url', 'name', 'mime', 'ext', 'size', 'formats'] },
+        projects: { fields: ['title', 'slug'] },
+      },
+    });
+    const data = await fetchAPI(`/results?${params.toString()}`);
+    return data.data || [];
+  } catch (error) {
+    console.error('Failed to fetch results:', error);
+    return [];
+  }
+}
+
+/**
+ * Get a single result by slug
+ * @param {string} slug - The result's slug
+ * @returns {Promise<Object|null>} The result or null
+ */
+export async function getResultBySlug(slug) {
+  try {
+    if (!slug) return null;
+    
+    const params = createParams({
+      filters: { slug: { $eq: slug } },
+      publicationState: 'preview',
+      fields: ['title', 'slug', 'description', 'publishedDate'],
+      populate: {
+        attachments: { fields: ['url', 'name', 'mime', 'ext', 'size', 'formats', 'alternativeText'] },
+        projects: { fields: ['title', 'slug'] },
+        body: {
+          on: {
+            'shared.rich-text': { fields: ['body'] },
+            'shared.section': {
+              fields: ['heading', 'subheading', 'body'],
+              populate: {
+                media: { fields: ['url', 'formats', 'alternativeText', 'name', 'mime'] },
+              },
+            },
+            'shared.media': {
+              populate: {
+                file: { fields: ['url', 'formats', 'alternativeText', 'name', 'mime'] },
+              },
+            },
+            'shared.slider': {
+              populate: {
+                files: { fields: ['url', 'formats', 'alternativeText', 'name'] },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const data = await fetchAPI(`/results?${params.toString()}`);
+    return data.data?.[0] || null;
+  } catch (error) {
+    console.error('Failed to fetch result by slug:', error);
+    return null;
   }
 }
 
@@ -1322,6 +1515,43 @@ export function transformStaffData(strapiStaff) {
     // Use 'portrait' field from schema
     const image = resolveMediaUrl(attributes.portrait);
 
+    // ============================================================================
+    // QUICKFIX: Validate subtypes match parent type
+    // ============================================================================
+    // Issue: When editors change person type in Strapi (e.g., student → visiting),
+    // the old subtype fields (type_student, type_alumni, type_external) remain in
+    // the database due to Strapi's conditional field visibility not clearing them.
+    // This causes mismatches like "Visiting • University" in the frontend.
+    //
+    // Root Cause: Strapi conditional fields are hidden in the UI but not cleared
+    // in the database when the parent field changes. Lifecycle hooks were attempted
+    // but caused unpredictable behavior with Strapi's field visibility system.
+    //
+    // TODO: Implement proper solution:
+    // - Option 1: Strapi lifecycle hook that correctly handles conditional fields
+    // - Option 2: Database migration to clean up orphaned subtypes
+    // - Option 3: Strapi plugin to manage conditional field cleanup
+    //
+    // Current Solution: Filter out subtypes that don't match the parent type
+    // in the data transformation layer. This prevents display issues but doesn't
+    // clean the database.
+    // ============================================================================
+    
+    const getValidSubtype = () => {
+      // Only include subtype if it matches the parent type
+      if (typeKey === 'alumni' && attributes.type_alumni) {
+        return attributes.type_alumni;
+      }
+      if (typeKey === 'student' && attributes.type_student) {
+        return attributes.type_student;
+      }
+      if (typeKey === 'external' && attributes.type_external) {
+        return attributes.type_external;
+      }
+      // Ignore orphaned subtypes
+      return null;
+    };
+
     return {
       id: person?.id ?? null,
       slug: attributes.slug || '',
@@ -1330,13 +1560,20 @@ export function transformStaffData(strapiStaff) {
       title: attributes.title || '',
       phone: attributes.phone || '',
       email: attributes.email || '',
+      scholarId: attributes.scholarId || '',
       type: typeKey,
       role: typeKey || attributes.role || '',
       category: typeLabel || typeKey || '',
+      // Include only validated subtypes that match the parent type (see QUICKFIX above)
+      subtype: getValidSubtype(),
+      type_alumni: typeKey === 'alumni' ? attributes.type_alumni || null : null,
+      type_student: typeKey === 'student' ? attributes.type_student || null : null,
+      type_external: typeKey === 'external' ? attributes.type_external || null : null,
       department: department?.name || '',
       departmentInfo: department,
       image,
       bio: stripHtml(attributes.bio) || '',
+      bioMarkdown: typeof attributes.bio === 'string' ? attributes.bio : '',
       socialLinks,
       publications,
       _strapi: person,
@@ -1476,6 +1713,107 @@ export function transformPublicationData(strapiPubs) {
   });
 }
 
+/**
+ * Helper function to transform result data
+ */
+export function transformResultData(strapiResults) {
+  const list = Array.isArray(strapiResults) ? strapiResults : strapiResults ? [strapiResults] : [];
+
+  const normalizeBodyBlocks = (blocks) =>
+    toArray(blocks)
+      .map((block) => {
+        const blockData = block?.attributes ?? block ?? {};
+        const componentType = block?.__component;
+
+        const mediaFile = blockData.media?.data ?? blockData.media;
+        const mediaData = mediaFile?.attributes ?? mediaFile ?? {};
+
+        const file = blockData.file?.data ?? blockData.file;
+        const fileData = file?.attributes ?? file ?? {};
+
+        const files = toArray(blockData.files?.data ?? blockData.files).map((f) => {
+          const fd = f?.attributes ?? f ?? {};
+          return {
+            url: resolveMediaUrl(f),
+            alt: fd.alternativeText || fd.name || '',
+            name: fd.name || '',
+          };
+        });
+
+        return {
+          __component: componentType,
+          heading: blockData.heading || '',
+          subheading: blockData.subheading || '',
+          body: blockData.body || '',
+          media: mediaFile
+            ? {
+                url: resolveMediaUrl(mediaFile),
+                alt: mediaData.alternativeText || mediaData.name || '',
+                mime: mediaData.mime || '',
+                name: mediaData.name || '',
+              }
+            : null,
+          file: file
+            ? {
+                url: resolveMediaUrl(file),
+                alt: fileData.alternativeText || fileData.name || '',
+                mime: fileData.mime || '',
+                name: fileData.name || '',
+              }
+            : null,
+          files,
+        };
+      })
+      .filter((block) => block.__component);
+
+  return list.map((result) => {
+    const attributes = result?.attributes ?? result ?? {};
+
+    const projects = toArray(attributes.projects?.data ?? attributes.projects).map((project) => {
+      const projectData = project?.attributes ?? project ?? {};
+      return {
+        id: project?.id ?? null,
+        slug: projectData.slug || '',
+        title: projectData.title || '',
+      };
+    });
+
+    const attachments = toArray(attributes.attachments?.data ?? attributes.attachments).map((file) => {
+      const fileData = file?.attributes ?? file ?? {};
+      return {
+        id: file?.id ?? null,
+        name: fileData.name || '',
+        url: resolveMediaUrl(file),
+        mime: fileData.mime || '',
+        ext: fileData.ext || '',
+        size: typeof fileData.size === 'number' ? fileData.size : null,
+        alt: fileData.alternativeText || '',
+      };
+    });
+
+    const body = normalizeBodyBlocks(attributes.body);
+
+    const normalizeDate = (value) => {
+      if (!value) return '';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toISOString();
+    };
+
+    return {
+      id: result?.id ?? null,
+      slug: attributes.slug || '',
+      title: attributes.title || '',
+      description: attributes.description || '',
+      publishedDate: normalizeDate(attributes.publishedDate),
+      projects,
+      attachments,
+      body,
+      _strapi: result,
+    };
+  });
+}
+
 export function transformNewsData(strapiNews) {
   const list = Array.isArray(strapiNews) ? strapiNews : strapiNews ? [strapiNews] : [];
 
@@ -1486,10 +1824,68 @@ export function transformNewsData(strapiNews) {
     return d.toISOString();
   };
 
+  const derivePhase = (startDate, endDate) => {
+    const now = new Date();
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    const hasValidStart = !!start && !Number.isNaN(start.getTime());
+    const hasValidEnd = !!end && !Number.isNaN(end.getTime());
+
+    if (hasValidEnd && end < now) return 'completed';
+    if (hasValidStart && start > now) return 'planned';
+    if (hasValidStart || hasValidEnd) return 'ongoing';
+
+    return '';
+  };
+
+  const normalizeBodyBlocks = (blocks) =>
+    toArray(blocks)
+      .map((block) => {
+        if (!block || typeof block !== 'object') return null;
+        switch (block.__component) {
+          case 'shared.media':
+            return { ...block, file: resolveMediaData(block.file) || resolveMediaUrl(block.file) };
+          case 'shared.section':
+            return { ...block, media: resolveMediaData(block.media) || resolveMediaUrl(block.media) };
+          case 'shared.slider':
+            return { 
+              ...block, 
+              files: toArray(block.files)
+                .map(f => resolveMediaData(f) || resolveMediaUrl(f))
+                .filter(Boolean) 
+            };
+          default:
+            return block;
+        }
+      })
+      .filter(Boolean);
+
+  const normalizePerson = (person) => {
+    if (!person) return null;
+    const attrs = person?.attributes ?? person ?? {};
+    return {
+      id: person?.id ?? null,
+      name: attrs.fullName || attrs.name || '',
+      slug: attrs.slug || '',
+      title: attrs.title || '',
+      image: resolveMediaUrl(attrs.portrait || attrs.profileImage),
+    };
+  };
+
   return list
     .map((item) => {
       const attributes = item?.attributes ?? item ?? {};
       const tags = Array.isArray(attributes.tags) ? attributes.tags : [];
+      
+      // Related data (may not be present in listing queries)
+      const rawAuthor = attributes.author?.data ?? attributes.author ?? null;
+      const rawDepartments = attributes.relatedDepartments?.data ?? attributes.relatedDepartments ?? [];
+      const rawProjects = attributes.relatedProjects?.data ?? attributes.relatedProjects ?? [];
+      const rawPeople = attributes.featuredPeople?.data ?? attributes.featuredPeople ?? [];
+      const rawGallery = attributes.gallery?.data ?? attributes.gallery ?? [];
+      const rawBody = attributes.body ?? [];
+
       return {
         id: item?.id ?? null,
         title: attributes.title || '',
@@ -1500,6 +1896,26 @@ export function transformNewsData(strapiNews) {
         linkUrl: normalizeExternalUrl(attributes.linkUrl),
         image: resolveMediaUrl(attributes.heroImage),
         tags,
+        // Full article data
+        author: normalizePerson(rawAuthor),
+        gallery: toArray(rawGallery).map(resolveMediaUrl).filter(Boolean),
+        body: normalizeBodyBlocks(rawBody),
+        relatedDepartments: toArray(rawDepartments).map((d) => {
+          const da = d?.attributes ?? d ?? {};
+          return { id: d?.id, name: da.name || '', slug: da.slug || '' };
+        }),
+        relatedProjects: toArray(rawProjects).map((p) => {
+          const pa = p?.attributes ?? p ?? {};
+          return {
+            id: p?.id,
+            title: pa.title || '',
+            slug: pa.slug || '',
+            abstract: pa.abstract || '',
+            phase: pa.phase || derivePhase(pa.startDate, pa.endDate),
+            image: resolveMediaUrl(pa.heroImage),
+          };
+        }),
+        featuredPeople: toArray(rawPeople).map(normalizePerson).filter(Boolean),
         _strapi: item,
       };
     });
@@ -1573,6 +1989,29 @@ export function transformProjectData(strapiProjects) {
         };
       })
       .filter(Boolean);
+
+  const normalizeContactInfo = (contactInfo) => {
+    if (!contactInfo) return null;
+    
+    const contactData = contactInfo?.attributes ?? contactInfo ?? {};
+    const contactEntries = toArray(contactData.contactEntries?.data ?? contactData.contactEntries)
+      .map((entry) => {
+        if (!entry) return null;
+        const entryData = entry?.attributes ?? entry ?? {};
+        return {
+          label: entryData.label || '',
+          type: entryData.type || 'email',
+          value: entryData.value || '',
+          description: entryData.description || '',
+        };
+      })
+      .filter(Boolean);
+
+    return {
+      contactEntries,
+      generalInfo: contactData.generalInfo || null,
+    };
+  };
 
   return list.map((project) => {
     const attributes = project?.attributes ?? project ?? {};
@@ -1701,11 +2140,39 @@ export function transformProjectData(strapiProjects) {
         id: resource?.id ?? null,
         title: resourceAttrs.title || '',
         slug: resourceAttrs.slug || '',
+        description: resourceAttrs.description || '',
         url: normalizeExternalUrl(resourceAttrs.url),
         icon: resourceAttrs.icon || 'link',
         category: resourceAttrs.category || '',
       };
     });
+
+    const news = toArray(attributes.news?.data ?? attributes.news)
+      .map((newsItem) => {
+        const newsData = newsItem?.attributes ?? newsItem ?? {};
+        const tags = Array.isArray(newsData.tags) ? newsData.tags : [];
+        const parsedDate = newsData.publishedDate ? new Date(newsData.publishedDate) : null;
+        const date = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : '';
+
+        return {
+          id: newsItem?.id ?? null,
+          title: newsData.title || '',
+          slug: newsData.slug || '',
+          summary: newsData.summary || '',
+          category: newsData.category || 'other',
+          date,
+          linkUrl: normalizeExternalUrl(newsData.linkUrl),
+          image: resolveMediaUrl(newsData.heroImage),
+          tags,
+        };
+      })
+      .filter((item) => item.title || item.slug || item.linkUrl)
+      .sort((a, b) => {
+        if (!a.date && !b.date) return 0;
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
 
     return {
       id: project?.id ?? null,
@@ -1713,7 +2180,29 @@ export function transformProjectData(strapiProjects) {
       title: attributes.title || '',
       abstract: attributes.abstract || '',
       body: normalizeBodyBlocks(attributes.body),
-      phase: attributes.phase || attributes.status || '',
+      researchContent: normalizeBodyBlocks(attributes.researchContent),
+      startDate: attributes.startDate || null,
+      endDate: attributes.endDate || null,
+      contactInfo: normalizeContactInfo(attributes.contactInfo),
+      results: toArray(attributes.results?.data ?? attributes.results).map((result) => {
+        const resultData = result?.attributes ?? result ?? {};
+        return {
+          id: result?.id ?? null,
+          slug: resultData.slug || '',
+          title: resultData.title || '',
+          description: resultData.description || '',
+          publishedDate: resultData.publishedDate || '',
+          attachments: toArray(resultData.attachments?.data ?? resultData.attachments).map((file) => {
+            const fileData = file?.attributes ?? file ?? {};
+            return {
+              name: fileData.name || '',
+              url: resolveMediaUrl(file),
+              mime: fileData.mime || '',
+              ext: fileData.ext || '',
+            };
+          }),
+        };
+      }),
       isIndustryEngagement: !!attributes.isIndustryEngagement,
       heroImage: resolveMediaUrl(attributes.heroImage),
       // Map themes relation to simple array for frontend compatibility
@@ -1730,10 +2219,7 @@ export function transformProjectData(strapiProjects) {
       timeline: normalizeTimelineEntries(attributes.timeline),
       publications,
       resources,
-      // Map docUrl (schema) to docUrl (frontend)
-      docUrl: attributes.docUrl || attributes.doc_url || '',
-      // Map officialUrl (schema) to oficialUrl (legacy frontend typo)
-      oficialUrl: attributes.officialUrl || attributes.oficial_url || attributes.official_url || '',
+      news,
       _strapi: project,
     };
   });
@@ -1906,6 +2392,11 @@ export async function getResources(options = {}) {
   }
 }
 
+/**
+ * Get a single resource by slug
+ * @param {string} slug - The resource's slug
+ * @returns {Promise<Object|null>} The resource or null
+ */
 export function transformResourceData(strapiResources) {
   const list = Array.isArray(strapiResources) ? strapiResources : strapiResources ? [strapiResources] : [];
   
@@ -1996,7 +2487,6 @@ export function transformPartnerData(strapiPartners) {
           title: projectData.title || '',
           slug: projectData.slug || '',
           abstract: projectData.abstract || '',
-          featured: !!projectData.featured,
           isIndustryEngagement: !!projectData.isIndustryEngagement,
           heroImage: resolveMediaUrl(projectData.heroImage),
           domains: toArray(projectData.domains?.data ?? projectData.domains)
@@ -2039,4 +2529,3 @@ export function transformPartnerData(strapiPartners) {
     };
   });
 }
-

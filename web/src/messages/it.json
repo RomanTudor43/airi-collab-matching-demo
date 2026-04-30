@@ -96,6 +96,9 @@
     "LatestNews": {
       "title": "Ultime Notizie",
       "viewAll": "Vedi Tutte le Notizie →",
+      "viewArticle": "Vedi articolo",
+      "readMore": "Leggi di più",
+      "viewArticle": "Vedi articolo",
       "emptyState": "Gli articoli di notizie appariranno qui una volta pubblicati.",
       "visitNews": "Visita Notizie ed Eventi →"
     },
@@ -772,6 +775,7 @@
       "emptyState": "Nessuna notizia disponibile al momento.",
       "noImage": "Nessuna immagine",
       "readMore": "Leggi di più",
+      "viewArticle": "Vedi articolo",
       "categories": {
         "all": "Tutte",
         "announcement": "Annunci",
@@ -780,6 +784,15 @@
         "award": "Premi",
         "press": "Stampa",
         "other": "Altro"
+      },
+      "article": {
+        "backToNews": "Torna alle notizie",
+        "readOnLinkedIn": "Leggi su LinkedIn",
+        "gallery": "Galleria",
+        "tags": "Tag",
+        "relatedProjects": "Progetti correlati",
+        "featuredPeople": "Persone in evidenza",
+        "relatedDepartments": "Dipartimenti correlati"
       }
     },
     "open-project-calls": {
@@ -803,7 +816,9 @@
     "tabs": {
       "researchers": "Ricercatori",
       "staff": "Personale",
+      "students": "Studenti",
       "visiting": "Ricercatori in Visita",
+      "external": "Collaboratori Esterni",
       "alumni": "Ex Alunni"
     },
     "results": "Trovato {count} risultato per \"{query}\"",
@@ -937,10 +952,15 @@
       "officialWebsite": "Sito Ufficiale",
       "documentation": "Documentazione",
       "tabs": {
-        "overview": "Panoramica",
-        "people": "Persone",
-        "resources": "Risorse",
-        "publications": "Pubblicazioni"
+        "about": "Info",
+        "team": "Team",
+        "research": "Ricerca",
+        "publications": "Pubblicazioni",
+        "results": "Risultati",
+        "news": "Notizie",
+        "partners": "Partner",
+        "contact": "Contatti",
+        "resources": "Risorse"
       },
       "abstract": "Riassunto",
       "researchDomains": "Domini di Ricerca",
@@ -966,7 +986,20 @@
         "planned": "Pianificato",
         "completed": "Completato",
         "archived": "Archiviato"
-      }
+      },
+      "attachment": "Allegato",
+      "attachments": "Allegati",
+      "contactInformation": "Informazioni di contatto",
+      "contactMethods": "Metodi di contatto",
+      "generalSupport": "Supporto generale",
+      "noContact": "Nessuna informazione di contatto disponibile",
+      "noNews": "Integrazione notizie in arrivo",
+      "noPartners": "Nessun partner elencato",
+      "noResearch": "Nessun contenuto di ricerca disponibile",
+      "noResults": "Nessun risultato disponibile",
+      "resultCount": "{count} risultato",
+      "resultCountPlural": "{count} risultati",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Pubblicazioni",
@@ -1031,6 +1064,12 @@
         "master": "Ulteriori aggiornamenti in arrivo per la sezione Magistrale.",
         "bachelor": "Ulteriori aggiornamenti in arrivo per la sezione Triennale."
       }
+    },
+    "resultDetails": {
+      "notFound": "Risultato non trovato",
+      "attachments": "Allegati",
+      "backToProjects": "Torna al progetti",
+      "attachment": "attachment"
     }
   },
   "resources": {

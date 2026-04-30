@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaUsers, FaFlask, FaBook, FaInfoCircle, FaArrowLeft, FaEnvelope, FaGlobe, FaStar, FaProjectDiagram, FaUserCog, FaUserTie } from "react-icons/fa";
 import { useTranslations } from "next-intl";
+import ExpandableMarkdown from "@/components/shared/ExpandableMarkdown";
 
 const PHASE_STYLES = {
   ongoing:   'bg-green-100  dark:bg-green-900/30  text-green-700  dark:text-green-300',
@@ -81,16 +82,20 @@ function TeamCard({ team, staffLookup, t }) {
             <h3 className="font-bold text-gray-900 dark:text-white text-base leading-snug truncate">
               {team.name}
             </h3>
-            {team.description && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 mt-0.5">
-                {team.description}
-              </p>
-            )}
           </div>
           <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 shrink-0">
             {ordered.length} {ordered.length === 1 ? t('members.member') : t('members.membersPlural')}
           </span>
         </div>
+
+        {team.description && (
+          <ExpandableMarkdown
+            content={team.description}
+            previewLength={160}
+            collapsedTextClassName="text-xs text-gray-500 dark:text-gray-400 leading-relaxed"
+            markdownClassName="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 prose-p:my-1 prose-headings:my-2"
+          />
+        )}
 
         {/* Members */}
         {ordered.length > 0 && (

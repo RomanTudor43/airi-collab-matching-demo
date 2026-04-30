@@ -96,6 +96,8 @@
     "LatestNews": {
       "title": "Dernières actualités",
       "viewAll": "Voir toutes les actualités →",
+      "viewArticle": "Voir l'article",
+      "readMore": "En savoir plus",
       "emptyState": "Les articles d'actualité apparaîtront ici une fois publiés.",
       "visitNews": "Visitez Actualités & Événements →"
     },
@@ -772,6 +774,7 @@
       "emptyState": "Aucune actualité disponible pour le moment.",
       "noImage": "Aucune image",
       "readMore": "Lire la suite",
+      "viewArticle": "Voir l'article",
       "categories": {
         "all": "Tous",
         "announcement": "Annonces",
@@ -780,6 +783,15 @@
         "award": "Prix",
         "press": "Presse",
         "other": "Autre"
+      },
+      "article": {
+        "backToNews": "Retour aux actualités",
+        "readOnLinkedIn": "Lire sur LinkedIn",
+        "gallery": "Galerie",
+        "tags": "Étiquettes",
+        "relatedProjects": "Projets connexes",
+        "featuredPeople": "Personnes en vedette",
+        "relatedDepartments": "Départements connexes"
       }
     },
     "open-project-calls": {
@@ -803,7 +815,9 @@
     "tabs": {
       "researchers": "Chercheurs",
       "staff": "Personnel",
+      "students": "Étudiants",
       "visiting": "Chercheurs invités",
+      "external": "Collaborateurs Externes",
       "alumni": "Anciens élèves"
     },
     "results": "{count} résultat trouvé pour \"{query}\"",
@@ -936,11 +950,29 @@
       "partnerCountPlural": "{count} partenaires",
       "officialWebsite": "Site officiel",
       "documentation": "Documentation",
+      "start": "Début",
+      "end": "Fin",
+      "phaseNoDate": "Non défini",
+      "phaseOpenEnded": "Sans date de fin",
+      "phaseProgress": "Progression du calendrier",
+      "timeline": "Chronologie",
+      "timelineEventFallback": "Étape du projet",
+      "noTimeline": "Aucun événement de chronologie disponible pour le moment.",
+      "timelineStates": {
+        "past": "Terminé",
+        "current": "En cours",
+        "upcoming": "À venir"
+      },
       "tabs": {
-        "overview": "Aperçu",
-        "people": "Équipe",
-        "resources": "Ressources",
-        "publications": "Publications"
+        "about": "À propos",
+        "team": "Équipe",
+        "research": "Recherche",
+        "publications": "Publications",
+        "results": "Résultats",
+        "news": "Actualités",
+        "partners": "Partenaires",
+        "contact": "Contact",
+        "resources": "Ressources"
       },
       "abstract": "Résumé",
       "researchDomains": "Domaines de recherche",
@@ -964,9 +996,32 @@
       "phases": {
         "ongoing": "En cours",
         "planned": "Planifié",
+        "ended": "Terminé",
         "completed": "Terminé",
         "archived": "Archivé"
-      }
+      },
+      "attachment": "Pièce jointe",
+      "attachments": "Pièces jointes",
+      "contactInformation": "Informations de contact",
+      "contactMethods": "Moyens de contact",
+      "generalSupport": "Support général",
+      "noContact": "Aucune information de contact disponible",
+      "noNews": "Aucune actualité liée à ce projet pour le moment",
+      "openArticle": "Ouvrir l'article",
+      "newsCategories": {
+        "announcement": "Annonce",
+        "construction": "Construction",
+        "collaboration": "Collaboration",
+        "award": "Distinction",
+        "press": "Presse",
+        "other": "Mise à jour"
+      },
+      "noPartners": "Aucun partenaire listé",
+      "noResearch": "Aucun contenu de recherche disponible",
+      "noResults": "Aucun résultat disponible",
+      "resultCount": "{count} résultat",
+      "resultCountPlural": "{count} résultats",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Publications",
@@ -1031,6 +1086,12 @@
         "master": "Plus de mises à jour à venir pour la section Master.",
         "bachelor": "Plus de mises à jour à venir pour la section Licence."
       }
+    },
+    "resultDetails": {
+      "notFound": "Résultat non trouvé",
+      "attachments": "Pièces jointes",
+      "backToProjects": "Retour au projets",
+      "attachment": "attachment"
     }
   },
   "resources": {

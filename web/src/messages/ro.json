@@ -96,6 +96,8 @@
     "LatestNews": {
       "title": "Ultimele știri",
       "viewAll": "Vezi toate știrile →",
+      "viewArticle": "Vezi articolul",
+      "readMore": "Citește mai mult",
       "emptyState": "Articolele de știri vor apărea aici odată ce vor fi publicate.",
       "visitNews": "Vizitează Știri și Evenimente →"
     },
@@ -772,6 +774,7 @@
       "emptyState": "Nu există știri disponibile în acest moment.",
       "noImage": "Fără imagine",
       "readMore": "Citește mai mult",
+      "viewArticle": "Vezi articolul",
       "categories": {
         "all": "Toate",
         "announcement": "Anunțuri",
@@ -780,6 +783,15 @@
         "award": "Premii",
         "press": "Presă",
         "other": "Altele"
+      },
+      "article": {
+        "backToNews": "Înapoi la Știri",
+        "readOnLinkedIn": "Citește pe LinkedIn",
+        "gallery": "Galerie",
+        "tags": "Etichete",
+        "relatedProjects": "Proiecte conexe",
+        "featuredPeople": "Persoane prezentate",
+        "relatedDepartments": "Departamente conexe"
       }
     },
     "open-project-calls": {
@@ -803,7 +815,9 @@
     "tabs": {
       "researchers": "Cercetători",
       "staff": "Personal administrativ",
+      "students": "Studenți",
       "visiting": "Cercetători invitați",
+      "external": "Colaboratori externi",
       "alumni": "Alumni"
     },
     "results": "A fost găsit {count} rezultat pentru \"{query}\"",
@@ -937,10 +951,15 @@
       "officialWebsite": "Site Oficial",
       "documentation": "Documentație",
       "tabs": {
-        "overview": "Prezentare generală",
-        "people": "Oameni",
-        "resources": "Resurse",
-        "publications": "Publicații"
+        "about": "Despre",
+        "team": "Echipă",
+        "research": "Cercetare",
+        "publications": "Publicații",
+        "results": "Rezultate",
+        "news": "Știri",
+        "partners": "Parteneri",
+        "contact": "Contact",
+        "resources": "Resurse"
       },
       "abstract": "Rezumat",
       "researchDomains": "Domenii de Cercetare",
@@ -961,12 +980,25 @@
       "viewDetails": "Vezi detalii",
       "pdf": "PDF",
       "teamProjects": "Proiecte",
+      "noResearch": "Conținut de cercetare indisponibil",
+      "noResults": "Rezultate indisponibile",
+      "noNews": "Integrarea știrilor va fi disponibilă în curând",
+      "noPartners": "Niciun partener listat",
+      "noContact": "Informații de contact indisponibile",
+      "contactInformation": "Informații de Contact",
+      "contactMethods": "Metode de contact",
+      "generalSupport": "Suport general",
+      "resultCount": "{count} rezultat",
+      "resultCountPlural": "{count} rezultate",
+      "attachments": "atașamente",
+      "attachment": "atașament",
       "phases": {
         "ongoing": "În desfășurare",
         "planned": "Planificat",
         "completed": "Finalizat",
         "archived": "Arhivat"
-      }
+      },
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Publicații",
@@ -1031,6 +1063,12 @@
         "master": "Mai multe actualizări vor fi disponibile în curând pentru secțiunea de Masterat.",
         "bachelor": "Mai multe actualizări vor fi disponibile în curând pentru secțiunea de Licență."
       }
+    },
+    "resultDetails": {
+      "notFound": "Rezultatul nu a fost găsit",
+      "attachments": "Atașamente",
+      "backToProjects": "Înapoi la proiecte",
+      "attachment": "attachment"
     }
   },
   "resources": {

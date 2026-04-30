@@ -96,6 +96,9 @@
     "LatestNews": {
       "title": "Últimas Noticias",
       "viewAll": "Ver Todas las Noticias →",
+      "viewArticle": "Ver artículo",
+      "readMore": "Leer más",
+      "viewArticle": "Ver artículo",
       "emptyState": "Los artículos de noticias aparecerán aquí una vez publicados.",
       "visitNews": "Visitar Noticias y Eventos →"
     },
@@ -772,6 +775,7 @@
       "emptyState": "No hay noticias disponibles en este momento.",
       "noImage": "Sin imagen",
       "readMore": "Leer más",
+      "viewArticle": "Ver artículo",
       "categories": {
         "all": "Todas",
         "announcement": "Anuncios",
@@ -780,6 +784,15 @@
         "award": "Premios",
         "press": "Prensa",
         "other": "Otros"
+      },
+      "article": {
+        "backToNews": "Volver a las noticias",
+        "readOnLinkedIn": "Leer en LinkedIn",
+        "gallery": "Galería",
+        "tags": "Etiquetas",
+        "relatedProjects": "Proyectos relacionados",
+        "featuredPeople": "Personas destacadas",
+        "relatedDepartments": "Departamentos relacionados"
       }
     },
     "open-project-calls": {
@@ -803,7 +816,9 @@
     "tabs": {
       "researchers": "Investigadores",
       "staff": "Personal",
+      "students": "Estudiantes",
       "visiting": "Investigadores Visitantes",
+      "external": "Colaboradores Externos",
       "alumni": "Antiguos Alumnos"
     },
     "results": "Se encontró {count} resultado para \"{query}\"",
@@ -936,11 +951,29 @@
       "partnerCountPlural": "{count} socios",
       "officialWebsite": "Sitio Web Oficial",
       "documentation": "Documentación",
+      "start": "Inicio",
+      "end": "Fin",
+      "phaseNoDate": "No definido",
+      "phaseOpenEnded": "Sin fecha de finalización",
+      "phaseProgress": "Progreso del cronograma",
+      "timeline": "Cronología",
+      "timelineEventFallback": "Hito del proyecto",
+      "noTimeline": "Todavía no hay eventos de cronología disponibles.",
+      "timelineStates": {
+        "past": "Completado",
+        "current": "Actual",
+        "upcoming": "Próximo"
+      },
       "tabs": {
-        "overview": "Visión general",
-        "people": "Personas",
-        "resources": "Recursos",
-        "publications": "Publicaciones"
+        "about": "Sobre",
+        "team": "Equipo",
+        "research": "Investigación",
+        "publications": "Publicaciones",
+        "results": "Resultados",
+        "news": "Noticias",
+        "partners": "Socios",
+        "contact": "Contacto",
+        "resources": "Recursos"
       },
       "abstract": "Resumen",
       "researchDomains": "Dominios de Investigación",
@@ -964,9 +997,32 @@
       "phases": {
         "ongoing": "En curso",
         "planned": "Planificado",
+        "ended": "Finalizado",
         "completed": "Completado",
         "archived": "Archivado"
-      }
+      },
+      "attachment": "Adjunto",
+      "attachments": "Adjuntos",
+      "contactInformation": "Información de contacto",
+      "contactMethods": "Métodos de contacto",
+      "generalSupport": "Soporte general",
+      "noContact": "No hay información de contacto disponible",
+      "noNews": "Aún no hay noticias vinculadas a este proyecto",
+      "openArticle": "Abrir artículo",
+      "newsCategories": {
+        "announcement": "Anuncio",
+        "construction": "Construcción",
+        "collaboration": "Colaboración",
+        "award": "Premio",
+        "press": "Prensa",
+        "other": "Actualización"
+      },
+      "noPartners": "No hay socios listados",
+      "noResearch": "No hay contenido de investigación disponible",
+      "noResults": "No hay resultados disponibles",
+      "resultCount": "{count} resultado",
+      "resultCountPlural": "{count} resultados",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Publicaciones",
@@ -1031,6 +1087,12 @@
         "master": "Próximamente habrá más actualizaciones para la sección de Máster.",
         "bachelor": "Próximamente habrá más actualizaciones para la sección de Grado."
       }
+    },
+    "resultDetails": {
+      "notFound": "Resultado no encontrado",
+      "attachments": "Adjuntos",
+      "backToProjects": "Volver al proyectos",
+      "attachment": "attachment"
     }
   },
   "resources": {

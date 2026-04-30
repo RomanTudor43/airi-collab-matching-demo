@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import LinkedInWidget from "@/components/LinkedInWidget";
 import { getNewsArticles, transformNewsData } from "@/lib/strapi";
 import { getTranslations } from "next-intl/server";
 
@@ -153,79 +152,65 @@ export default async function Home() {
         {latestNews.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {latestNews.map((article) => (
-              article.linkUrl ? (
-                <a
-                  key={article.id || article.slug}
-                  href={article.linkUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="card card-hover overflow-hidden group"
-                >
-                  {article.image && (
-                    <div className="relative h-40 overflow-hidden">
-                      <Image
-                        src={article.image}
-                        alt={article.title}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        unoptimized
-                      />
-                    </div>
+              <article
+                key={article.id || article.slug}
+                className="card overflow-hidden group flex flex-col"
+              >
+                {article.image && (
+                  <div className="relative h-40 overflow-hidden">
+                    <Image
+                      src={article.image}
+                      alt={article.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      unoptimized
+                    />
+                  </div>
+                )}
+                <div className="p-5 flex-1 flex flex-col">
+                  <time className="text-xs text-gray-500 dark:text-gray-400 mb-2 block">
+                    {article.date ? new Date(article.date).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    }) : ''}
+                  </time>
+                  <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2">
+                    {article.title}
+                  </h3>
+                  {article.summary && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-4">
+                      {article.summary}
+                    </p>
                   )}
-                  <div className="p-5">
-                    <time className="text-xs text-gray-500 dark:text-gray-400 mb-2 block">
-                      {article.date ? new Date(article.date).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      }) : ''}
-                    </time>
-                    <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors line-clamp-2 mb-2">
-                      {article.title}
-                    </h3>
-                    {article.summary && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                        {article.summary}
-                      </p>
+                  <div className="mt-auto pt-4 flex flex-wrap gap-3">
+                    {article.slug && (
+                      <Link
+                        href={`/news&events/news/${article.slug}`}
+                        className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                      >
+                        {t("LatestNews.viewArticle")}
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" />
+                        </svg>
+                      </Link>
+                    )}
+                    {article.linkUrl && (
+                      <a
+                        href={article.linkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                      >
+                        {t("LatestNews.readMore")}
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M13 5a1 1 0 1 0 0 2h3.586l-7.293 7.293a1 1 0 0 0 1.414 1.414L18 8.414V12a1 1 0 1 0 2 0V5h-7Z" />
+                        </svg>
+                      </a>
                     )}
                   </div>
-                </a>
-              ) : (
-                <article
-                  key={article.id || article.slug}
-                  className="card overflow-hidden opacity-90"
-                  aria-label={article.title}
-                >
-                  {article.image && (
-                    <div className="relative h-40 overflow-hidden">
-                      <Image
-                        src={article.image}
-                        alt={article.title}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  )}
-                  <div className="p-5">
-                    <time className="text-xs text-gray-500 dark:text-gray-400 mb-2 block">
-                      {article.date ? new Date(article.date).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      }) : ''}
-                    </time>
-                    <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2">
-                      {article.title}
-                    </h3>
-                    {article.summary && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                        {article.summary}
-                      </p>
-                    )}
-                  </div>
-                </article>
-              )
+                </div>
+              </article>
             ))}
           </div>
         ) : (
@@ -238,27 +223,7 @@ export default async function Home() {
         )}
       </section>
 
-      {/* Full-width Social Feed */}
-      <section className="page-container pb-16">
-        <div className="grid grid-cols-1 gap-8">
-          <div className="w-full">
-            <div className="card p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="heading-2 heading-accent">{t("Social.title")}</h3>
-                <a 
-                  href="https://www.linkedin.com/company/artificial-intelligence-research-institute-airi-utcn/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-semibold"
-                >
-                  {t("Social.visit")}
-                </a>
-              </div>
-              <LinkedInWidget />
-            </div>
-          </div>
-        </div>
-      </section>
+
     </div>
   );
 }

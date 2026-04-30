@@ -96,6 +96,8 @@
     "LatestNews": {
       "title": "Jaunākās ziņas",
       "viewAll": "Skatīt visas ziņas →",
+      "viewArticle": "Skatīt rakstu",
+      "readMore": "Lasīt vairāk",
       "emptyState": "Ziņu raksti parādīsies šeit, tiklīdz tie būs publicēti.",
       "visitNews": "Apmeklēt Jaunumi un notikumi →"
     },
@@ -772,6 +774,16 @@
       "emptyState": "Šobrīd ziņu nav.",
       "noImage": "Nav attēla",
       "readMore": "Lasīt vairāk",
+      "viewArticle": "Skatīt rakstu",
+      "article": {
+        "backToNews": "Atpakaļ uz jaunumiem",
+        "readOnLinkedIn": "Lasīt LinkedIn",
+        "gallery": "Galerija",
+        "tags": "Birkas",
+        "relatedProjects": "Saistītie projekti",
+        "featuredPeople": "Iezīmētās personas",
+        "relatedDepartments": "Saistītās nodaļas"
+      },
       "categories": {
         "all": "Visi",
         "announcement": "Paziņojumi",
@@ -803,7 +815,9 @@
     "tabs": {
       "researchers": "Pētnieki",
       "staff": "Personāls",
+      "students": "Studenti",
       "visiting": "Viespētnieki",
+      "external": "Ārējie Sadarbības Partneri",
       "alumni": "Absolventi"
     },
     "results": "Atrasts {count} rezultāts vaicājumam \"{query}\"",
@@ -937,10 +951,15 @@
       "officialWebsite": "Oficiālā vietne",
       "documentation": "Dokumentācija",
       "tabs": {
-        "overview": "Pārskats",
-        "people": "Cilvēki",
-        "resources": "Resursi",
-        "publications": "Publikācijas"
+        "about": "Par",
+        "team": "Komanda",
+        "research": "Pētniecība",
+        "publications": "Publikācijas",
+        "results": "Rezultāti",
+        "news": "Jaunumi",
+        "partners": "Partneri",
+        "contact": "Kontakti",
+        "resources": "Resursi"
       },
       "abstract": "Kopsavilkums",
       "researchDomains": "Pētniecības domēni",
@@ -966,7 +985,20 @@
         "planned": "Plānots",
         "completed": "Pabeigts",
         "archived": "Arhivēts"
-      }
+      },
+      "attachment": "Pielikums",
+      "attachments": "Pielikumi",
+      "contactInformation": "Kontaktinformācija",
+      "contactMethods": "Kontakta metodes",
+      "generalSupport": "Vispārīga atbalsta",
+      "noContact": "Kontaktinformācija nav pieejama",
+      "noNews": "Jaunumu integrācija drīzumā",
+      "noPartners": "Nav norādīti partneri",
+      "noResearch": "Nav pieejams pētniecības saturs",
+      "noResults": "Nav pieejamu rezultātu",
+      "resultCount": "{count} rezultāts",
+      "resultCountPlural": "{count} rezultāti",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Publikācijas",
@@ -1031,6 +1063,12 @@
         "master": "Drīzumā būs pieejami papildinājumi Maģistrantūras sadaļā.",
         "bachelor": "Drīzumā būs pieejami papildinājumi Bakalaura līmeņa sadaļā."
       }
+    },
+    "resultDetails": {
+      "notFound": "Rezultāts nav atrasts",
+      "attachments": "Pielikumi",
+      "backToProjects": "Atpakaļ uz projekteu",
+      "attachment": "attachment"
     }
   },
   "resources": {

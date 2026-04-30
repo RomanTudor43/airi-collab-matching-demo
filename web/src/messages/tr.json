@@ -96,6 +96,8 @@
     "LatestNews": {
       "title": "En Son Haberler",
       "viewAll": "Tüm Haberleri Gör →",
+      "viewArticle": "Makaleyi görüntüle",
+      "readMore": "Daha fazlasını oku",
       "emptyState": "Haber makaleleri yayınlandıklarında burada görünecektir.",
       "visitNews": "Haberler ve Etkinlikleri Ziyaret Et →"
     },
@@ -772,6 +774,16 @@
       "emptyState": "Şu anda mevcut haber yok.",
       "noImage": "Resim yok",
       "readMore": "Devamını oku",
+      "viewArticle": "Makaleyi görüntüle",
+      "article": {
+        "backToNews": "Haberlere geri dön",
+        "readOnLinkedIn": "LinkedIn'de oku",
+        "gallery": "Galeri",
+        "tags": "Etiketler",
+        "relatedProjects": "İlgili projeler",
+        "featuredPeople": "Öne çıkan kişiler",
+        "relatedDepartments": "İlgili bölümler"
+      },
       "categories": {
         "all": "Tümü",
         "announcement": "Duyurular",
@@ -803,7 +815,9 @@
     "tabs": {
       "researchers": "Araştırmacılar",
       "staff": "Personel",
+      "students": "Öğrenciler",
       "visiting": "Misafir Araştırmacılar",
+      "external": "Dış İşbirlikçiler",
       "alumni": "Mezunlar"
     },
     "results": "\"{query}\" için {count} sonuç bulundu",
@@ -937,10 +951,15 @@
       "officialWebsite": "Resmi Web Sitesi",
       "documentation": "Belgeler",
       "tabs": {
-        "overview": "Genel Bakış",
-        "people": "Kişiler",
-        "resources": "Kaynaklar",
-        "publications": "Yayınlar"
+        "about": "Hakkında",
+        "team": "Ekip",
+        "research": "Araştırma",
+        "publications": "Yayınlar",
+        "results": "Sonuçlar",
+        "news": "Haberler",
+        "partners": "Ortaklar",
+        "contact": "İletişim",
+        "resources": "Kaynaklar"
       },
       "abstract": "Özet",
       "researchDomains": "Araştırma Alanları",
@@ -966,7 +985,20 @@
         "planned": "Planlanan",
         "completed": "Tamamlandı",
         "archived": "Arşivlendi"
-      }
+      },
+      "attachment": "Ek",
+      "attachments": "Ekler",
+      "contactInformation": "İletişim Bilgileri",
+      "contactMethods": "İletişim Yöntemleri",
+      "generalSupport": "Genel Destek",
+      "noContact": "İletişim bilgisi mevcut değil",
+      "noNews": "Haberler entegrasyonu yakında",
+      "noPartners": "Kayıtlı ortak yok",
+      "noResearch": "Araştırma içeriği mevcut değil",
+      "noResults": "Sonuç mevcut değil",
+      "resultCount": "{count} sonuç",
+      "resultCountPlural": "{count} sonuç",
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Yayınlar",
@@ -1031,6 +1063,12 @@
         "master": "Yüksek Lisans bölümü için daha fazla güncelleme yakında geliyor.",
         "bachelor": "Lisans bölümü için daha fazla güncelleme yakında geliyor."
       }
+    },
+    "resultDetails": {
+      "notFound": "Sonuç bulunamadı",
+      "attachments": "Ekler",
+      "backToProjects": "Projelere Dön",
+      "attachment": "attachment"
     }
   },
   "resources": {

@@ -6,27 +6,33 @@ import LogoDark from "../../public/media/Logos/LogoDark.svg";
 import EUT_Logo from '../../public/media/Logos/EUT_Logo.png';
 import { useTheme } from "@/components/ThemeProvider";
 import { useTranslations } from "next-intl";
+import { FaLinkedin, FaFlickr, FaYoutube, FaGithub, FaMicrosoft } from "react-icons/fa";
 
 const socialLinks = [
   {
     href: "https://www.linkedin.com/company/109110973/",
     label: "LinkedIn",
-    icon: <path d="M22.23 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.46c.98 0 1.77-.77 1.77-1.72V1.72C24 .77 23.21 0 22.23 0zM7.12 20.45H3.56V9h3.56v11.45zM5.34 7.58c-1.14 0-2.06-.93-2.06-2.08 0-1.15.92-2.08 2.06-2.08 1.14 0 2.06.93 2.06 2.08 0 1.15-.92 2.08-2.06 2.08zm15.11 12.87h-3.56v-5.59c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.95v5.68h-3.56V9h3.42v1.56h.05c.48-.91 1.65-1.85 3.4-1.85 3.63 0 4.3 2.39 4.3 5.5v6.24z" />,
+    Icon: FaLinkedin,
   },
   {
     href: "https://www.flickr.com/people/203870795@N08/",
     label: "Flickr",
-    icon: <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm-5-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm10 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />,
+    Icon: FaFlickr,
   },
   {
     href: "https://www.youtube.com/@AIRiAIInstitute",
     label: "YouTube",
-    icon: <path d="M23.498 6.186a2.97 2.97 0 0 0-2.092-2.092C19.622 3.5 12 3.5 12 3.5s-7.622 0-9.406.594a2.97 2.97 0 0 0-2.092 2.092C0 7.97 0 12 0 12s0 4.03.502 5.814a2.97 2.97 0 0 0 2.092 2.092C4.378 20.5 12 20.5 12 20.5s7.622 0 9.406-.594a2.97 2.97 0 0 0 2.092-2.092C24 16.03 24 12 24 12s0-4.03-.502-5.814zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />,
+    Icon: FaYoutube,
   },
   {
     href: "https://github.com/airi-utcn",
     label: "GitHub",
-    icon: <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />,
+    Icon: FaGithub,
+  },
+  {
+    href: "https://teams.microsoft.com/l/team/19%3Aszfgc22nAXHGONImN0qiCl6KXYy5SgcUt36u-nw0uq81%40thread.tacv2/conversations?groupId=ce932cfd-0971-42ca-a27d-bf21074712b9&tenantId=a6eb79fa-c4a9-4cce-818d-b85274d15305",
+    label: "Teams",
+    Icon: FaMicrosoft,
   },
 ];
 
@@ -38,7 +44,7 @@ export default function Footer() {
   const quickLinks = [
     { href: '/research/projects', label: t('quickLinks.projects') },
     { href: '/about/sitemap', label: t('quickLinks.sitemap') },
-    { href: 'https://didatec.sharepoint.com/sites/UTCNRooms/SitePages/UTCN-AIRI-OBSERVATOR-CLUJ.aspx', label: t('quickLinks.rooms'), external: true },
+    { href: 'https://didatec.sharepoint.com/sites/UTCNRooms/SitePages/UTCN-AIRI---Artificial-Intelligence-Research-Institute.aspx', label: t('quickLinks.rooms'), external: true },
     { href: 'https://didatec-my.sharepoint.com/:f:/g/personal/airi_campus_utcluj_ro/IgBfIIZeG9p5SJ_Pde6NBWT5AU_tSajIkfRPaloVwavKIJ4', label: t('quickLinks.dissemination'), external: true },
     { href: '/contact', label: t('quickLinks.contactUs') },
   ];
@@ -84,9 +90,7 @@ export default function Footer() {
                     className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
                     aria-label={link.label}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                      {link.icon}
-                    </svg>
+                    <link.Icon className="w-5 h-5" />
                   </a>
                 </li>
               ))}

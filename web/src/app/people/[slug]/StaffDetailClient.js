@@ -17,12 +17,15 @@ import {
   FaStar,
   FaProjectDiagram,
   FaBuilding,
-  FaUserCog
+  FaUserCog,
+  FaUser
 } from 'react-icons/fa';
 import { toPublicationSlug } from '@/lib/slug';
 import { getPublicationSourceLabel, normalizePublicationSourceKind } from '@/lib/publication';
 import { containerVariants, itemVariants } from '@/lib/animations';
 import { useTranslations } from 'next-intl';
+import RichMarkdown from '@/components/shared/RichMarkdown';
+import ExpandableMarkdown from '@/components/shared/ExpandableMarkdown';
 
 // Tab Button Component
 function TabButton({ active, onClick, icon: Icon, label, count }) {
@@ -227,9 +230,12 @@ function TeamCard({ team, t }) {
 
         {/* Description */}
         {team.description && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
-            {team.description}
-          </p>
+          <ExpandableMarkdown
+            content={team.description}
+            previewLength={180}
+            collapsedTextClassName="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
+            markdownClassName="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 prose-p:my-1 prose-headings:my-2"
+          />
         )}
 
         {/* Projects */}
@@ -275,9 +281,16 @@ function TeamCard({ team, t }) {
 }
   
 export default function StaffDetailClient({ person, publications, teams, slug }) {
-  const [activeTab, setActiveTab] = useState('publications');
   const t = useTranslations('people.details');
+  const tr = (key, fallback, values) => (t.has(key) ? t(key, values) : fallback);
   
+  const [activeTab, setActiveTab] = useState(() => {
+    if (person?.bioMarkdown) return 'about';
+    if (publications?.length > 0) return 'publications';
+    if (teams?.length > 0) return 'teams';
+    return 'publications'; // default fallback
+  });
+
   // Publications filters
   const [pubQuery, setPubQuery] = useState('');
   const [yearFilter, setYearFilter] = useState('');
@@ -329,6 +342,14 @@ export default function StaffDetailClient({ person, publications, teams, slug })
     >
       {/* Tabs */}
       <motion.div variants={itemVariants} className="flex flex-wrap justify-center gap-2 mb-8">
+        {person?.bioMarkdown && (
+          <TabButton
+            active={activeTab === 'about'}
+            onClick={() => setActiveTab('about')}
+            icon={FaUser}
+            label={tr('about', 'About')}
+          />
+        )}
         <TabButton
           active={activeTab === 'publications'}
           onClick={() => setActiveTab('publications')}
@@ -412,7 +433,14 @@ export default function StaffDetailClient({ person, publications, teams, slug })
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        {activeTab === 'publications' ? (
+        {activeTab === 'about' && person?.bioMarkdown ? (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 md:p-8">
+            <RichMarkdown 
+              content={person.bioMarkdown} 
+              className="prose prose-lg prose-blue dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
+            />
+          </div>
+        ) : activeTab === 'publications' ? (
           <div>
             {filteredPubs.length > 0 ? (
               <motion.div

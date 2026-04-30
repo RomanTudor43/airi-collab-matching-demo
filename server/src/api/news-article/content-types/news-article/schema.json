@@ -73,11 +73,17 @@
     "relatedProjects": {
       "type": "relation",
       "relation": "manyToMany",
-      "target": "api::project.project"
+      "target": "api::project.project",
+      "inversedBy": "news"
     },
     "featuredPeople": {
       "type": "relation",
       "relation": "manyToMany",
+      "target": "api::person.person"
+    },
+    "author": {
+      "type": "relation",
+      "relation": "manyToOne",
       "target": "api::person.person"
     }
   }

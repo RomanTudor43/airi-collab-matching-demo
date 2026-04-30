@@ -96,6 +96,8 @@
     "LatestNews": {
       "title": "Latest News",
       "viewAll": "View All News →",
+      "viewArticle": "View article",
+      "readMore": "Read more",
       "emptyState": "News articles will appear here once published.",
       "visitNews": "Visit News & Events →"
     },
@@ -779,6 +781,7 @@
       "emptyState": "No news available at the moment.",
       "noImage": "No image",
       "readMore": "Read more",
+      "viewArticle": "View article",
       "categories": {
         "all": "All",
         "announcement": "Announcements",
@@ -787,6 +790,15 @@
         "award": "Awards",
         "press": "Press",
         "other": "Other"
+      },
+      "article": {
+        "backToNews": "Back to News",
+        "readOnLinkedIn": "Read on LinkedIn",
+        "gallery": "Gallery",
+        "tags": "Tags",
+        "relatedProjects": "Related Projects",
+        "featuredPeople": "Featured People",
+        "relatedDepartments": "Related Departments"
       }
     },
     "open-project-calls": {
@@ -810,7 +822,9 @@
     "tabs": {
       "researchers": "Researchers",
       "staff": "Staff",
+      "students": "Students",
       "visiting": "Visiting Researchers",
+      "external": "External Collaborators",
       "alumni": "Alumni"
     },
     "results": "Found {count} result for \"{query}\"",
@@ -943,11 +957,29 @@
       "partnerCountPlural": "{count} partners",
       "officialWebsite": "Official Website",
       "documentation": "Documentation",
+      "start": "Start",
+      "end": "End",
+      "phaseNoDate": "Not set",
+      "phaseOpenEnded": "No end date",
+      "phaseProgress": "Timeline progress",
+      "timeline": "Timeline",
+      "timelineEventFallback": "Project milestone",
+      "noTimeline": "No timeline events available yet.",
+      "timelineStates": {
+        "past": "Completed",
+        "current": "Current",
+        "upcoming": "Upcoming"
+      },
       "tabs": {
-        "overview": "Overview",
-        "people": "People",
-        "resources": "Resources",
-        "publications": "Publications"
+        "about": "About",
+        "team": "Team",
+        "research": "Research",
+        "publications": "Publications",
+        "results": "Results",
+        "news": "News",
+        "partners": "Partners",
+        "contact": "Contact",
+        "resources": "Resources"
       },
       "abstract": "Abstract",
       "researchDomains": "Research Domains",
@@ -968,12 +1000,35 @@
       "viewDetails": "View details",
       "pdf": "PDF",
       "teamProjects": "Projects",
+      "noResearch": "No research content available",
+      "noResults": "No results available",
+      "noNews": "No news linked to this project yet.",
+      "openArticle": "Open article",
+      "newsCategories": {
+        "announcement": "Announcement",
+        "construction": "Construction",
+        "collaboration": "Collaboration",
+        "award": "Award",
+        "press": "Press",
+        "other": "Update"
+      },
+      "noPartners": "No partners listed",
+      "noContact": "No contact information available",
+      "contactInformation": "Contact Information",
+      "contactMethods": "Contact Methods",
+      "generalSupport": "General Support",
+      "resultCount": "{count} result",
+      "resultCountPlural": "{count} results",
+      "attachments": "attachments",
+      "attachment": "attachment",
       "phases": {
         "ongoing": "Ongoing",
         "planned": "Planned",
+        "ended": "Ended",
         "completed": "Completed",
         "archived": "Archived"
-      }
+      },
+      "visitResource": "Visit Resource"
     },
     "publications": {
       "title": "Publications",
@@ -1038,6 +1093,12 @@
         "master": "More updates coming soon for the Master section.",
         "bachelor": "More updates coming soon for the Bachelor section."
       }
+    },
+    "resultDetails": {
+      "notFound": "Result not found",
+      "attachment": "attachment",
+      "attachments": "Attachments",
+      "backToProjects": "Back to Projects"
     }
   },
   "resources": {

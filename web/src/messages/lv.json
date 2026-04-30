@@ -983,6 +983,7 @@
       "phases": {
         "ongoing": "Aktīvs",
         "planned": "Plānots",
+        "ended": "Noslēdzies",
         "completed": "Pabeigts",
         "archived": "Arhivēts"
       },

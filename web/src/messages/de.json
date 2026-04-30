@@ -983,6 +983,7 @@
       "phases": {
         "ongoing": "Laufend",
         "planned": "Geplant",
+        "ended": "Beendet",
         "completed": "Abgeschlossen",
         "archived": "Archiviert"
       },

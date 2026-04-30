@@ -983,6 +983,7 @@
       "phases": {
         "ongoing": "Devam Ediyor",
         "planned": "Planlanan",
+        "ended": "Sona erdi",
         "completed": "Tamamlandı",
         "archived": "Arşivlendi"
       },

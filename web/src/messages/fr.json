@@ -913,6 +913,7 @@
           "completed": "Terminé",
           "planned": "Planifié",
           "ongoing": "En cours",
+          "ended": "Terminé",
           "archived": "Archivé"
         }
       }

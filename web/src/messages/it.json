@@ -984,6 +984,7 @@
       "phases": {
         "ongoing": "In corso",
         "planned": "Pianificato",
+        "ended": "Terminato",
         "completed": "Completato",
         "archived": "Archiviato"
       },

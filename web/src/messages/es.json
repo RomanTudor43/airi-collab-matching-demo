@@ -914,6 +914,7 @@
           "completed": "Completado",
           "planned": "Planificado",
           "ongoing": "En curso",
+          "ended": "Finalizado",
           "archived": "Archivado"
         }
       }

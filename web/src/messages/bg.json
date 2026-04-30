@@ -984,6 +984,7 @@
       "phases": {
         "ongoing": "В ход",
         "planned": "Планиран",
+        "ended": "Приключен",
         "completed": "Завършен",
         "archived": "Архивиран"
       },

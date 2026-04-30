@@ -74,11 +74,12 @@ export default function ProjectDetailClient({
   );
 
   const officialWebsiteUrl =
-    resourceLinks.find((resource) => /website|official|homepage/i.test(resource?.title || ""))?.url ||
+    resourceLinks.find((resource) => resource?.icon === "link" && resource?.category !== "documentation")?.url ||
+    resourceLinks.find((resource) => resource?.category && resource.category !== "documentation")?.url ||
     "";
 
   const documentationUrlRaw =
-    resourceLinks.find((resource) => /doc|documentation|report|paper|manual/i.test(resource?.title || ""))?.url ||
+    resourceLinks.find((resource) => resource?.category === "documentation")?.url ||
     "";
   const documentationUrl = documentationUrlRaw && documentationUrlRaw !== officialWebsiteUrl ? documentationUrlRaw : "";
 

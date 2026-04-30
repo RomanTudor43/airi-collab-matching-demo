@@ -40,6 +40,9 @@ def upload_publications(strapi, papers_to_upload, logger=None):
         "failed": 0,
         "protected_manual": 0,
         "pdf_attempted": 0,
+        "pdf_cache_hits": 0,
+        "pdf_direct_builds": 0,
+        "pdf_unpaywall_requests": 0,
         "pdf_resolved": 0,
         "pdf_downloaded": 0,
         "pdf_uploaded": 0,
@@ -63,6 +66,7 @@ def upload_publications(strapi, papers_to_upload, logger=None):
                 pub_map[oa_id] = existing_id
             existing_source = strapi.get_publication_source_kind(existing_id)
             existing_listing_eligible = strapi.get_publication_listing_eligible(existing_id)
+            existing_has_pdf = strapi.has_publication_pdf(existing_id)
 
             # Ensure imported automated records are routeable by slug pages.
             if existing_source == "openAlexAutomated":
@@ -78,9 +82,34 @@ def upload_publications(strapi, papers_to_upload, logger=None):
             if existing_source == "openAlexAutomated" and not existing_listing_eligible:
                 merged_author_ids = strapi.merge_publication_author_ids(existing_id, author_ids)
                 update_payload = strapi.build_import_update_payload(paper, author_ids=merged_author_ids)
+                pdf_result = strapi.ensure_publication_pdf(paper, existing_document_id=existing_id)
+
+                if pdf_result.get("attempted"):
+                    stats["pdf_attempted"] += 1
+                if pdf_result.get("cache_hit"):
+                    stats["pdf_cache_hits"] += 1
+                if pdf_result.get("direct_build"):
+                    stats["pdf_direct_builds"] += 1
+                if pdf_result.get("unpaywall_requested"):
+                    stats["pdf_unpaywall_requests"] += 1
+                if pdf_result.get("resolved"):
+                    stats["pdf_resolved"] += 1
+                if pdf_result.get("downloaded"):
+                    stats["pdf_downloaded"] += 1
+                if pdf_result.get("uploaded"):
+                    stats["pdf_uploaded"] += 1
+                    update_payload["pdfFile"] = pdf_result.get("attachment_id")
+
                 strapi.update_publication(existing_id, update_payload)
                 stats["updated"] += 1
-                log.debug(f"  Updated ({match_type}): {paper_label[:60]}")
+                log.info(
+                    "  Updated: %s (%s, pdf: %s/%s/%s)",
+                    paper_label[:60],
+                    match_type,
+                    "cache" if pdf_result.get("cache_hit") else ("direct" if pdf_result.get("direct_build") else ("unpaywall" if pdf_result.get("unpaywall_requested") else ("already-present" if existing_has_pdf else "skipped"))),
+                    "downloaded" if pdf_result.get("downloaded") else "not-downloaded",
+                    "uploaded" if pdf_result.get("uploaded") else ("already-present" if existing_has_pdf else "not-uploaded"),
+                )
             else:
                 stats["protected_manual"] += 1
                 stats["skipped"] += 1
@@ -95,6 +124,12 @@ def upload_publications(strapi, papers_to_upload, logger=None):
 
         if pdf_result.get("attempted"):
             stats["pdf_attempted"] += 1
+        if pdf_result.get("cache_hit"):
+            stats["pdf_cache_hits"] += 1
+        if pdf_result.get("direct_build"):
+            stats["pdf_direct_builds"] += 1
+        if pdf_result.get("unpaywall_requested"):
+            stats["pdf_unpaywall_requests"] += 1
         if pdf_result.get("resolved"):
             stats["pdf_resolved"] += 1
         if pdf_result.get("downloaded"):
@@ -122,7 +157,8 @@ def upload_publications(strapi, papers_to_upload, logger=None):
     )
     log.info(
         f"PDFs: {stats['pdf_attempted']} attempted, {stats['pdf_resolved']} resolved, "
-        f"{stats['pdf_downloaded']} downloaded, {stats['pdf_uploaded']} uploaded"
+        f"{stats['pdf_downloaded']} downloaded, {stats['pdf_uploaded']} uploaded, "
+        f"{stats['pdf_cache_hits']} cache hits, {stats['pdf_direct_builds']} direct builds, {stats['pdf_unpaywall_requests']} Unpaywall requests"
     )
     return pub_map, stats
 

@@ -1,4 +1,6 @@
+import json
 import logging
+import os
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from io import BytesIO
@@ -16,6 +18,8 @@ class StrapiClient:
         self.base_url = base_url.rstrip("/")
         self.api_url = f"{self.base_url}/api"
         self.unpaywall_email = unpaywall_email or ""
+        self._unpaywall_pdf_cache_path = os.path.join("outputs", "fetch-cache", "unpaywall_pdf_cache.json")
+        self._unpaywall_pdf_cache = self._load_unpaywall_pdf_cache()
         self.headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -31,6 +35,7 @@ class StrapiClient:
         self._pub_listing_eligible = {}
         self._pub_slug = {}
         self._pub_published = {}
+        self._pub_has_pdf = {}
         self._person_by_name = {}
 
     def _normalize_source_kind(self, source_kind):
@@ -62,12 +67,89 @@ class StrapiClient:
     def _empty_pdf_result(self):
         return {
             "attempted": False,
+            "cache_hit": False,
+            "direct_build": False,
+            "unpaywall_requested": False,
             "resolved": False,
             "downloaded": False,
             "uploaded": False,
             "attachment_id": None,
             "pdf_url": None,
         }
+
+    def _load_unpaywall_pdf_cache(self):
+        if not os.path.exists(self._unpaywall_pdf_cache_path):
+            return {}
+
+        try:
+            with open(self._unpaywall_pdf_cache_path, "r", encoding="utf-8") as handle:
+                cache = json.load(handle)
+            if not isinstance(cache, dict):
+                return {}
+
+            # Keep only positive cache entries; failed lookups should be retried on later runs.
+            return {
+                doi: entry
+                for doi, entry in cache.items()
+                if isinstance(entry, dict) and entry.get("pdf_url")
+            }
+        except Exception as exc:
+            log.warning(f"Failed to load Unpaywall PDF cache: {exc}")
+            return {}
+
+    def _write_unpaywall_pdf_cache(self):
+        cache_dir = os.path.dirname(self._unpaywall_pdf_cache_path)
+        if cache_dir:
+            os.makedirs(cache_dir, exist_ok=True)
+
+        tmp_path = f"{self._unpaywall_pdf_cache_path}.tmp"
+        with open(tmp_path, "w", encoding="utf-8") as handle:
+            json.dump(self._unpaywall_pdf_cache, handle, indent=2, sort_keys=True)
+        os.replace(tmp_path, self._unpaywall_pdf_cache_path)
+
+    def _get_cached_pdf_entry(self, doi):
+        normalized_doi = normalize_doi(doi)
+        if not normalized_doi:
+            return None
+        cached_entry = self._unpaywall_pdf_cache.get(normalized_doi)
+        if isinstance(cached_entry, dict) and cached_entry.get("pdf_url"):
+            return cached_entry
+        return None
+
+    def _build_pdf_url_from_doi(self, doi):
+        """Build a direct PDF URL from DOI patterns we can resolve deterministically.
+
+        arXiv DOIs are a special case: Unpaywall often does not return url_for_pdf for them,
+        but the arXiv identifier is embedded in the DOI suffix, so we can synthesize the
+        canonical PDF URL directly.
+        """
+        normalized_doi = normalize_doi(doi)
+        if not normalized_doi:
+            return None
+
+        doi_lower = normalized_doi.lower()
+        if doi_lower.startswith("10.48550/arxiv."):
+            arxiv_id = normalized_doi.split("arxiv.", 1)[1].strip().lower()
+            if arxiv_id:
+                return f"https://arxiv.org/pdf/{arxiv_id}.pdf"
+
+        return None
+
+    def _store_cached_pdf_url(self, doi, pdf_url):
+        normalized_doi = normalize_doi(doi)
+        if not normalized_doi:
+            return
+        if not pdf_url:
+            return
+        self._unpaywall_pdf_cache[normalized_doi] = {
+            "doi": normalized_doi,
+            "pdf_url": pdf_url,
+            "cachedAt": self._utc_now(),
+        }
+        self._write_unpaywall_pdf_cache()
+
+    def has_publication_pdf(self, document_id):
+        return bool(self._pub_has_pdf.get(document_id))
 
     def build_import_create_payload(self, paper_data, author_ids=None, attachment_id=None):
         """Build the create payload for a new imported publication.
@@ -203,6 +285,7 @@ class StrapiClient:
                 "fields[5]": "listingEligible",
                 "fields[6]": "slug",
                 "fields[7]": "publishedAt",
+                "populate[pdfFile][fields][0]": "id",
             },
         )
         for publication in publications:
@@ -212,6 +295,7 @@ class StrapiClient:
             self._pub_listing_eligible[document_id] = bool(attributes.get("listingEligible"))
             self._pub_slug[document_id] = attributes.get("slug") or ""
             self._pub_published[document_id] = bool(attributes.get("publishedAt"))
+            self._pub_has_pdf[document_id] = bool(self._extract_relation_items(attributes.get("pdfFile")))
             normalized_oaid = normalize_openalex_id(attributes.get("openAlexId"))
             normalized_doi = normalize_doi(attributes.get("doi"))
             normalized_title = normalize_title(attributes.get("title"))
@@ -244,6 +328,7 @@ class StrapiClient:
                 "fields[11]": "sourceKind",
                 "fields[12]": "metadata",
                 "populate[authors][fields][0]": "fullName",
+                "populate[pdfFile][fields][0]": "id",
             },
         )
 
@@ -450,11 +535,13 @@ class StrapiClient:
                 params={
                     "populate[authors][fields][0]": "documentId",
                     "populate[authors][fields][1]": "id",
+                    "populate[pdfFile][fields][0]": "id",
                 },
             )
             response.raise_for_status()
             data = response.json().get("data", {})
             attributes = data.get("attributes", data)
+            self._pub_has_pdf[document_id] = bool(self._extract_relation_items(attributes.get("pdfFile")))
             author_data = self._extract_relation_items(attributes.get("authors"))
             author_ids = []
             for author in author_data:
@@ -528,24 +615,52 @@ class StrapiClient:
             return result
 
         result["attempted"] = True
-        unpaywall_url = f"https://api.unpaywall.org/v2/{quote(normalized_doi, safe='')}"
-        log.info(f"  Looking up PDF via Unpaywall for DOI: {normalized_doi}")
+
+        direct_pdf_url = self._build_pdf_url_from_doi(normalized_doi)
+        if direct_pdf_url:
+            result["direct_build"] = True
+            result["resolved"] = True
+            result["pdf_url"] = direct_pdf_url
+            log.info(f"  Built direct PDF URL for DOI {normalized_doi}: {direct_pdf_url}")
+            self._store_cached_pdf_url(normalized_doi, direct_pdf_url)
+        else:
+            cached_entry = self._get_cached_pdf_entry(normalized_doi)
+            if cached_entry is not None:
+                result["cache_hit"] = True
+                pdf_url = cached_entry.get("pdf_url")
+                if not pdf_url:
+                    log.info(f"  Unpaywall cache hit with no PDF for DOI: {normalized_doi}")
+                    return result
+
+                result["resolved"] = True
+                result["pdf_url"] = pdf_url
+                log.info(f"  Unpaywall cache hit for DOI: {normalized_doi}")
+            else:
+                # Preserve DOI slashes in the Unpaywall path. Encoding them as %2F returns 404.
+                unpaywall_url = f"https://api.unpaywall.org/v2/{quote(normalized_doi, safe='/')}"
+                log.info(f"  Looking up PDF via Unpaywall for DOI: {normalized_doi}")
+
+                try:
+                    result["unpaywall_requested"] = True
+                    response = requests.get(unpaywall_url, params={"email": unpaywall_email}, timeout=15)
+                    response.raise_for_status()
+                    payload = response.json()
+
+                    pdf_url = payload.get("url_for_pdf")
+                    if not pdf_url:
+                        log.info(f"  Unpaywall returned no url_for_pdf for DOI: {normalized_doi}")
+                        return result
+
+                    result["resolved"] = True
+                    result["pdf_url"] = pdf_url
+                    log.info(f"  Unpaywall PDF URL: {pdf_url}")
+                    self._store_cached_pdf_url(normalized_doi, pdf_url)
+                except Exception as exc:
+                    log.warning(f"  PDF download/upload failed for DOI {normalized_doi}: {exc}")
+                    return result
 
         try:
-            response = requests.get(unpaywall_url, params={"email": unpaywall_email}, timeout=15)
-            response.raise_for_status()
-            payload = response.json()
-
-            pdf_url = payload.get("url_for_pdf")
-            if not pdf_url:
-                log.info(f"  Unpaywall returned no url_for_pdf for DOI: {normalized_doi}")
-                return result
-
-            result["resolved"] = True
-            result["pdf_url"] = pdf_url
-            log.info(f"  Unpaywall PDF URL: {pdf_url}")
-
-            pdf_response = requests.get(pdf_url, timeout=15)
+            pdf_response = requests.get(result["pdf_url"], timeout=15)
             pdf_response.raise_for_status()
             result["downloaded"] = True
 
@@ -568,13 +683,20 @@ class StrapiClient:
             log.warning(f"  PDF download/upload failed for DOI {normalized_doi}: {exc}")
             return result
 
-    def create_publication(self, paper_data, author_ids=None):
-        """Create a publication entry in Strapi from a processed paper."""
-        pdf_result = self.upload_pdf_from_unpaywall(
+    def ensure_publication_pdf(self, paper_data, *, existing_document_id=None):
+        """Ensure a publication has a PDF attachment, skipping work when one already exists."""
+        if existing_document_id and self.has_publication_pdf(existing_document_id):
+            return self._empty_pdf_result()
+
+        return self.upload_pdf_from_unpaywall(
             paper_data.get("doi"),
             self._build_pdf_filename(paper_data),
             self.unpaywall_email,
         )
+
+    def create_publication(self, paper_data, author_ids=None):
+        """Create a publication entry in Strapi from a processed paper."""
+        pdf_result = self.ensure_publication_pdf(paper_data)
         attachment_id = pdf_result.get("attachment_id")
 
         payload = self.build_import_create_payload(
@@ -728,6 +850,7 @@ class StrapiClient:
                 self._pub_listing_eligible[document_id] = bool(attributes.get("listingEligible"))
                 self._pub_slug[document_id] = attributes.get("slug") or ""
                 self._pub_published[document_id] = bool(attributes.get("publishedAt"))
+                self._pub_has_pdf[document_id] = bool(self._extract_relation_items(attributes.get("pdfFile")))
                 self._pub_by_oaid[normalized_oaid] = document_id
                 return document_id
             return None

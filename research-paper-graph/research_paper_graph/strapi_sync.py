@@ -22,7 +22,7 @@ def _build_paper_text(paper):
 
 
 def create_client(settings):
-    return StrapiClient(settings.strapi_api_url, settings.strapi_token)
+    return StrapiClient(settings.strapi_api_url, settings.strapi_token, settings.unpaywall_email)
 
 
 def upload_publications(strapi, papers_to_upload, logger=None):
@@ -33,7 +33,17 @@ def upload_publications(strapi, papers_to_upload, logger=None):
     strapi.load_existing_people()
 
     pub_map = {}
-    stats = {"created": 0, "updated": 0, "skipped": 0, "failed": 0, "protected_manual": 0}
+    stats = {
+        "created": 0,
+        "updated": 0,
+        "skipped": 0,
+        "failed": 0,
+        "protected_manual": 0,
+        "pdf_attempted": 0,
+        "pdf_resolved": 0,
+        "pdf_downloaded": 0,
+        "pdf_uploaded": 0,
+    }
 
     log.info(f"Uploading {len(papers_to_upload)} publications...")
     for paper in papers_to_upload:
@@ -79,18 +89,40 @@ def upload_publications(strapi, papers_to_upload, logger=None):
                 )
             continue
 
-        doc_id = strapi.create_publication(paper, author_ids=author_ids or None)
+        publication_result = strapi.create_publication(paper, author_ids=author_ids or None)
+        doc_id = publication_result.get("document_id") if publication_result else None
+        pdf_result = publication_result.get("pdf_result", {}) if publication_result else {}
+
+        if pdf_result.get("attempted"):
+            stats["pdf_attempted"] += 1
+        if pdf_result.get("resolved"):
+            stats["pdf_resolved"] += 1
+        if pdf_result.get("downloaded"):
+            stats["pdf_downloaded"] += 1
+        if pdf_result.get("uploaded"):
+            stats["pdf_uploaded"] += 1
+
         if doc_id:
             if oa_id:
                 pub_map[oa_id] = doc_id
             stats["created"] += 1
-            log.info(f"  Created: {paper_label[:60]}")
+            log.info(
+                "  Created: %s (pdf: %s/%s/%s)",
+                paper_label[:60],
+                "resolved" if pdf_result.get("resolved") else "missing",
+                "downloaded" if pdf_result.get("downloaded") else "not-downloaded",
+                "uploaded" if pdf_result.get("uploaded") else "not-uploaded",
+            )
         else:
             stats["failed"] += 1
 
     log.info(
         f"Publications: {stats['created']} created, {stats['updated']} updated, "
         f"{stats['skipped']} skipped, {stats['protected_manual']} manual protected, {stats['failed']} failed"
+    )
+    log.info(
+        f"PDFs: {stats['pdf_attempted']} attempted, {stats['pdf_resolved']} resolved, "
+        f"{stats['pdf_downloaded']} downloaded, {stats['pdf_uploaded']} uploaded"
     )
     return pub_map, stats
 

@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 class RuntimeSettings:
     strapi_api_url: str
     strapi_token: str
+    unpaywall_email: str
     graph_similarity_threshold: float
     graph_duplicate_threshold: float
     graph_ai_model: str
@@ -43,6 +44,7 @@ def load_runtime_settings(current_file=None):
     return RuntimeSettings(
         strapi_api_url=os.getenv("STRAPI_URL", "http://localhost:1337"),
         strapi_token=os.getenv("STRAPI_API_TOKEN", ""),
+        unpaywall_email=os.getenv("UNPAYWALL_EMAIL", ""),
         graph_similarity_threshold=float(os.getenv("GRAPH_SIMILARITY_THRESHOLD", "0.5")),
         graph_duplicate_threshold=float(os.getenv("GRAPH_DUPLICATE_THRESHOLD", "0.92")),
         graph_ai_model=os.getenv("GRAPH_AI_MODEL", "all-MiniLM-L6-v2"),

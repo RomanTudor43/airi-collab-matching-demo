@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from io import BytesIO
+from urllib.parse import quote
 
 import requests
 
@@ -11,9 +12,10 @@ log = logging.getLogger(__name__)
 
 
 class StrapiClient:
-    def __init__(self, base_url, token):
+    def __init__(self, base_url, token, unpaywall_email=""):
         self.base_url = base_url.rstrip("/")
         self.api_url = f"{self.base_url}/api"
+        self.unpaywall_email = unpaywall_email or ""
         self.headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -56,6 +58,16 @@ class StrapiClient:
         fallback = openalex_id.rstrip("/").split("/")[-1] if openalex_id else ""
         fallback_slug = slugify(fallback)
         return f"{fallback_slug or 'publication'}.pdf"
+
+    def _empty_pdf_result(self):
+        return {
+            "attempted": False,
+            "resolved": False,
+            "downloaded": False,
+            "uploaded": False,
+            "attachment_id": None,
+            "pdf_url": None,
+        }
 
     def build_import_create_payload(self, paper_data, author_ids=None, attachment_id=None):
         """Build the create payload for a new imported publication.
@@ -498,15 +510,45 @@ class StrapiClient:
                     break
         return matched
 
-    def upload_pdf(self, pdf_url, filename):
-        """Download a PDF and upload it to the Strapi media library."""
-        if not pdf_url:
-            return None
+    def upload_pdf_from_unpaywall(self, doi, filename, unpaywall_email):
+        """Download a PDF URL from Unpaywall and upload it to the Strapi media library."""
+        result = self._empty_pdf_result()
 
-        log.info(f"  Downloading PDF: {pdf_url}")
+        if not doi:
+            log.info("  Skipping PDF lookup: no DOI available")
+            return result
+
+        if not unpaywall_email:
+            log.warning("  Skipping PDF lookup: UNPAYWALL_EMAIL is not configured")
+            return result
+
+        normalized_doi = normalize_doi(doi)
+        if not normalized_doi:
+            log.warning(f"  Skipping PDF lookup: could not normalize DOI {doi}")
+            return result
+
+        result["attempted"] = True
+        unpaywall_url = f"https://api.unpaywall.org/v2/{quote(normalized_doi, safe='')}"
+        log.info(f"  Looking up PDF via Unpaywall for DOI: {normalized_doi}")
+
         try:
+            response = requests.get(unpaywall_url, params={"email": unpaywall_email}, timeout=15)
+            response.raise_for_status()
+            payload = response.json()
+
+            pdf_url = payload.get("url_for_pdf")
+            if not pdf_url:
+                log.info(f"  Unpaywall returned no url_for_pdf for DOI: {normalized_doi}")
+                return result
+
+            result["resolved"] = True
+            result["pdf_url"] = pdf_url
+            log.info(f"  Unpaywall PDF URL: {pdf_url}")
+
             pdf_response = requests.get(pdf_url, timeout=15)
             pdf_response.raise_for_status()
+            result["downloaded"] = True
+
             files = {
                 "files": (filename, BytesIO(pdf_response.content), "application/pdf"),
             }
@@ -518,20 +560,22 @@ class StrapiClient:
             upload_response.raise_for_status()
             uploaded_file = upload_response.json()[0]
             attachment_id = uploaded_file["id"]
+            result["uploaded"] = True
+            result["attachment_id"] = attachment_id
             log.info(f"  Uploaded PDF to Strapi media library: {attachment_id}")
-            return attachment_id
+            return result
         except Exception as exc:
-            log.warning(f"  PDF download/upload failed: {exc}")
-            return None
+            log.warning(f"  PDF download/upload failed for DOI {normalized_doi}: {exc}")
+            return result
 
     def create_publication(self, paper_data, author_ids=None):
         """Create a publication entry in Strapi from a processed paper."""
-        attachment_id = paper_data.get("attachment")
-        if not attachment_id:
-            attachment_id = self.upload_pdf(
-                paper_data.get("pdf_url"),
-                self._build_pdf_filename(paper_data),
-            )
+        pdf_result = self.upload_pdf_from_unpaywall(
+            paper_data.get("doi"),
+            self._build_pdf_filename(paper_data),
+            self.unpaywall_email,
+        )
+        attachment_id = pdf_result.get("attachment_id")
 
         payload = self.build_import_create_payload(
             paper_data,
@@ -562,10 +606,16 @@ class StrapiClient:
                     self._pub_by_doi[normalized_doi] = document_id
                 if normalized_title:
                     self._pub_by_title[normalized_title] = document_id
-            return document_id
+            return {
+                "document_id": document_id,
+                "pdf_result": pdf_result,
+            }
         except requests.exceptions.RequestException as exc:
             log.error(f"Failed to create publication '{paper_data.get('title', '?')}': {exc}")
-            return None
+            return {
+                "document_id": None,
+                "pdf_result": pdf_result,
+            }
 
     def update_publication(self, document_id, update_data):
         """Partial update of an existing publication."""

@@ -14,6 +14,7 @@ import {
   transformStaffData,
   transformPublicationData,
 } from "@/lib/strapi";
+import { normalizePublicationSourceKind } from "@/lib/publication";
 import StaffDetailClient from "./StaffDetailClient";
 import { JsonLd, personJsonLd } from "@/lib/jsonld";
 
@@ -122,7 +123,9 @@ export default async function PersonDetailPage({ params }) {
     slug: pub.slug || "",
     title: pub.title || "",
     year: pub.year ?? null,
-    sourceKind: pub.sourceKind || (pub.openAlexId ? "openAlexAutomated" : "manual"),
+    sourceKind: normalizePublicationSourceKind(pub.sourceKind, pub.openAlexId),
+    openAlexId: pub.openAlexId || "",
+    doi: pub.doi || "",
     domain: pub.domain || "",
     kind: pub.kind || "",
     description: pub.description || "",

@@ -1,4 +1,5 @@
 import { getEnv, normalizeBaseUrl, requireEnv } from './env';
+import { normalizePublicationSourceKind } from './publication';
 import { toPublicationSlug } from './slug';
 
 const isServer = typeof window === 'undefined';
@@ -416,7 +417,13 @@ export async function getStaffMember(slug) {
         socialLinks: {
           fields: ['label', 'url', 'icon'],
         },
-        publications: { fields: ['title', 'slug', 'year'] },
+        publications: {
+          fields: ['title', 'slug', 'year', 'sourceKind', 'openAlexId', 'doi', 'kind'],
+          populate: {
+            domain: DEPARTMENT_POPULATE,
+            pdfFile: { fields: ['name', 'url', 'mime', 'ext', 'size'] },
+          },
+        },
       },
     });
 
@@ -565,7 +572,7 @@ export async function getProjectBySlug(slug) {
     const pubParams = createParams({
       filters: { projects: { slug: { $eq: slug } } },
       sort: 'year:desc',
-      fields: ['title', 'slug', 'year', 'kind', 'description', 'abstract'],
+      fields: ['title', 'slug', 'year', 'kind', 'description', 'abstract', 'sourceKind', 'openAlexId', 'doi'],
       populate: {
         authors: PERSON_FLAT_POPULATE,
         pdfFile: { fields: ['name', 'url', 'mime', 'ext', 'size'] },
@@ -1108,6 +1115,7 @@ export async function getPublicationsByAuthor(authorSlug) {
     setPopulate(params, 'populate[projects]', { fields: ['title', 'slug'] });
     setPopulate(params, 'populate[domain]', DEPARTMENT_POPULATE);
     setPopulate(params, 'populate[themes]', { fields: ['name', 'slug'] });
+    setPopulate(params, 'populate[pdfFile]', { fields: ['name', 'url', 'mime', 'ext', 'size'] });
     const data = await fetchAPI(`/publications?${params.toString()}`);
     return data.data || [];
   } catch (error) {
@@ -1130,7 +1138,13 @@ export async function getProjectsByMember(memberSlug) {
     params.set('filters[teams][members][person][slug][$eq]', memberSlug);
     setPopulate(params, 'populate[domains]', DEPARTMENT_POPULATE);
     setPopulate(params, 'populate[teams]', { fields: ['name', 'slug'] });
-    setPopulate(params, 'populate[publications]', { fields: ['title', 'slug', 'year', 'kind'] });
+    setPopulate(params, 'populate[publications]', {
+      fields: ['title', 'slug', 'year', 'kind', 'sourceKind', 'openAlexId', 'doi'],
+      populate: {
+        domain: DEPARTMENT_POPULATE,
+        pdfFile: { fields: ['name', 'url', 'mime', 'ext', 'size'] },
+      },
+    });
     const data = await fetchAPI(`/projects?${params.toString()}`);
     return data.data || [];
   } catch (error) {
@@ -1442,6 +1456,9 @@ export function transformPublicationData(strapiPubs) {
       id: pub?.id ?? null,
       slug: attributes.slug || toPublicationSlug({ title: attributes.title, year: attributes.year }),
       title: attributes.title || '',
+      sourceKind: normalizePublicationSourceKind(attributes.sourceKind, attributes.openAlexId),
+      openAlexId: attributes.openAlexId || '',
+      doi: attributes.doi || '',
       year: attributes.year ?? null,
       domain,
       kind: attributes.kind || '',
@@ -1662,6 +1679,9 @@ export function transformProjectData(strapiProjects) {
         slug: pubData.slug || '',
         title: pubData.title || '',
         year: pubData.year ?? null,
+        sourceKind: normalizePublicationSourceKind(pubData.sourceKind, pubData.openAlexId),
+        openAlexId: pubData.openAlexId || '',
+        doi: pubData.doi || '',
         kind: pubData.kind || '',
         description: stripHtml(pubData.description || pubData.abstract || ''),
         authors: pubAuthors,

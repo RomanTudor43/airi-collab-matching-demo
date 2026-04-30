@@ -20,6 +20,7 @@ import {
   FaUserCog
 } from 'react-icons/fa';
 import { toPublicationSlug } from '@/lib/slug';
+import { getPublicationSourceLabel, normalizePublicationSourceKind } from '@/lib/publication';
 import { containerVariants, itemVariants } from '@/lib/animations';
 import { useTranslations } from 'next-intl';
 
@@ -73,7 +74,7 @@ function FilterDropdown({ value, onChange, options, placeholder, icon: Icon }) {
 // Publication Card Component
 function PublicationCard({ publication, t }) {
   const publicationSlug = toPublicationSlug(publication);
-  const publicationSource = publication.sourceKind === 'openAlexAutomated' ? 'OpenAlex automated' : 'Manual';
+  const publicationSource = getPublicationSourceLabel(publication.sourceKind, publication.openAlexId);
   
   return (
     <motion.div
@@ -289,8 +290,9 @@ export default function StaffDetailClient({ person, publications, teams, slug })
     const years = [...new Set(publications.map((p) => p.year).filter((y) => y !== null))].sort((a, b) => b - a);
     const kinds = [...new Set(publications.map((p) => p.kind).filter(Boolean))];
     const domains = [...new Set(publications.map((p) => p.domain).filter(Boolean))];
-    const sources = [...new Set(publications.map((p) => p.sourceKind).filter(Boolean))]
-      .map((source) => (source === 'openAlexAutomated' ? 'OpenAlex automated' : 'Manual'));
+    const sources = [...new Set(
+      publications.map((p) => getPublicationSourceLabel(p.sourceKind, p.openAlexId))
+    )];
     return { yearOptions: years, kindOptions: kinds, pubDomainOptions: domains, sourceOptions: sources };
   }, [publications]);
 
@@ -302,7 +304,7 @@ export default function StaffDetailClient({ person, publications, teams, slug })
       const matchesYear = !yearFilter || String(p.year) === String(yearFilter);
       const matchesKind = !kindFilter || p.kind === kindFilter;
       const matchesDomain = !domainFilter || p.domain === domainFilter;
-      const pSourceLabel = p.sourceKind === 'openAlexAutomated' ? 'OpenAlex automated' : 'Manual';
+      const pSourceLabel = getPublicationSourceLabel(p.sourceKind, p.openAlexId);
       const matchesSource = !sourceFilter || pSourceLabel === sourceFilter;
       return matchesSearch && matchesYear && matchesKind && matchesDomain && matchesSource;
     });

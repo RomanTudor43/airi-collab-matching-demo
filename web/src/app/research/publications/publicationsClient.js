@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { slugify, toPublicationSlug } from "@/lib/slug";
+import { getPublicationSourceLabel, normalizePublicationSourceKind } from "@/lib/publication";
 import { FaSearch, FaTimes, FaFilter, FaChevronDown, FaExternalLinkAlt } from "react-icons/fa";
 import { containerVariants, itemVariants } from "@/lib/animations";
 import { useTranslations } from "next-intl";
@@ -34,15 +35,6 @@ const authorsToNames = (authors, bySlugMap) => {
     })
     .filter(Boolean);
 };
-
-const normalizeSourceKind = (value, openAlexId) => {
-  const raw = String(value || "").trim();
-  if (raw === "manual" || raw === "openAlexAutomated") return raw;
-  return openAlexId ? "openAlexAutomated" : "manual";
-};
-
-const sourceKindLabel = (sourceKind) =>
-  sourceKind === "openAlexAutomated" ? "OpenAlex automated" : "Manual";
 
 const normalizeSearchText = (value) =>
   (value || "")
@@ -75,7 +67,7 @@ const normalizePublication = (p, bySlugMap) => {
     slug,
     title: p.title || "",
     year: typeof p.year === "number" || typeof p.year === "string" ? String(p.year) : "",
-    sourceKind: normalizeSourceKind(p.sourceKind, p.openAlexId),
+    sourceKind: normalizePublicationSourceKind(p.sourceKind, p.openAlexId),
     domain: p.domain || "",
     kind: p.kind || "",
     description: p.description || "",
@@ -313,9 +305,9 @@ export default function PublicationsClient({ publications: pubData, staff: staff
                       >
                         <option value="">All sources</option>
                         {sourceOptions
-                          .sort((a, b) => sourceKindLabel(a).localeCompare(sourceKindLabel(b)))
+                          .sort((a, b) => getPublicationSourceLabel(a).localeCompare(getPublicationSourceLabel(b)))
                           .map((source) => (
-                            <option key={source} value={source}>{sourceKindLabel(source)}</option>
+                            <option key={source} value={source}>{getPublicationSourceLabel(source)}</option>
                           ))}
                       </select>
                     </div>
@@ -387,7 +379,7 @@ export default function PublicationsClient({ publications: pubData, staff: staff
                             <span className="badge-gray">{p.kind}</span>
                           )}
                           {p.sourceKind && (
-                            <span className="badge-gray">{sourceKindLabel(p.sourceKind)}</span>
+                            <span className="badge-gray">{getPublicationSourceLabel(p.sourceKind, p.openAlexId)}</span>
                           )}
                           {p.domain && (
                             <span className="badge-gray">{p.domain}</span>

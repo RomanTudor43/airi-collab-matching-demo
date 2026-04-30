@@ -163,7 +163,7 @@ function PublicationCard({ publication, t }) {
 const PHASE_STYLES = {
   ongoing:   'bg-green-100  dark:bg-green-900/30  text-green-700  dark:text-green-300',
   planned:   'bg-blue-100   dark:bg-blue-900/30   text-blue-700   dark:text-blue-300',
-  completed: 'bg-gray-100   dark:bg-gray-700      text-gray-600   dark:text-gray-300',
+  ended:     'bg-gray-100   dark:bg-gray-700      text-gray-600   dark:text-gray-300',
   archived:  'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
 };
 

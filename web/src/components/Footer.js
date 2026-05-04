@@ -7,6 +7,7 @@ import EUT_Logo from '../../public/media/Logos/EUT_Logo.png';
 import { useTheme } from "@/components/ThemeProvider";
 import { useTranslations } from "next-intl";
 import { FaLinkedin, FaFlickr, FaYoutube, FaGithub, FaMicrosoft } from "react-icons/fa";
+import { SiHuggingface } from "react-icons/si";
 
 const socialLinks = [
   {
@@ -28,6 +29,11 @@ const socialLinks = [
     href: "https://github.com/airi-utcn",
     label: "GitHub",
     Icon: FaGithub,
+  },
+  {
+    href: "https://huggingface.co/airi-utcn",
+    label: "Hugging Face",
+    Icon: SiHuggingface,
   },
   {
     href: "https://teams.microsoft.com/l/team/19%3Aszfgc22nAXHGONImN0qiCl6KXYy5SgcUt36u-nw0uq81%40thread.tacv2/conversations?groupId=ce932cfd-0971-42ca-a27d-bf21074712b9&tenantId=a6eb79fa-c4a9-4cce-818d-b85274d15305",

@@ -12,6 +12,19 @@ function makeRng(seed) {
   };
 }
 
+function hexToRgba(hex, alpha) {
+  const raw = hex.replace("#", "").trim();
+  if (raw.length !== 3 && raw.length !== 6) return `rgba(255,255,255,${alpha})`;
+  const value = raw.length === 3
+    ? raw.split("").map((c) => c + c).join("")
+    : raw;
+  const intVal = parseInt(value, 16);
+  const r = (intVal >> 16) & 255;
+  const g = (intVal >> 8) & 255;
+  const b = intVal & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 const STAR_COUNT = 300;
 
 function buildStars(count, w, h) {
@@ -59,24 +72,9 @@ function layoutTopics(topics, w, h) {
   return positions;
 }
 
-// ─── Build constellation lines between nearby topics ─────────────────────────
-function buildConstellationLines(positions, maxDist = 300) {
-  const lines = [];
-  for (let i = 0; i < positions.length; i++) {
-    for (let j = i + 1; j < positions.length; j++) {
-      const dx = positions[j].x - positions[i].x;
-      const dy = positions[j].y - positions[i].y;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < maxDist) {
-        lines.push({ i, j, dist: d });
-      }
-    }
-  }
-  return lines;
-}
-
 export default function ConstellationClient({
   topics,
+  mesoLinks = [],
   communityLabel,
   communitySlug,
   color,
@@ -87,9 +85,11 @@ export default function ConstellationClient({
   const router = useRouter();
 
   const [hovered, setHovered] = useState(null);
+  const [hoveredLink, setHoveredLink] = useState(null);
   const [dimensions, setDimensions] = useState({ w: 1200, h: 800 });
   const dataRef = useRef(null);
   const hoveredRef = useRef(null);
+  const hoveredLinkRef = useRef(null);
 
   useEffect(() => {
     const update = () => {
@@ -103,12 +103,36 @@ export default function ConstellationClient({
   useEffect(() => {
     const { w, h } = dimensions;
     const positions = layoutTopics(topics, w, h);
-    const constellationLines = buildConstellationLines(positions, Math.min(400, w * 0.3));
     const stars = buildStars(STAR_COUNT, w, h);
     const radii = topics.map((t) => 12 + Math.sqrt(t.paperCount) * 5);
 
-    dataRef.current = { positions, constellationLines, stars, radii };
-  }, [topics, dimensions]);
+    const topicIndex = {};
+    topics.forEach((topic, idx) => {
+      if (topic.key) topicIndex[topic.key] = idx;
+    });
+
+    const links = (mesoLinks || [])
+      .map((link) => {
+        const i = topicIndex[link.sourceKey];
+        const j = topicIndex[link.targetKey];
+        if (i == null || j == null) return null;
+        return {
+          i,
+          j,
+          count: link.count || 0,
+          strength: typeof link.strength === "number" ? link.strength : 0,
+        };
+      })
+      .filter(Boolean);
+
+    const linkIndex = {};
+    links.forEach((link, idx) => {
+      (linkIndex[link.i] ??= []).push(idx);
+      (linkIndex[link.j] ??= []).push(idx);
+    });
+
+    dataRef.current = { positions, links, linkIndex, stars, radii };
+  }, [topics, mesoLinks, dimensions]);
 
   const hitTest = useCallback((mx, my) => {
     if (!dataRef.current) return -1;
@@ -122,16 +146,61 @@ export default function ConstellationClient({
     return -1;
   }, []);
 
+  const hitTestLink = useCallback((mx, my) => {
+    if (!dataRef.current) return null;
+    const { links, positions } = dataRef.current;
+    if (!links || links.length === 0) return null;
+
+    const threshold = 12;
+    let closest = null;
+    let minDist = Number.POSITIVE_INFINITY;
+
+    links.forEach((link, idx) => {
+      const p1 = positions[link.i];
+      const p2 = positions[link.j];
+      if (!p1 || !p2) return;
+
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const len2 = dx * dx + dy * dy;
+      if (len2 === 0) return;
+
+      const t = Math.max(0, Math.min(1, ((mx - p1.x) * dx + (my - p1.y) * dy) / len2));
+      const projX = p1.x + t * dx;
+      const projY = p1.y + t * dy;
+      const dist = Math.hypot(mx - projX, my - projY);
+
+      if (dist < threshold && dist < minDist) {
+        minDist = dist;
+        closest = idx;
+      }
+    });
+
+    return closest;
+  }, []);
+
   const onMouseMove = useCallback((e) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const idx = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const idx = hitTest(mx, my);
     const nextHovered = idx >= 0 ? idx : null;
     if (hoveredRef.current !== nextHovered) {
       hoveredRef.current = nextHovered;
       setHovered(nextHovered);
     }
-  }, [hitTest]);
+    if (nextHovered == null) {
+      const nextLink = hitTestLink(mx, my);
+      if (hoveredLinkRef.current !== nextLink) {
+        hoveredLinkRef.current = nextLink;
+        setHoveredLink(nextLink);
+      }
+    } else if (hoveredLinkRef.current !== null) {
+      hoveredLinkRef.current = null;
+      setHoveredLink(null);
+    }
+  }, [hitTest, hitTestLink]);
 
   const onClick = useCallback((e) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -154,8 +223,27 @@ export default function ConstellationClient({
     const render = (time) => {
       if (!running || !dataRef.current) return;
       const { w, h } = dimensions;
-      const { positions, constellationLines, stars, radii } = dataRef.current;
+      const { positions, links, linkIndex, stars, radii } = dataRef.current;
       const hoveredIdx = hoveredRef.current;
+      const hoveredLinkIdx = hoveredLinkRef.current;
+
+      const highlightLinks = new Set();
+      if (hoveredIdx != null && linkIndex[hoveredIdx]) {
+        linkIndex[hoveredIdx].forEach((idx) => highlightLinks.add(idx));
+      }
+      if (hoveredLinkIdx != null) {
+        highlightLinks.add(hoveredLinkIdx);
+      }
+
+      const highlightNodes = new Set();
+      if (hoveredIdx != null) highlightNodes.add(hoveredIdx);
+      highlightLinks.forEach((idx) => {
+        const link = links[idx];
+        if (!link) return;
+        highlightNodes.add(link.i);
+        highlightNodes.add(link.j);
+      });
+      const hasHighlight = highlightLinks.size > 0 || highlightNodes.size > 0;
 
       ctx.fillStyle = "#03070f";
       ctx.fillRect(0, 0, w, h);
@@ -181,18 +269,30 @@ export default function ConstellationClient({
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
       }
 
-      // Constellation lines
-      const linePhase = time * 0.0005;
-      constellationLines.forEach((line) => {
-        const p1 = positions[line.i];
-        const p2 = positions[line.j];
-        const isH = hoveredIdx === line.i || hoveredIdx === line.j;
-        const dashOffset = (time * 0.02) % 30;
+      // Meso links
+      links.forEach((link, idx) => {
+        const p1 = positions[link.i];
+        const p2 = positions[link.j];
+        const isActive = highlightLinks.has(idx);
+        const dimmed = hasHighlight && !isActive;
+        const strength = Math.max(0, Math.min(1, link.strength || 0));
+        const baseOpacity = 0.08 + strength * 0.35;
+        const opacity = dimmed ? baseOpacity * 0.4 : (isActive ? 0.85 : baseOpacity);
+        const width = (dimmed ? 0.4 : 0.6) + strength * (isActive ? 2.8 : 1.6);
 
-        ctx.strokeStyle = color + (isH ? "50" : "18");
-        ctx.lineWidth = isH ? 1.5 : 0.6;
-        ctx.setLineDash(isH ? [8, 4] : [3, 8]);
-        ctx.lineDashOffset = -dashOffset;
+        if (isActive) {
+          ctx.strokeStyle = hexToRgba(color, 0.25);
+          ctx.lineWidth = width + 3.5;
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = hexToRgba(color, opacity);
+        ctx.lineWidth = width;
+        ctx.setLineDash(isActive ? [6, 4] : [3, 10]);
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
@@ -206,12 +306,16 @@ export default function ConstellationClient({
         const pos = positions[i];
         const r = radii[i];
         const isH = hoveredIdx === i;
+        const isLinked = highlightNodes.has(i);
+        const dimmed = hasHighlight && !isLinked;
         const pulse = r + Math.sin(time * 0.0015 + i * 0.7) * 2;
-        const glowR = pulse * (isH ? 3 : 2);
+        const glowR = pulse * (isH ? 3 : isLinked ? 2.4 : 2);
 
         const grad = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, glowR);
-        grad.addColorStop(0, color + (isH ? "30" : "12"));
-        grad.addColorStop(0.6, color + (isH ? "0c" : "04"));
+        const glowAlpha = dimmed ? "06" : isH ? "30" : isLinked ? "18" : "10";
+        const midAlpha = dimmed ? "03" : isH ? "0c" : isLinked ? "08" : "04";
+        grad.addColorStop(0, color + glowAlpha);
+        grad.addColorStop(0.6, color + midAlpha);
         grad.addColorStop(1, color + "00");
         ctx.fillStyle = grad;
         ctx.beginPath();
@@ -224,20 +328,22 @@ export default function ConstellationClient({
         const pos = positions[i];
         const r = radii[i];
         const isH = hoveredIdx === i;
+        const isLinked = highlightNodes.has(i);
+        const dimmed = hasHighlight && !isLinked;
         const pulse = r + Math.sin(time * 0.0015 + i * 0.7) * 2;
 
         // Core
-        ctx.fillStyle = color + (isH ? "cc" : "60");
+        ctx.fillStyle = color + (dimmed ? "30" : isH ? "cc" : isLinked ? "88" : "60");
         ctx.shadowColor = color;
-        ctx.shadowBlur = isH ? 16 : 6;
+        ctx.shadowBlur = isH ? 16 : isLinked ? 10 : 6;
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, pulse * (isH ? 0.7 : 0.5), 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
 
         // Orbit ring
-        ctx.strokeStyle = color + (isH ? "50" : "20");
-        ctx.lineWidth = isH ? 1.2 : 0.6;
+        ctx.strokeStyle = color + (dimmed ? "12" : isH ? "50" : isLinked ? "32" : "20");
+        ctx.lineWidth = isH ? 1.2 : isLinked ? 0.9 : 0.6;
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, pulse + 6, 0, Math.PI * 2);
         ctx.stroke();
@@ -247,18 +353,20 @@ export default function ConstellationClient({
       topics.forEach((topic, i) => {
         const pos = positions[i];
         const isH = hoveredIdx === i;
+        const isLinked = highlightNodes.has(i);
+        const dimmed = hasHighlight && !isLinked;
         const r = radii[i];
 
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
         ctx.font = `${isH ? "bold 11px" : "10px"} monospace`;
-        ctx.fillStyle = color + (isH ? "ee" : "90");
+        ctx.fillStyle = color + (dimmed ? "55" : isH ? "ee" : isLinked ? "bb" : "90");
         const label = topic.label.length > 30 ? topic.label.slice(0, 30) + "…" : topic.label;
         ctx.fillText(label, pos.x, pos.y - r - 10);
 
         ctx.font = "8px monospace";
-        ctx.fillStyle = color + "50";
+        ctx.fillStyle = color + (dimmed ? "33" : "50");
         ctx.fillText(`${topic.paperCount} papers`, pos.x, pos.y + r + 12);
 
         if (isH && topic.yearRange) {
@@ -276,19 +384,21 @@ export default function ConstellationClient({
       running = false;
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [dimensions, topics, color]);
+  }, [dimensions, topics, color, mesoLinks]);
 
   return (
     <div className="relative w-full h-screen overflow-hidden" style={{ background: "#03070f" }}>
       <canvas
         ref={canvasRef}
         className="absolute inset-0"
-        style={{ cursor: hovered != null ? "pointer" : "default" }}
+        style={{ cursor: hovered != null || hoveredLink != null ? "pointer" : "default" }}
         onMouseMove={onMouseMove}
         onClick={onClick}
         onMouseLeave={() => {
           hoveredRef.current = null;
+          hoveredLinkRef.current = null;
           setHovered(null);
+          setHoveredLink(null);
         }}
       />
 
@@ -320,7 +430,7 @@ export default function ConstellationClient({
           className="pointer-events-auto text-[10px] tracking-widest mb-2 inline-block transition-opacity opacity-50 hover:opacity-100"
           style={{ color }}
         >
-          ◂ ALL CLUSTERS
+          ◂ ALL MACROS
         </a>
         <div className="text-xs tracking-[0.25em] font-bold" style={{ color }}>
           ◈ {communityLabel.toUpperCase()}

@@ -2,11 +2,13 @@ import { notFound } from "next/navigation";
 import {
   getGraphMacros,
   getGraphPublicationsByMacroSlug,
+  getGraphLinks,
   transformGraphMacroData,
   transformGraphPublicationData,
+  transformGraphLinkData,
 } from "@/lib/strapi";
 import ConstellationClient from "../ConstellationClient";
-import { buildMesoTopics } from "../meso";
+import { buildMesoLinks, buildMesoTopics } from "../meso";
 
 const MACRO_COLORS = [
   "#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4", "#ffeaa7",
@@ -39,7 +41,10 @@ export default async function CommunityTopicsPage({ params }) {
   if (macroIndex < 0) notFound();
   const macro = macros[macroIndex];
 
-  const publicationsRaw = await getGraphPublicationsByMacroSlug(macroSlug);
+  const [publicationsRaw, linksRaw] = await Promise.all([
+    getGraphPublicationsByMacroSlug(macroSlug),
+    getGraphLinks(),
+  ]);
   const publications = transformGraphPublicationData(publicationsRaw);
 
   if (publications.length === 0) notFound();
@@ -48,10 +53,15 @@ export default async function CommunityTopicsPage({ params }) {
   const macroColor = MACRO_COLORS[macroIndex % MACRO_COLORS.length];
 
   const topics = buildMesoTopics(publications);
+  const oaToId = {};
+  publications.forEach((p) => { if (p.openAlexId) oaToId[p.openAlexId] = p.id; });
+  const links = transformGraphLinkData(linksRaw, oaToId);
+  const mesoLinks = buildMesoLinks(publications, links, topics);
 
   return (
     <ConstellationClient
       topics={topics}
+      mesoLinks={mesoLinks}
       communityLabel={macroLabel}
       communitySlug={macroSlug}
       color={macroColor}

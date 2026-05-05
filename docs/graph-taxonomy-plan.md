@@ -14,7 +14,8 @@ Date: 2026-04-28
 - Step 1 implemented: macro assignments are regenerated on global rebuild for non-manual papers.
 - Step 2 implemented: meso nodes are upserted from topic superclusters and meso tags assigned for non-manual papers.
 - Step 3 implemented: frontend placement now uses graphMacroPrimary and graphMesoTags.
-- Pending: Step 4 (meso link rendering), Step 5 (intersection view).
+- Step 4 implemented: meso links render from paper links with strength-based styling and hover highlights.
+- Pending: Step 5 (intersection view).
 
 ## Decisions locked
 - Intersection view is based on cross-links (GraphLink edges that connect papers in different macros).
@@ -30,17 +31,15 @@ Date: 2026-04-28
 - Duplicate pairs are detected and excluded from upload.
 - Graph links are replaced on every global rebuild.
 - isCrossCluster is computed by algorithmic community, not manual macro.
-- Frontend inter-community bridges are derived from links + community ids.
-- Meso view lines are aesthetic only (spatial proximity), not link-based.
-- graphMacroPrimary/graphMacroTags/graphMesoTags exist in Strapi but are not used for placement.
-- Meso UI uses metadata.graph.topicSuperclusters, not graphMesoTags.
+- Frontend inter-macro bridges are derived from links + graphMacroPrimary.
+- Meso view lines are link-based and weight-scaled.
+- graphMacroPrimary and graphMesoTags are used for placement.
 - Pipeline now writes graphMacroPrimary/graphMacroTags on global rebuild for non-manual papers.
 - Pipeline now writes graphMesoTags and upserts GraphMeso nodes on global rebuild for non-manual papers.
 - Frontend galaxy now uses macros (graphMacroPrimary) instead of community.
 - Macro and meso routes use macro slug and meso slug respectively.
 
 ### Implications
-- Changing graphMacroPrimary/graphMacroTags/graphMesoTags currently has no effect on placement.
 - Paper-level links do not depend on macro or meso tags; they depend only on embeddings.
 - isCrossCluster will be inaccurate once macros are CMS-driven unless recomputed.
 
@@ -184,6 +183,11 @@ Tasks:
 3. Render edges with opacity/width scaling.
 4. Add hover highlight for nodes and edges.
 
+Status:
+- Implemented in web/src/app/research/paper-graph/ConstellationClient.js.
+- Meso edges are aggregated in web/src/app/research/paper-graph/meso.js (buildMesoLinks).
+- Meso page now fetches links and passes mesoLinks to ConstellationClient.
+
 ### Step 5: Intersection view
 Files:
 - web/src/app/research/paper-graph/page.js
@@ -204,3 +208,7 @@ Tasks:
 ## Open questions 
 - Threshold for graphMacroTags: similarity cutoff vs top-N tags? (answer: start with top-N for simplicity, add cutoff later if needed)
 - Weight metric for meso edges: count vs sum of scores vs average score? (answer: count is simplest and most interpretable)
+
+## Notes: 
+
+- Remember to make the make the link in the meso level a bit brighter, as a standard. They can't really be distinguished from the background as it is, only the strongest ones. 

@@ -146,3 +146,62 @@ export function filterPublicationsForMesoTopic(publications, topicNode) {
     return membership.allKeys.some((key) => memberKeys.has(key));
   });
 }
+
+export function buildMesoLinks(publications, links, topics) {
+  if (!Array.isArray(topics) || topics.length === 0) return [];
+
+  const memberKeyToNode = {};
+  topics.forEach((node) => {
+    const keys = Array.isArray(node.memberKeys) && node.memberKeys.length ? node.memberKeys : [node.key];
+    keys.filter(Boolean).forEach((key) => {
+      memberKeyToNode[key] = node.key;
+    });
+  });
+
+  const publicationToNode = {};
+  publications.forEach((publication) => {
+    const membership = getPublicationMesoMembership(publication);
+    if (!membership) return;
+    let nodeKey = memberKeyToNode[membership.key];
+    if (!nodeKey && Array.isArray(membership.allKeys)) {
+      for (const key of membership.allKeys) {
+        if (memberKeyToNode[key]) {
+          nodeKey = memberKeyToNode[key];
+          break;
+        }
+      }
+    }
+    if (nodeKey) publicationToNode[publication.id] = nodeKey;
+  });
+
+  const edgeMap = {};
+  links.forEach((link) => {
+    const sourceKey = publicationToNode[link.sourceId];
+    const targetKey = publicationToNode[link.targetId];
+    if (!sourceKey || !targetKey || sourceKey === targetKey) return;
+    const ordered = sourceKey < targetKey ? [sourceKey, targetKey] : [targetKey, sourceKey];
+    const edgeKey = `${ordered[0]}::${ordered[1]}`;
+    if (!edgeMap[edgeKey]) {
+      edgeMap[edgeKey] = {
+        sourceKey: ordered[0],
+        targetKey: ordered[1],
+        count: 0,
+        scoreSum: 0,
+      };
+    }
+    edgeMap[edgeKey].count += 1;
+    edgeMap[edgeKey].scoreSum += Number.isFinite(link.score) ? link.score : 0;
+  });
+
+  const edges = Object.values(edgeMap);
+  if (!edges.length) return [];
+
+  const maxCount = edges.reduce((max, edge) => Math.max(max, edge.count), 0);
+  return edges
+    .map((edge) => ({
+      ...edge,
+      avgScore: edge.count > 0 ? edge.scoreSum / edge.count : 0,
+      strength: maxCount > 0 ? edge.count / maxCount : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+}

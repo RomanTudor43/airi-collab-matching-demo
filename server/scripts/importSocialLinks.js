@@ -146,7 +146,7 @@ async function fetchAllUsers(token) {
 
   while (true) {
     const res = await fetch(
-      `${STRAPI_URL}/content-manager/collection-types/api::person.person?page=${page}&pageSize=${pageSize}&sort=fullName:ASC&populate=*`,
+      `${STRAPI_URL}/content-manager/collection-types/api::person.person?page=${page}&pageSize=${pageSize}&sort=lastName:ASC,firstName:ASC&populate=*`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     const json = await res.json();
@@ -158,8 +158,8 @@ async function fetchAllUsers(token) {
     const simplified = items.map((u) => ({
       id: u.id,
       documentId: u.documentId,
-      fullName: u.fullName, 
-      normalizedName: normalizeName(u.fullName), 
+      fullName: `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+      normalizedName: normalizeName(`${u.firstName || ''} ${u.lastName || ''}`.trim()),
       departmentNormalized: u.department ? normalizeName(u.department.name) : "",
       slug: u.slug, 
       existingLinks: u.socialLinks || [],  // save the previous records

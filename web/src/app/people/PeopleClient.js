@@ -270,9 +270,19 @@ export default function PeopleClient({
         if (researcherSort === "fewest-citations" && countA !== countB) return countA - countB;
       }
 
-      const nameA = normalizeSortName(a?.name);
-      const nameB = normalizeSortName(b?.name);
-      return nameA.localeCompare(nameB, "ro", {
+      // Sort by lastName first, then firstName (last-name-first sorting)
+      const lastNameA = normalizeSortName(a?.lastName || '');
+      const lastNameB = normalizeSortName(b?.lastName || '');
+      const lastNameCompare = lastNameA.localeCompare(lastNameB, "ro", {
+        sensitivity: "base",
+        numeric: true,
+      });
+      if (lastNameCompare !== 0) return lastNameCompare;
+
+      // Tiebreaker: sort by firstName
+      const firstNameA = normalizeSortName(a?.firstName || '');
+      const firstNameB = normalizeSortName(b?.firstName || '');
+      return firstNameA.localeCompare(firstNameB, "ro", {
         sensitivity: "base",
         numeric: true,
       });

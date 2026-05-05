@@ -17,7 +17,7 @@ const PHASE_STYLES = {
 /* ── Person avatar + name (reusable) ─────────────────────── */
 function PersonChip({ person, role, isLead, image }) {
   const slug = person?.slug;
-  const name = person?.name || person?.fullName || '';
+  const name = person?.name || '';
   const title = person?.title || '';
 
   const inner = (
@@ -351,7 +351,7 @@ export default function DepartmentDetailClient({
                   {(() => {
                     const coordName = typeof department.coordinator === 'string' 
                       ? department.coordinator 
-                      : department.coordinator.name || department.coordinator.fullName || 'Unknown';
+                      : department.coordinator.name || 'Unknown';
                     const coordSlug = department.coordinatorSlug || department.coordinator?.slug;
                     const coordTitle = department.coordinator?.title;
                     const personPath = coordSlug ? `/people/${coordSlug}` : null;

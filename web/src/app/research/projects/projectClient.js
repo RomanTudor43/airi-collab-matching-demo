@@ -61,11 +61,11 @@ const normalizeProject = (p) => {
   const domainNames = domainEntries.map((d) => d.name).filter(Boolean);
 
   const memberObjs = Array.isArray(p?.members) ? p.members : [];
-  const memberNames = memberObjs.map((m) => m?.name || m?.fullName || m).filter(Boolean);
+  const memberNames = memberObjs.map((m) => m?.name || m).filter(Boolean);
   const memberSlugs = memberObjs.map((m) => m?.slug).filter(Boolean);
 
   const contributorObjs = Array.isArray(p?.contributors) ? p.contributors : [];
-  const contributorNames = contributorObjs.map((c) => c?.name || c?.fullName || c).filter(Boolean);
+  const contributorNames = contributorObjs.map((c) => c?.name || c).filter(Boolean);
   const contributorSlugs = contributorObjs.map((c) => c?.slug).filter(Boolean);
 
   const themeObjs = Array.isArray(p?.themes) ? p.themes : [];

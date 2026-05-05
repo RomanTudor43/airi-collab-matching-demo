@@ -732,9 +732,17 @@ export interface ApiPersonPerson extends Struct.CollectionTypeSchema {
       'api::department.department'
     >;
     email: Schema.Attribute.String;
-    fullName: Schema.Attribute.String &
+    firstName: Schema.Attribute.String &
       Schema.Attribute.Required &
-      Schema.Attribute.Unique;
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 2;
+      }>;
+    fullName: Schema.Attribute.String & Schema.Attribute.Unique;
+    lastName: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 2;
+      }>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -1119,7 +1127,7 @@ export interface ApiTeamTeam extends Struct.CollectionTypeSchema {
       'manyToOne',
       'api::department.department'
     >;
-    description: Schema.Attribute.Text;
+    description: Schema.Attribute.RichText;
     image: Schema.Attribute.Media<'images'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::team.team'> &

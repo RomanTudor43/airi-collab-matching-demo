@@ -12,9 +12,19 @@
   },
   "pluginOptions": {},
   "attributes": {
+    "firstName": {
+      "type": "string",
+      "minLength": 2,
+      "required": true
+    },
+    "lastName": {
+      "type": "string",
+      "minLength": 2,
+      "required": true
+    },
     "fullName": {
       "type": "string",
-      "required": true,
+      "required": false,
       "unique": true
     },
     "slug": {

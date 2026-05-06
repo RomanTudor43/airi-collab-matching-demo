@@ -47,6 +47,15 @@ const normalizeSortName = (name) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const getPersonKey = (person) => {
+  if (!person) return "";
+  if (person.id !== undefined && person.id !== null) return `id:${person.id}`;
+  if (person.slug) return `slug:${person.slug}`;
+  if (person.email) return `email:${normalizeSearchText(person.email)}`;
+  if (person.name) return `name:${normalizeSearchText(person.name)}:${person.type || "unknown"}`;
+  return "";
+};
+
 function getCitationCount(person) {
   const value = person?.scholarCitationCount;
   if (typeof value === "number" && !Number.isNaN(value)) return value;
@@ -219,7 +228,7 @@ export default function PeopleClient({
   const t = useTranslations("people");
 
   const allPeopleFlat = useMemo(() => {
-    return [
+    const merged = [
       ...researchers.map((p) => ({ ...p, type: p.type || "researcher" })),
       ...staff.map((p) => ({ ...p, type: p.type || "staff" })),
       ...students.map((p) => ({ ...p, type: p.type || "student" })),
@@ -227,6 +236,14 @@ export default function PeopleClient({
       ...external.map((p) => ({ ...p, type: p.type || "external" })),
       ...alumni.map((p) => ({ ...p, type: p.type || "alumni" })),
     ];
+
+    const seen = new Set();
+    return merged.filter((person) => {
+      const key = getPersonKey(person);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }, [staff, researchers, visiting, students, external, alumni]);
 
   const filterOptions = useMemo(() => {
@@ -252,7 +269,9 @@ export default function PeopleClient({
     let searchResults = allPeopleFlat;
     if (terms.length > 0) {
       searchResults = allPeopleFlat.filter((p) => {
-        const searchable = normalizeSearchText([p.name, p.title, p.department, p.email].filter(Boolean).join(" "));
+        const searchable = normalizeSearchText(
+          [p.name, p.firstName, p.lastName, p.title, p.department, p.email].filter(Boolean).join(" ")
+        );
         return terms.every((term) => searchable.includes(term));
       });
     }
@@ -477,7 +496,7 @@ export default function PeopleClient({
             >
               {displayedPeople.map((person) => (
                 <PersonCard
-                  key={person.slug}
+                  key={getPersonKey(person)}
                   person={person}
                   basePath="/people"
                   showRoleBadge={true}

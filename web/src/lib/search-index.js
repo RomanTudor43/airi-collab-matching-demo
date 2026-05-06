@@ -137,7 +137,14 @@ function buildPersonEntries(people) {
     makeEntry({
       title: person.name,
       route: person.slug ? `/people/${encodeURIComponent(person.slug)}` : "/people",
-      tags: ["person", person.type, person.title, person.department],
+      tags: [
+        "person",
+        person.type,
+        person.firstName,
+        person.lastName,
+        person.title,
+        person.department,
+      ],
       snippet: person.bio || `${person.title || ""}${person.department ? ` · ${person.department}` : ""}`,
     })
   );

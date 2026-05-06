@@ -214,6 +214,8 @@ const RESEARCHER_SORT_OPTIONS = [
   { value: "fewest-citations", label: "Fewest citations on Google Scholar (↑ lowest first)" },
 ];
 
+const SORT_OPTIONS = RESEARCHER_SORT_OPTIONS;
+
 export default function PeopleClient({
   staff = [],
   researchers = [],
@@ -224,7 +226,8 @@ export default function PeopleClient({
 }) {
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [researcherSort, setResearcherSort] = useState("default");
+  const [allSort, setAllSort] = useState("default");
+  const [researcherSort, setResearcherSort] = useState("most-citations");
   const t = useTranslations("people");
 
   const allPeopleFlat = useMemo(() => {
@@ -265,6 +268,7 @@ export default function PeopleClient({
 
   const displayedPeople = useMemo(() => {
     const terms = parseSearchTerms(searchQuery);
+    const currentSort = activeFilter === "researcher" ? researcherSort : allSort;
 
     let searchResults = allPeopleFlat;
     if (terms.length > 0) {
@@ -282,11 +286,16 @@ export default function PeopleClient({
     }
 
     return [...filtered].sort((a, b) => {
-      if (activeFilter === "researcher") {
+      if (currentSort === "most-citations") {
         const countA = getCitationCount(a);
         const countB = getCitationCount(b);
-        if (researcherSort === "most-citations" && countA !== countB) return countB - countA;
-        if (researcherSort === "fewest-citations" && countA !== countB) return countA - countB;
+        if (countA !== countB) return countB - countA;
+      }
+
+      if (currentSort === "fewest-citations") {
+        const countA = getCitationCount(a);
+        const countB = getCitationCount(b);
+        if (countA !== countB) return countA - countB;
       }
 
       // Sort by lastName first, then firstName (last-name-first sorting)
@@ -306,12 +315,14 @@ export default function PeopleClient({
         numeric: true,
       });
     });
-  }, [allPeopleFlat, activeFilter, searchQuery, researcherSort]);
+  }, [allPeopleFlat, activeFilter, searchQuery, allSort, researcherSort]);
 
   const handleFilterChange = (id) => {
     setActiveFilter(id);
-    if (id !== "researcher") setResearcherSort("default");
   };
+
+  const currentSort = activeFilter === "researcher" ? researcherSort : allSort;
+  const setCurrentSort = activeFilter === "researcher" ? setResearcherSort : setAllSort;
 
   return (
     <div className="page-container">
@@ -402,7 +413,7 @@ export default function PeopleClient({
         </motion.div>
 
         <AnimatePresence>
-          {activeFilter === "researcher" && (
+          {(activeFilter === "all" || activeFilter === "researcher") && (
             <motion.div
               key="sort-dropdown"
               className="flex justify-center mb-6"
@@ -416,12 +427,12 @@ export default function PeopleClient({
                   <FaSortAmountDown className="w-4 h-4 text-primary-600 dark:text-accent-400" />
                 </div>
                 <select
-                  value={researcherSort}
-                  onChange={(e) => setResearcherSort(e.target.value)}
+                  value={currentSort}
+                  onChange={(e) => setCurrentSort(e.target.value)}
                   className="input pl-10 pr-10 appearance-none cursor-pointer bg-white dark:bg-gray-800 w-full"
-                  aria-label="Sort researchers by citations"
+                  aria-label={activeFilter === "researcher" ? "Sort researchers by citations" : "Sort people"}
                 >
-                  {RESEARCHER_SORT_OPTIONS.map((opt) => (
+                  {SORT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>

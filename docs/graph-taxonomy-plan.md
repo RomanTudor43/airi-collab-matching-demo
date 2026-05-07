@@ -15,7 +15,7 @@ Date: 2026-04-28
 - Step 2 implemented: meso nodes are upserted from topic superclusters and meso tags assigned for non-manual papers.
 - Step 3 implemented: frontend placement now uses graphMacroPrimary and graphMesoTags.
 - Step 4 implemented: meso links render from paper links with strength-based styling and hover highlights.
-- Pending: Step 5 (intersection view).
+- Step 5 implemented: macro intersection view (cross-link only) with side-biased layout.
 
 ## Decisions locked
 - Intersection view is based on cross-links (GraphLink edges that connect papers in different macros).
@@ -197,6 +197,12 @@ Files:
 Tasks:
 1. Build macro bridges from cross-macro links (macroPrimary).
 2. Click bridge -> open two-sided paper view with only cross-linked papers.
+
+Status:
+- Implemented with new intersection route at web/src/app/research/paper-graph/[communitySlug]/x/[otherMacroSlug]/page.js.
+- Bridge click now navigates to the intersection route from GalaxyClient.
+- Intersection view uses a side-biased layout to pull papers toward their macro side.
+- View only includes papers that participate in cross-macro links.
 
 ## Verification checklist
 1. sourceKind=manual papers are never overwritten.

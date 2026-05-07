@@ -279,8 +279,8 @@ export default function GalaxyClient({ macros, interLinks, crossClusterLinks = [
     // Then check bridge hit
     const bridgeInfo = hitTestBridge(mx, my);
     if (bridgeInfo && bridgeInfo.links.length > 0) {
-      // Navigate to the source macro's view (user can explore links from there)
-      router.push(`/research/paper-graph/${bridgeInfo.source}`);
+      // Navigate to the macro intersection view
+      router.push(`/research/paper-graph/${bridgeInfo.source}/x/${bridgeInfo.target}`);
     }
   }, [hitTest, hitTestBridge, macros, router]);
 

@@ -250,6 +250,7 @@ export default function PaperGraphClient({
   }, [hovered, paperById, paperPositions, tx, ty, scale]);
 
   const hovLinks = tooltipData ? (linksByPaper[tooltipData.paper.id] ?? []) : [];
+  const macroTheme = tooltipData?.paper?.graphMacroPrimary?.name || tooltipData?.paper?.graphMacroPrimary?.slug || '';
 
   return (
     <div
@@ -550,6 +551,7 @@ export default function PaperGraphClient({
           paper={tooltipData.paper}
           links={hovLinks}
           paperById={paperById}
+          macroTheme={macroTheme}
           sx={tooltipData.sx}
           sy={tooltipData.sy}
           scale={scale}
@@ -560,7 +562,7 @@ export default function PaperGraphClient({
 }
 
 // ── Intel panel ───────────────────────────────────────────────────────────────
-function IntelPanel({ paper, links, paperById, sx, sy, scale }) {
+function IntelPanel({ paper, links, paperById, macroTheme, sx, sy, scale }) {
   const panelW = 300;
   const panelH = 320; // Increased for cross-cluster section
   const containerW = typeof window !== "undefined" ? window.innerWidth : 1200;
@@ -597,6 +599,11 @@ function IntelPanel({ paper, links, paperById, sx, sy, scale }) {
           {paper.cited_by != null && <span>⬡ {paper.cited_by} citations</span>}
           <span>⇌ {links.length} links</span>
         </div>
+        {macroTheme && (
+          <div className="text-[9px] text-amber-400/55 mb-2 border border-amber-500/20 px-1.5 py-0.5 inline-block tracking-[0.12em]">
+            ✦ {macroTheme}
+          </div>
+        )}
         {paper.communityLabel && (
           <div className="text-[9px] text-amber-400/50 mb-2 border border-amber-500/20 px-1.5 py-0.5 inline-block">
             ◈ {paper.communityLabel}

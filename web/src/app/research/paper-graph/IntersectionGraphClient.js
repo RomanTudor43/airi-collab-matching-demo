@@ -280,7 +280,7 @@ export default function IntersectionGraphClient({
       ref={containerRef}
       className="relative w-full overflow-hidden select-none"
       style={{
-        height: "calc(100vh - 4rem)",
+        height: "100vh",
         background: "#03070f",
         cursor: panning ? "grabbing" : "grab",
       }}
@@ -335,10 +335,30 @@ export default function IntersectionGraphClient({
         </Link>
       </div>
 
+      {/* Side labels */}
+      <div
+        className="pointer-events-none absolute left-4 top-1/2 z-30 -translate-y-1/2 font-mono text-[9px] tracking-[0.45em]"
+        style={{ color: leftColor, writingMode: "vertical-rl", textOrientation: "mixed" }}
+      >
+        {leftMacro?.name || "LEFT MACRO"}
+      </div>
+      <div
+        className="pointer-events-none absolute right-4 top-1/2 z-30 -translate-y-1/2 font-mono text-[9px] tracking-[0.45em] text-right"
+        style={{ color: rightColor, writingMode: "vertical-rl", textOrientation: "mixed" }}
+      >
+        {rightMacro?.name || "RIGHT MACRO"}
+      </div>
+
       {/* Top-left HUD */}
       <div className="pointer-events-none absolute top-12 left-5 z-30 font-mono">
         <div className="text-amber-400/50 text-[10px] tracking-widest">
           {publications.length} PAPERS &nbsp;·&nbsp; {visibleLinks.length} LINKS
+        </div>
+        <div className="mt-1 text-[9px] tracking-[0.22em]" style={{ color: leftColor }}>
+          LEFT SIDE ▸ {leftMacro?.name || ""}
+        </div>
+        <div className="mt-0.5 text-[9px] tracking-[0.22em]" style={{ color: rightColor }}>
+          RIGHT SIDE ▸ {rightMacro?.name || ""}
         </div>
       </div>
 

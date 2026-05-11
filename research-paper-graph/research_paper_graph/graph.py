@@ -12,13 +12,13 @@ from sentence_transformers import SentenceTransformer
 log = logging.getLogger(__name__)
 
 
-# HDBSCAN clustering parameters for macro-level grouping.
+# HDBSCAN clustering parameters for algorithmic community grouping.
 # min_cluster_size: Minimum papers to form a cluster (smaller = more clusters)
 # min_samples: Core point density requirement (smaller = less conservative)
 HDBSCAN_MIN_CLUSTER_SIZE = 20
 HDBSCAN_MIN_SAMPLES = 5
 
-# Target range for macro clusters (used to tune parameters if needed)
+# Target range for algorithmic community count (used to tune parameters if needed)
 TARGET_CLUSTER_RANGE = (6, 10)
 
 # Label for papers that don't fit any cluster (noise points in HDBSCAN)
@@ -937,28 +937,55 @@ def compute_graph_quality_metrics(
     communities,
     community_labels,
     paper_topic_superclusters,
+    all_links=None,
+    duplicate_ids=None,
 ):
-    """Compute tuning/quality metrics for macro and meso graph levels."""
+    """Compute tuning/quality metrics for linking, communities, and meso layers.
+
+    Note: static macro sectors are assigned later during Strapi sync.
+    """
+    all_links = all_links or []
+    duplicate_ids = duplicate_ids or set()
+
+    total_links = len(all_links)
+    duplicate_links = sum(1 for link in all_links if link.get("is_duplicate"))
+    clean_links = total_links - duplicate_links
+
+    paper_count = len(papers)
+    possible_edges = (paper_count * (paper_count - 1)) / 2 if paper_count > 1 else 0
+    clean_edge_density = (clean_links / possible_edges) if possible_edges else 0.0
+
     metrics = {
-        "paperCount": len(papers),
+        "paperCount": paper_count,
         "clusteredPaperCount": 0,
-        "macro": {
-            "clusterCount": 0,
-            "clusterSizes": [],
-            "largestClusterShare": 0.0,
+        "linking": {
+            "totalLinks": total_links,
+            "cleanLinks": clean_links,
+            "duplicateLinks": duplicate_links,
+            "duplicatePaperCount": len(duplicate_ids),
+            "cleanEdgeDensity": round(float(clean_edge_density), 4),
+        },
+        "communities": {
+            "communityCount": 0,
+            "communitySizes": [],
+            "largestCommunityShare": 0.0,
             "normalizedEntropy": 0.0,
             "targetRange": list(TARGET_CLUSTER_RANGE),
         },
         "meso": {
-            "nodeCountByMacro": {},
-            "medianNodesPerMacro": 0.0,
-            "meanNodesPerMacro": 0.0,
-            "maxNodesPerMacro": 0,
+            "nodeCountByCommunity": {},
+            "medianNodesPerCommunity": 0.0,
+            "meanNodesPerCommunity": 0.0,
+            "maxNodesPerCommunity": 0,
         },
         "labels": {
             "weightedAlignmentScore": 0.0,
             "lowAlignmentClusters": [],
             "lowAlignmentThreshold": LOW_ALIGNMENT_THRESHOLD,
+        },
+        "architectureNotes": {
+            "staticMacroSource": "strapi_sync.update_macro_assignments",
+            "macroPolicy": "Static Strapi macro sectors are authoritative; algorithmic communities are diagnostics only.",
         },
         "suggestedTuning": [],
     }
@@ -970,17 +997,17 @@ def compute_graph_quality_metrics(
     cluster_sizes = sorted((len(indices) for indices in community_indices.values()), reverse=True)
     clustered_count = sum(cluster_sizes)
     metrics["clusteredPaperCount"] = clustered_count
-    metrics["macro"]["clusterCount"] = len(cluster_sizes)
-    metrics["macro"]["clusterSizes"] = cluster_sizes
+    metrics["communities"]["communityCount"] = len(cluster_sizes)
+    metrics["communities"]["communitySizes"] = cluster_sizes
 
     if clustered_count > 0:
-        metrics["macro"]["largestClusterShare"] = round(cluster_sizes[0] / clustered_count, 4)
+        metrics["communities"]["largestCommunityShare"] = round(cluster_sizes[0] / clustered_count, 4)
 
     if len(cluster_sizes) > 1 and clustered_count > 0:
         probabilities = np.array(cluster_sizes, dtype=np.float64) / float(clustered_count)
         entropy = float(-(probabilities * np.log2(probabilities)).sum())
         max_entropy = float(np.log2(len(cluster_sizes)))
-        metrics["macro"]["normalizedEntropy"] = round(entropy / max_entropy, 4) if max_entropy > 0 else 0.0
+        metrics["communities"]["normalizedEntropy"] = round(entropy / max_entropy, 4) if max_entropy > 0 else 0.0
 
     meso_counts = {}
     for community_id, indices in community_indices.items():
@@ -993,11 +1020,11 @@ def compute_graph_quality_metrics(
         meso_counts[int(community_id)] = len(meso_keys)
 
     meso_values = list(meso_counts.values())
-    metrics["meso"]["nodeCountByMacro"] = meso_counts
+    metrics["meso"]["nodeCountByCommunity"] = meso_counts
     if meso_values:
-        metrics["meso"]["medianNodesPerMacro"] = round(float(np.median(meso_values)), 2)
-        metrics["meso"]["meanNodesPerMacro"] = round(float(np.mean(meso_values)), 2)
-        metrics["meso"]["maxNodesPerMacro"] = int(max(meso_values))
+        metrics["meso"]["medianNodesPerCommunity"] = round(float(np.median(meso_values)), 2)
+        metrics["meso"]["meanNodesPerCommunity"] = round(float(np.mean(meso_values)), 2)
+        metrics["meso"]["maxNodesPerCommunity"] = int(max(meso_values))
 
     alignments = []
     weighted_alignment_sum = 0.0
@@ -1018,18 +1045,18 @@ def compute_graph_quality_metrics(
     low_alignment.sort(key=lambda entry: entry["score"])
     metrics["labels"]["lowAlignmentClusters"] = low_alignment[:8]
 
-    if metrics["macro"]["clusterCount"] > TARGET_CLUSTER_RANGE[1]:
+    if metrics["communities"]["communityCount"] > TARGET_CLUSTER_RANGE[1]:
         metrics["suggestedTuning"].append(
-            "Increase GRAPH_HDBSCAN_MIN_CLUSTER_SIZE or GRAPH_HDBSCAN_MIN_SAMPLES to reduce macro fragmentation."
+            "Increase GRAPH_HDBSCAN_MIN_CLUSTER_SIZE or GRAPH_HDBSCAN_MIN_SAMPLES to reduce community fragmentation."
         )
-    elif metrics["macro"]["clusterCount"] < TARGET_CLUSTER_RANGE[0]:
+    elif metrics["communities"]["communityCount"] < TARGET_CLUSTER_RANGE[0]:
         metrics["suggestedTuning"].append(
-            "Decrease GRAPH_HDBSCAN_MIN_CLUSTER_SIZE or GRAPH_HDBSCAN_MIN_SAMPLES to increase macro granularity."
+            "Decrease GRAPH_HDBSCAN_MIN_CLUSTER_SIZE or GRAPH_HDBSCAN_MIN_SAMPLES to increase community granularity."
         )
 
-    if metrics["meso"]["medianNodesPerMacro"] > 20:
+    if metrics["meso"]["medianNodesPerCommunity"] > 20:
         metrics["suggestedTuning"].append(
-            "Increase GRAPH_TOPIC_HDBSCAN_MIN_CLUSTER_SIZE to reduce meso node count per macro cluster."
+            "Increase GRAPH_TOPIC_HDBSCAN_MIN_CLUSTER_SIZE to reduce meso node count per community."
         )
 
     if metrics["labels"]["weightedAlignmentScore"] < 0.5:

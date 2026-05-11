@@ -23,6 +23,48 @@ class GraphArtifacts:
     paper_metadata: dict
 
 
+def _log_quality_metrics_summary(log, label, metrics):
+    """Emit a concise terminal summary for build-time diagnostics."""
+    linking = metrics.get("linking", {})
+    communities = metrics.get("communities", {})
+    meso = metrics.get("meso", {})
+    labels = metrics.get("labels", {})
+
+    log.info(
+        "[%s] Diagnostics (linking): total=%s clean=%s duplicate_links=%s duplicate_papers=%s density=%s",
+        label,
+        linking.get("totalLinks", 0),
+        linking.get("cleanLinks", 0),
+        linking.get("duplicateLinks", 0),
+        linking.get("duplicatePaperCount", 0),
+        linking.get("cleanEdgeDensity", 0.0),
+    )
+    log.info(
+        "[%s] Diagnostics (communities): count=%s largest_share=%s entropy=%s",
+        label,
+        communities.get("communityCount", 0),
+        communities.get("largestCommunityShare", 0.0),
+        communities.get("normalizedEntropy", 0.0),
+    )
+    log.info(
+        "[%s] Diagnostics (meso): median_nodes_per_community=%s mean=%s max=%s",
+        label,
+        meso.get("medianNodesPerCommunity", 0.0),
+        meso.get("meanNodesPerCommunity", 0.0),
+        meso.get("maxNodesPerCommunity", 0),
+    )
+    log.info(
+        "[%s] Diagnostics (labels): weighted_alignment=%s low_alignment_clusters=%s",
+        label,
+        labels.get("weightedAlignmentScore", 0.0),
+        len(labels.get("lowAlignmentClusters", [])),
+    )
+
+    suggestions = metrics.get("suggestedTuning", [])
+    for suggestion in suggestions:
+        log.info("[%s] Diagnostics suggestion: %s", label, suggestion)
+
+
 def save_paper_snapshot(papers, label, logger=None):
     """Persist the fetched paper payload for reuse and debugging."""
     log = logger or logging.getLogger("paper-sync")
@@ -131,11 +173,14 @@ def build_graph_artifacts(
         communities,
         community_labels,
         paper_topic_superclusters,
+        all_links=all_links,
+        duplicate_ids=duplicate_ids,
     )
     quality_path = os.path.join("outputs", f"quality_{label}.json")
     with open(quality_path, "w", encoding="utf-8") as handle:
         json.dump(quality_metrics, handle, indent=2)
     log.info(f"Saved quality metrics to {quality_path}")
+    _log_quality_metrics_summary(log, label, quality_metrics)
 
     return GraphArtifacts(
         all_links=all_links,

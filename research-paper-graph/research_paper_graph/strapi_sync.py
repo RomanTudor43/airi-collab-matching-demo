@@ -286,6 +286,12 @@ def update_macro_assignments(
     if not active_macros:
         active_macros = macros
 
+    log.info(
+        "Macro diagnostics (static macros): loaded=%s active=%s",
+        len(macros),
+        len(active_macros),
+    )
+
     macro_texts = [_build_macro_text(macro) for macro in active_macros]
     macro_embeddings = gg.build_text_embeddings(macro_texts, model_name)
     if len(macro_embeddings) == 0:
@@ -324,6 +330,8 @@ def update_macro_assignments(
     skipped_manual = 0
     skipped_missing = 0
     paper_macro_map = {}
+    macro_name_by_id = {macro["documentId"]: (macro.get("name") or macro["documentId"]) for macro in active_macros}
+    primary_counts = {}
 
     for paper in papers:
         paper_id = gg.paper_identifier(paper)
@@ -367,6 +375,7 @@ def update_macro_assignments(
         if strapi.update_publication(document_id, payload):
             updated += 1
             paper_macro_map[paper_id] = primary_id
+            primary_counts[primary_id] = primary_counts.get(primary_id, 0) + 1
 
     log.info(
         "Macro assignments: %s updated, %s manual skipped, %s missing/empty",
@@ -374,6 +383,15 @@ def update_macro_assignments(
         skipped_manual,
         skipped_missing,
     )
+
+    ranked = sorted(primary_counts.items(), key=lambda item: item[1], reverse=True)
+    top_parts = [f"{macro_name_by_id.get(macro_id, macro_id)}={count}" for macro_id, count in ranked[:5]]
+    log.info(
+        "Macro diagnostics (static macros): assigned=%s distribution=%s",
+        updated,
+        ", ".join(top_parts) if top_parts else "n/a",
+    )
+
     return updated, paper_macro_map
 
 
@@ -444,6 +462,9 @@ def update_meso_assignments(strapi, graph, papers, pub_map, paper_macro_map=None
         label_counts[label] = label_counts.get(label, 0) + 1
 
     meso_id_by_cluster = {}
+    meso_created = 0
+    meso_updated = 0
+    meso_with_macro = 0
     for cluster_id in sorted(cluster_ids):
         slug = _build_meso_slug(cluster_id)
         base_label = base_labels[cluster_id]
@@ -453,6 +474,7 @@ def update_meso_assignments(strapi, graph, papers, pub_map, paper_macro_map=None
         votes = macro_votes.get(int(cluster_id), {})
         if votes:
             macro_id = max(votes.items(), key=lambda item: item[1])[0]
+            meso_with_macro += 1
 
         payload = {
             "name": name,
@@ -465,10 +487,20 @@ def update_meso_assignments(strapi, graph, papers, pub_map, paper_macro_map=None
         if existing:
             strapi.update_graph_meso(existing["documentId"], payload)
             meso_id_by_cluster[int(cluster_id)] = existing["documentId"]
+            meso_updated += 1
         else:
             created_id = strapi.create_graph_meso(payload)
             if created_id:
                 meso_id_by_cluster[int(cluster_id)] = created_id
+                meso_created += 1
+
+    log.info(
+        "Meso diagnostics: clusters=%s created=%s updated=%s macro_linked=%s",
+        len(cluster_ids),
+        meso_created,
+        meso_updated,
+        meso_with_macro,
+    )
 
     updated = 0
     skipped_manual = 0

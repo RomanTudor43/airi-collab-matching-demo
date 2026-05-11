@@ -75,7 +75,49 @@ class StrapiClient:
             "uploaded": False,
             "attachment_id": None,
             "pdf_url": None,
+            "pdf_source": None,
         }
+
+    def _extract_unpaywall_pdf_url(self, payload):
+        """Extract the best PDF URL from an Unpaywall response payload.
+
+        Unpaywall does not always populate the top-level url_for_pdf field.
+        Publisher records often keep the direct PDF under best_oa_location or
+        within the oa_locations list, so we inspect those fallbacks as well.
+        """
+        if not isinstance(payload, dict):
+            return None, None
+
+        direct_url = payload.get("url_for_pdf")
+        if direct_url:
+            return direct_url, "url_for_pdf"
+
+        nested_candidates = [
+            ("best_oa_location", payload.get("best_oa_location")),
+            ("first_oa_location", payload.get("first_oa_location")),
+        ]
+
+        for source_name, location in nested_candidates:
+            if isinstance(location, dict):
+                pdf_url = location.get("url_for_pdf")
+                if pdf_url:
+                    return pdf_url, source_name
+
+        for location in payload.get("oa_locations") or []:
+            if not isinstance(location, dict):
+                continue
+            pdf_url = location.get("url_for_pdf")
+            if pdf_url:
+                return pdf_url, "oa_locations"
+
+        for location in payload.get("oa_locations_embargoed") or []:
+            if not isinstance(location, dict):
+                continue
+            pdf_url = location.get("url_for_pdf")
+            if pdf_url:
+                return pdf_url, "oa_locations_embargoed"
+
+        return None, None
 
     def _load_unpaywall_pdf_cache(self):
         if not os.path.exists(self._unpaywall_pdf_cache_path):
@@ -135,7 +177,7 @@ class StrapiClient:
 
         return None
 
-    def _store_cached_pdf_url(self, doi, pdf_url):
+    def _store_cached_pdf_url(self, doi, pdf_url, source=None):
         normalized_doi = normalize_doi(doi)
         if not normalized_doi:
             return
@@ -144,6 +186,7 @@ class StrapiClient:
         self._unpaywall_pdf_cache[normalized_doi] = {
             "doi": normalized_doi,
             "pdf_url": pdf_url,
+            "source": source or "unpaywall",
             "cachedAt": self._utc_now(),
         }
         self._write_unpaywall_pdf_cache()
@@ -621,8 +664,9 @@ class StrapiClient:
             result["direct_build"] = True
             result["resolved"] = True
             result["pdf_url"] = direct_pdf_url
+            result["pdf_source"] = "direct_doi_rule"
             log.info(f"  Built direct PDF URL for DOI {normalized_doi}: {direct_pdf_url}")
-            self._store_cached_pdf_url(normalized_doi, direct_pdf_url)
+            self._store_cached_pdf_url(normalized_doi, direct_pdf_url, source="direct_doi_rule")
         else:
             cached_entry = self._get_cached_pdf_entry(normalized_doi)
             if cached_entry is not None:
@@ -634,6 +678,7 @@ class StrapiClient:
 
                 result["resolved"] = True
                 result["pdf_url"] = pdf_url
+                result["pdf_source"] = cached_entry.get("source") or "cache"
                 log.info(f"  Unpaywall cache hit for DOI: {normalized_doi}")
             else:
                 # Preserve DOI slashes in the Unpaywall path. Encoding them as %2F returns 404.
@@ -646,15 +691,16 @@ class StrapiClient:
                     response.raise_for_status()
                     payload = response.json()
 
-                    pdf_url = payload.get("url_for_pdf")
+                    pdf_url, pdf_source = self._extract_unpaywall_pdf_url(payload)
                     if not pdf_url:
-                        log.info(f"  Unpaywall returned no url_for_pdf for DOI: {normalized_doi}")
+                        log.info(f"  Unpaywall returned no PDF URL for DOI: {normalized_doi}")
                         return result
 
                     result["resolved"] = True
                     result["pdf_url"] = pdf_url
-                    log.info(f"  Unpaywall PDF URL: {pdf_url}")
-                    self._store_cached_pdf_url(normalized_doi, pdf_url)
+                    result["pdf_source"] = pdf_source or "unpaywall"
+                    log.info(f"  Unpaywall PDF URL ({result['pdf_source']}): {pdf_url}")
+                    self._store_cached_pdf_url(normalized_doi, pdf_url, source=result["pdf_source"])
                 except Exception as exc:
                     log.warning(f"  PDF download/upload failed for DOI {normalized_doi}: {exc}")
                     return result

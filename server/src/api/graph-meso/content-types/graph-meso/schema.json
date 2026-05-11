@@ -46,6 +46,12 @@
       "relation": "manyToMany",
       "target": "api::publication.publication",
       "inversedBy": "graphMesoTags"
+    },
+    "publicationsPrimary": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::publication.publication",
+      "mappedBy": "graphMesoPrimary"
     }
   }
 }

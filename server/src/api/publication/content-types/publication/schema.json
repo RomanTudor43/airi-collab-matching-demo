@@ -175,6 +175,12 @@
       "target": "api::graph-macro.graph-macro",
       "mappedBy": "publicationsTagged"
     },
+    "graphMesoPrimary": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::graph-meso.graph-meso",
+      "inversedBy": "publicationsPrimary"
+    },
     "graphMesoTags": {
       "type": "relation",
       "relation": "manyToMany",

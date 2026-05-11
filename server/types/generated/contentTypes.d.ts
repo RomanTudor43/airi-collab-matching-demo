@@ -711,6 +711,10 @@ export interface ApiGraphMesoGraphMeso extends Struct.CollectionTypeSchema {
       'manyToMany',
       'api::publication.publication'
     >;
+    publicationsPrimary: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::publication.publication'
+    >;
     publishedAt: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
     sortOrder: Schema.Attribute.Integer;
@@ -1024,6 +1028,10 @@ export interface ApiPublicationPublication extends Struct.CollectionTypeSchema {
       'manyToMany',
       'api::graph-macro.graph-macro'
     >;
+    graphMesoPrimary: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::graph-meso.graph-meso'
+    >;
     graphMesoTags: Schema.Attribute.Relation<
       'manyToMany',
       'api::graph-meso.graph-meso'
@@ -1284,7 +1292,7 @@ export interface ApiTeamTeam extends Struct.CollectionTypeSchema {
       'manyToOne',
       'api::department.department'
     >;
-    description: Schema.Attribute.Text;
+    description: Schema.Attribute.RichText;
     image: Schema.Attribute.Media<'images'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::team.team'> &

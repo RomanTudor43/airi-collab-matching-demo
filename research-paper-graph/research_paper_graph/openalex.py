@@ -1,6 +1,4 @@
-import json
 import logging
-import os
 import re
 import time
 
@@ -43,14 +41,13 @@ def find_author_id(author_name, institution=None):
     return None
 
 
-def get_author_papers(author_id, *, cache_path=None):
-    """Retrieve processed papers for a given author, using cache when available."""
+def get_author_papers(author_id):
+    """Retrieve processed papers for a given author."""
     return _get_processed_works(
         f"author.id:{author_id},is_oa:true",
         description=f"author {author_id}",
         per_page=50,
         pause_seconds=0.2,
-        cache_path=cache_path,
     )
 
 
@@ -107,14 +104,13 @@ def get_institution_authors(institution_id, min_works=3):
     return authors
 
 
-def get_institution_papers(institution_id, *, cache_path=None):
-    """Retrieve processed papers for an institution, using cache when available."""
+def get_institution_papers(institution_id):
+    """Retrieve processed papers for an institution."""
     return _get_processed_works(
         f"institutions.id:{institution_id},is_oa:true",
         description=f"institution {institution_id}",
         per_page=200,
         pause_seconds=0.1,
-        cache_path=cache_path,
     )
 
 
@@ -169,33 +165,11 @@ def _get_processed_works(
     description,
     per_page,
     pause_seconds,
-    cache_path=None,
 ):
-    """Fetch works from OpenAlex API with automatic caching and resume support.
-    
-    If a cache_path is provided, the function will:
-    - Resume from a partial cache if the fetch was interrupted
-    - Return completed results from cache if available
-    - Write progress to cache as it fetches
-    """
+    """Fetch works from OpenAlex API with paging support."""
     papers = []
     cursor = "*"
     total_count = "?"
-
-    # Check for existing cache
-    cached_state = _load_fetch_cache(cache_path) if cache_path and os.path.exists(cache_path) else None
-    if cached_state:
-        cached_papers = cached_state.get("papers", [])
-        if cached_state.get("completed"):
-            # Cache is complete, return it
-            log.info(f"Using completed fetch cache for {description}: {cache_path}")
-            return cached_papers
-        else:
-            # Cache is incomplete, resume from where we left off
-            papers = cached_papers
-            cursor = cached_state.get("next_cursor") or "*"
-            total_count = cached_state.get("total_count", "?")
-            log.info(f"Resuming fetch cache for {description}: {len(papers)} papers already cached")
 
     log.info(f"Fetching works for {description}...")
     while True:
@@ -213,18 +187,6 @@ def _get_processed_works(
         next_cursor = data.get("meta", {}).get("next_cursor")
         total_count = data.get("meta", {}).get("count", total_count)
 
-        _write_fetch_cache(
-            cache_path,
-            {
-                "version": 1,
-                "description": description,
-                "papers": papers,
-                "next_cursor": next_cursor,
-                "completed": not bool(next_cursor),
-                "total_count": total_count,
-            },
-        )
-
         if not next_cursor:
             break
 
@@ -235,20 +197,3 @@ def _get_processed_works(
 
     log.info(f"Collected {len(papers)} works total.")
     return papers
-
-
-def _load_fetch_cache(cache_path):
-    with open(cache_path, "r", encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def _write_fetch_cache(cache_path, payload):
-    if not cache_path:
-        return
-    cache_dir = os.path.dirname(cache_path)
-    if cache_dir:
-        os.makedirs(cache_dir, exist_ok=True)
-    tmp_path = f"{cache_path}.tmp"
-    with open(tmp_path, "w", encoding="utf-8") as handle:
-        json.dump(payload, handle, indent=2)
-    os.replace(tmp_path, cache_path)

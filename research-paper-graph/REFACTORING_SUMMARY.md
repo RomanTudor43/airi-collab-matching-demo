@@ -18,9 +18,6 @@ This refactoring removed technical debt accumulated during iterative development
 **Deleted**: `_apply_runtime_defaults()` function (cli.py:51-72)
 **Removed Parameters**:
 - `args.mode` - Replaced with direct source detection
-- `args.use_fetch_cache` - Always True (hardcoded)
-- `args.refresh_fetch_cache` - Always False (hardcoded)
-- `args.fetch_cache_file` - Always None (removed)
 - `args.skip_graph` - Always False (hardcoded)
 - `args.skip_communities` - Always False (hardcoded)
 - `args.update_existing` - Always True (hardcoded)
@@ -50,12 +47,6 @@ else:
 
 **`fetch_papers()`**:
 - Simplified to not require `args.mode`
-- Hardcoded caching parameters
-
-**`_resolve_fetch_cache_path()`**:
-- Before: `_resolve_fetch_cache_path(args, cache_key)`
-- After: `_resolve_fetch_cache_path(cache_key)`
-- Simplified to always return default cache path
 
 ### 5. Removed All TODOs
 **Addressed 4 TODO comments**:
@@ -84,12 +75,12 @@ else:
 ✓ No references to deprecated parameters
 
 ## Behavioral Changes
-**NONE** - This was a pure refactoring. All functionality remains identical:
+**OpenAlex and Unpaywall lookups now run live on each execution.** All other functionality remains identical:
 - `--strapi-people` mode works as before
 - `--institution <name>` mode works as before  
 - `--person <name>` mode works as before
 - `--dry-run` flag works as before
-- All caching, graph building, and Strapi sync behaviors unchanged
+- Graph building and Strapi sync behaviors unchanged
 
 ## Testing Recommendation
 Run the tool with each mode to verify:

@@ -89,7 +89,7 @@ papers, label = fetch_papers(
 ### Total Impact:
 ```
 Phase 1: -117 lines (utils consolidation, dead params removed)
-Phase 2:  -20 lines (cache params simplified)
+Phase 2:  -20 lines (parameter simplification)
 Phase 3:  -17 lines (final cleanup)
 ─────────────────────
 Total:   -154 lines removed
@@ -100,19 +100,16 @@ Net:     -89 lines of cleaner code
 
 ### Parameters Eliminated Across All Phases:
 1. ❌ `mode` (internal, deprecated)
-2. ❌ `use_fetch_cache` (always True)
-3. ❌ `refresh_fetch_cache` (always False)
-4. ❌ `fetch_cache_file` (always None)
-5. ❌ `skip_graph` (always False)
-6. ❌ `skip_communities` (always False)
-7. ❌ `update_existing` (always True)
-8. ❌ `upload_pdfs` (always False)
-9. ❌ `limit` (unused)
-10. ❌ `community_resolution` (always 1.0)
-11. ❌ `output_dir` (always "outputs")
-12. ❌ `args` object (replaced with explicit params)
+2. ❌ `skip_graph` (always False)
+3. ❌ `skip_communities` (always False)
+4. ❌ `update_existing` (always True)
+5. ❌ `upload_pdfs` (always False)
+6. ❌ `limit` (unused)
+7. ❌ `community_resolution` (always 1.0)
+8. ❌ `output_dir` (always "outputs")
+9. ❌ `args` object (replaced with explicit params)
 
-**Total: 12 parameters eliminated**
+**Total: 9 parameters eliminated**
 
 ### Code Quality Improvements:
 - ✅ Zero TODOs remaining
@@ -130,9 +127,8 @@ Net:     -89 lines of cleaner code
 ✓ All functionality preserved
 
 ## Behavioral Changes
-**NONE** - Pure refactoring across all 3 phases:
+**OpenAlex and Unpaywall lookups now run live on each execution.** Other behaviors are unchanged:
 - Same CLI commands work identically
-- Same caching behavior
 - Same graph building
 - Same output files
 - Same Strapi sync logic

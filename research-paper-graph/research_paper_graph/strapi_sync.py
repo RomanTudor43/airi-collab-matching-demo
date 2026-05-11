@@ -40,7 +40,6 @@ def upload_publications(strapi, papers_to_upload, logger=None):
         "failed": 0,
         "protected_manual": 0,
         "pdf_attempted": 0,
-        "pdf_cache_hits": 0,
         "pdf_direct_builds": 0,
         "pdf_unpaywall_requests": 0,
         "pdf_resolved": 0,
@@ -86,8 +85,6 @@ def upload_publications(strapi, papers_to_upload, logger=None):
 
                 if pdf_result.get("attempted"):
                     stats["pdf_attempted"] += 1
-                if pdf_result.get("cache_hit"):
-                    stats["pdf_cache_hits"] += 1
                 if pdf_result.get("direct_build"):
                     stats["pdf_direct_builds"] += 1
                 if pdf_result.get("unpaywall_requested"):
@@ -106,7 +103,7 @@ def upload_publications(strapi, papers_to_upload, logger=None):
                     "  Updated: %s (%s, pdf: %s/%s/%s)",
                     paper_label[:60],
                     match_type,
-                    "cache" if pdf_result.get("cache_hit") else ("direct" if pdf_result.get("direct_build") else ("unpaywall" if pdf_result.get("unpaywall_requested") else ("already-present" if existing_has_pdf else "skipped"))),
+                    "direct" if pdf_result.get("direct_build") else ("unpaywall" if pdf_result.get("unpaywall_requested") else ("already-present" if existing_has_pdf else "skipped")),
                     "downloaded" if pdf_result.get("downloaded") else "not-downloaded",
                     "uploaded" if pdf_result.get("uploaded") else ("already-present" if existing_has_pdf else "not-uploaded"),
                 )
@@ -124,8 +121,6 @@ def upload_publications(strapi, papers_to_upload, logger=None):
 
         if pdf_result.get("attempted"):
             stats["pdf_attempted"] += 1
-        if pdf_result.get("cache_hit"):
-            stats["pdf_cache_hits"] += 1
         if pdf_result.get("direct_build"):
             stats["pdf_direct_builds"] += 1
         if pdf_result.get("unpaywall_requested"):
@@ -158,7 +153,7 @@ def upload_publications(strapi, papers_to_upload, logger=None):
     log.info(
         f"PDFs: {stats['pdf_attempted']} attempted, {stats['pdf_resolved']} resolved, "
         f"{stats['pdf_downloaded']} downloaded, {stats['pdf_uploaded']} uploaded, "
-        f"{stats['pdf_cache_hits']} cache hits, {stats['pdf_direct_builds']} direct builds, {stats['pdf_unpaywall_requests']} Unpaywall requests"
+        f"{stats['pdf_direct_builds']} direct builds, {stats['pdf_unpaywall_requests']} Unpaywall requests"
     )
     return pub_map, stats
 

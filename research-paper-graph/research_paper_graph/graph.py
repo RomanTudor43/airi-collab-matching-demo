@@ -4,7 +4,6 @@ import logging
 import os
 import re
 from collections import Counter, defaultdict
-from functools import lru_cache
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -90,7 +89,6 @@ GENERIC_TOPIC_SUFFIXES = [
 ]
 
 
-@lru_cache(maxsize=None)
 def _load_sentence_transformer(model_name):
     log.info(f"Loading model ({model_name})...")
     return SentenceTransformer(model_name)

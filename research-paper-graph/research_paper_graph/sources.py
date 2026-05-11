@@ -1,5 +1,4 @@
 import logging
-import os
 import sys
 
 from . import openalex as oaf
@@ -23,8 +22,7 @@ def fetch_papers(institution=None, person=None, settings=None, logger=None):
             sys.exit(1)
 
         label = institution_name.replace(" ", "_")
-        cache_path = _resolve_fetch_cache_path(f"institution_{label}")
-        papers = oaf.get_institution_papers(inst_id, cache_path=cache_path)
+        papers = oaf.get_institution_papers(inst_id)
         papers = _dedupe_papers(papers)
         return papers, label
 
@@ -36,8 +34,7 @@ def fetch_papers(institution=None, person=None, settings=None, logger=None):
             sys.exit(1)
 
         label = slugify(person_name)
-        cache_path = _resolve_fetch_cache_path(f"person_{label}")
-        papers = oaf.get_author_papers(author_id, cache_path=cache_path)
+        papers = oaf.get_author_papers(author_id)
         papers = _dedupe_papers(papers)
         return papers, label
 
@@ -59,15 +56,13 @@ def fetch_papers(institution=None, person=None, settings=None, logger=None):
         person_name = person["fullName"]
         person_id = person["documentId"]
         person_label = slugify(person_name)
-        cache_path = _resolve_fetch_cache_path(f"person_{person_label}_{person_id}")
-
         log.info(f"Fetching papers for Strapi person {index}/{total_people}: {person_name}")
         author_id = oaf.find_author_id(person_name)
         if not author_id:
             log.warning(f"Skipping Strapi person with no OpenAlex match: {person_name}")
             continue
 
-        person_papers = oaf.get_author_papers(author_id, cache_path=cache_path)
+        person_papers = oaf.get_author_papers(author_id)
 
         for paper in person_papers:
             _merge_seed_paper(papers_by_key, paper, person)
@@ -75,11 +70,6 @@ def fetch_papers(institution=None, person=None, settings=None, logger=None):
     papers = list(papers_by_key.values())
     log.info(f"Collected {len(papers)} unique papers across {total_people} Strapi people")
     return papers, "strapi_people"
-
-
-def _resolve_fetch_cache_path(cache_key):
-    """Determine the cache path for fetched papers based on the cache key."""
-    return os.path.join("outputs", "fetch-cache", f"{cache_key}.json")
 
 
 def _merge_seed_paper(papers_by_key, paper, person):

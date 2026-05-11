@@ -523,7 +523,24 @@ def update_meso_assignments(strapi, graph, papers, pub_map, paper_macro_map=None
             skipped_missing += 1
             continue
 
-        if strapi.update_publication(document_id, {"graphMesoTags": meso_ids}):
+        # Determine primary meso: prefer paper's topic primary if available,
+        # otherwise fall back to the first assigned meso id (stable fallback).
+        primary_meso = None
+        try:
+            primary_cluster = assignment.get("primaryId")
+            if primary_cluster is not None:
+                primary_meso = meso_id_by_cluster.get(int(primary_cluster))
+        except Exception:
+            primary_meso = None
+
+        if not primary_meso and meso_ids:
+            primary_meso = meso_ids[0]
+
+        update_payload = {"graphMesoTags": meso_ids}
+        if primary_meso:
+            update_payload["graphMesoPrimary"] = primary_meso
+
+        if strapi.update_publication(document_id, update_payload):
             updated += 1
 
     log.info(

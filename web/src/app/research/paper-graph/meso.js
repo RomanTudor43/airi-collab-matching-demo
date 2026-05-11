@@ -14,19 +14,18 @@ const MESO_MAX_NODES = toIntEnv(process.env.GRAPH_MESO_MAX_NODES, DEFAULT_MAX_NO
 const MESO_MIN_NODES = toIntEnv(process.env.GRAPH_MESO_MIN_NODES, DEFAULT_MIN_NODES);
 
 export function getPublicationMesoMembership(publication) {
-  const mesoTags = Array.isArray(publication.graphMesoTags)
-    ? publication.graphMesoTags
-    : [];
+  const mesoTags = Array.isArray(publication.graphMesoTags) ? publication.graphMesoTags : [];
+  const mesoPrimary = publication.graphMesoPrimary || null;
 
-  if (!mesoTags.length) {
-    return null;
-  }
+  // If no tags and no explicit primary, nothing to do.
+  if (!mesoTags.length && !mesoPrimary) return null;
 
-  const primary = mesoTags[0] || {};
+  // Prefer an explicit primary meso relation when available; fall back to first tag.
+  const primary = mesoPrimary || mesoTags[0] || {};
   const primaryKey = primary.slug || (primary.id != null ? `meso-${primary.id}` : "");
   const primaryLabel = primary.name || primary.slug || "Meso";
 
-  const allKeys = mesoTags
+  const allKeys = (mesoTags || [])
     .map((tag) => tag.slug || (tag.id != null ? `meso-${tag.id}` : ""))
     .filter(Boolean);
 

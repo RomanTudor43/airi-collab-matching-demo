@@ -7,13 +7,6 @@ export default [
   'strapi::query',
   'strapi::body',
   'strapi::session',
-  {
-    name: 'global::upload-guards',
-    config: {
-      maxFileSizeBytes: 5 * 1024 * 1024,
-      maxUploadsPerHour: 50,
-    },
-  },
   'strapi::favicon',
   'strapi::public',
 ];

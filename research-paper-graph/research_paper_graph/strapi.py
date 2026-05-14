@@ -228,6 +228,19 @@ class StrapiClient:
                 return data
             if data:
                 return [data]
+            # Strapi v5 commonly returns populated relations as a flattened object
+            # (no `data` wrapper). Treat the object itself as the related entity.
+            if any(key in relation_value for key in ("id", "documentId", "attributes")):
+                return [relation_value]
+        # Some Strapi v5 responses may return a relation as a raw ID.
+        if isinstance(relation_value, (int, float)):
+            relation_id = int(relation_value)
+            return [{"id": relation_id}] if relation_id else []
+        if isinstance(relation_value, str):
+            stripped = relation_value.strip()
+            if stripped.isdigit():
+                relation_id = int(stripped)
+                return [{"id": relation_id}] if relation_id else []
         return []
 
     def _extract_blocks_text(self, value):

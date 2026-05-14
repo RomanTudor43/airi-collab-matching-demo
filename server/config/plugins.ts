@@ -8,7 +8,7 @@ export default () => ({
 					'.xls','.xlsx','.ppt','.pptx',],
 				deniedTypes: ['application/x-msdownload', 'application/x-sh'],
 				deniedExtensions: ['.exe', '.sh', '.bat', '.cmd', '.js', '.jar', '.msi', '.com', '.scr', '.pif', '.vb', '.vbs', '.wsf', '.wsh', '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.iso', '.img', '.dmg', '.vhd', '.vmdk', '.ova', '.ovf'],
-				maxFileSizeBytes: 5 * 1024 * 1024,
+				maxFileSizeBytes: 10 * 1024 * 1024,
 			},
 		},
 	},

@@ -66,7 +66,7 @@ export default async function DepartmentPage({ params }) {
           role: m.role || '',
           isLead: !!m.isLead,
           person: {
-            name: p.fullName || p.name || '',
+            name: p.name || '',
             slug: p.slug || '',
             title: p.title || '',
           },

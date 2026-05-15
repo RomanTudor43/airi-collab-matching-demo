@@ -47,6 +47,15 @@ const normalizeSortName = (name) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const getPersonKey = (person) => {
+  if (!person) return "";
+  if (person.id !== undefined && person.id !== null) return `id:${person.id}`;
+  if (person.slug) return `slug:${person.slug}`;
+  if (person.email) return `email:${normalizeSearchText(person.email)}`;
+  if (person.name) return `name:${normalizeSearchText(person.name)}:${person.type || "unknown"}`;
+  return "";
+};
+
 function getCitationCount(person) {
   const value = person?.scholarCitationCount;
   if (typeof value === "number" && !Number.isNaN(value)) return value;
@@ -205,6 +214,8 @@ const RESEARCHER_SORT_OPTIONS = [
   { value: "fewest-citations", label: "Fewest citations on Google Scholar (↑ lowest first)" },
 ];
 
+const SORT_OPTIONS = RESEARCHER_SORT_OPTIONS;
+
 export default function PeopleClient({
   staff = [],
   researchers = [],
@@ -215,11 +226,12 @@ export default function PeopleClient({
 }) {
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [researcherSort, setResearcherSort] = useState("default");
+  const [allSort, setAllSort] = useState("default");
+  const [researcherSort, setResearcherSort] = useState("most-citations");
   const t = useTranslations("people");
 
   const allPeopleFlat = useMemo(() => {
-    return [
+    const merged = [
       ...researchers.map((p) => ({ ...p, type: p.type || "researcher" })),
       ...staff.map((p) => ({ ...p, type: p.type || "staff" })),
       ...students.map((p) => ({ ...p, type: p.type || "student" })),
@@ -227,6 +239,14 @@ export default function PeopleClient({
       ...external.map((p) => ({ ...p, type: p.type || "external" })),
       ...alumni.map((p) => ({ ...p, type: p.type || "alumni" })),
     ];
+
+    const seen = new Set();
+    return merged.filter((person) => {
+      const key = getPersonKey(person);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }, [staff, researchers, visiting, students, external, alumni]);
 
   const filterOptions = useMemo(() => {
@@ -248,11 +268,14 @@ export default function PeopleClient({
 
   const displayedPeople = useMemo(() => {
     const terms = parseSearchTerms(searchQuery);
+    const currentSort = activeFilter === "researcher" ? researcherSort : allSort;
 
     let searchResults = allPeopleFlat;
     if (terms.length > 0) {
       searchResults = allPeopleFlat.filter((p) => {
-        const searchable = normalizeSearchText([p.name, p.title, p.department, p.email].filter(Boolean).join(" "));
+        const searchable = normalizeSearchText(
+          [p.name, p.firstName, p.lastName, p.title, p.department, p.email].filter(Boolean).join(" ")
+        );
         return terms.every((term) => searchable.includes(term));
       });
     }
@@ -263,26 +286,43 @@ export default function PeopleClient({
     }
 
     return [...filtered].sort((a, b) => {
-      if (activeFilter === "researcher") {
+      if (currentSort === "most-citations") {
         const countA = getCitationCount(a);
         const countB = getCitationCount(b);
-        if (researcherSort === "most-citations" && countA !== countB) return countB - countA;
-        if (researcherSort === "fewest-citations" && countA !== countB) return countA - countB;
+        if (countA !== countB) return countB - countA;
       }
 
-      const nameA = normalizeSortName(a?.name);
-      const nameB = normalizeSortName(b?.name);
-      return nameA.localeCompare(nameB, "ro", {
+      if (currentSort === "fewest-citations") {
+        const countA = getCitationCount(a);
+        const countB = getCitationCount(b);
+        if (countA !== countB) return countA - countB;
+      }
+
+      // Sort by lastName first, then firstName (last-name-first sorting)
+      const lastNameA = normalizeSortName(a?.lastName || '');
+      const lastNameB = normalizeSortName(b?.lastName || '');
+      const lastNameCompare = lastNameA.localeCompare(lastNameB, "ro", {
+        sensitivity: "base",
+        numeric: true,
+      });
+      if (lastNameCompare !== 0) return lastNameCompare;
+
+      // Tiebreaker: sort by firstName
+      const firstNameA = normalizeSortName(a?.firstName || '');
+      const firstNameB = normalizeSortName(b?.firstName || '');
+      return firstNameA.localeCompare(firstNameB, "ro", {
         sensitivity: "base",
         numeric: true,
       });
     });
-  }, [allPeopleFlat, activeFilter, searchQuery, researcherSort]);
+  }, [allPeopleFlat, activeFilter, searchQuery, allSort, researcherSort]);
 
   const handleFilterChange = (id) => {
     setActiveFilter(id);
-    if (id !== "researcher") setResearcherSort("default");
   };
+
+  const currentSort = activeFilter === "researcher" ? researcherSort : allSort;
+  const setCurrentSort = activeFilter === "researcher" ? setResearcherSort : setAllSort;
 
   return (
     <div className="page-container">
@@ -373,7 +413,7 @@ export default function PeopleClient({
         </motion.div>
 
         <AnimatePresence>
-          {activeFilter === "researcher" && (
+          {(activeFilter === "all" || activeFilter === "researcher") && (
             <motion.div
               key="sort-dropdown"
               className="flex justify-center mb-6"
@@ -387,12 +427,12 @@ export default function PeopleClient({
                   <FaSortAmountDown className="w-4 h-4 text-primary-600 dark:text-accent-400" />
                 </div>
                 <select
-                  value={researcherSort}
-                  onChange={(e) => setResearcherSort(e.target.value)}
+                  value={currentSort}
+                  onChange={(e) => setCurrentSort(e.target.value)}
                   className="input pl-10 pr-10 appearance-none cursor-pointer bg-white dark:bg-gray-800 w-full"
-                  aria-label="Sort researchers by citations"
+                  aria-label={activeFilter === "researcher" ? "Sort researchers by citations" : "Sort people"}
                 >
-                  {RESEARCHER_SORT_OPTIONS.map((opt) => (
+                  {SORT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -467,7 +507,7 @@ export default function PeopleClient({
             >
               {displayedPeople.map((person) => (
                 <PersonCard
-                  key={person.slug}
+                  key={getPersonKey(person)}
                   person={person}
                   basePath="/people"
                   showRoleBadge={true}

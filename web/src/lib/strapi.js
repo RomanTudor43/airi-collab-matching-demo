@@ -197,7 +197,7 @@ const createParams = ({ fields = [], populate = {}, filters = null, sort = null,
   return params;
 };
 
-const PERSON_FIELDS = ['fullName', 'slug', 'title', 'email', 'phone', 'type', 'scholarId', 'type_alumni', 'type_student', 'type_external'];
+const PERSON_FIELDS = ['firstName', 'lastName', 'slug', 'title', 'email', 'phone', 'type', 'scholarId', 'type_alumni', 'type_student', 'type_external'];
 
 const PERSON_FLAT_POPULATE = {
   fields: PERSON_FIELDS,
@@ -406,7 +406,7 @@ export async function getStaff(options = {}) {
 
     const baseOptions = {
       fields,
-      sort: 'fullName:asc',
+      sort: 'lastName:asc,firstName:asc',
       filters: Object.keys(filters).length ? filters : null,
       populate: {
         department: DEPARTMENT_POPULATE,
@@ -1555,8 +1555,10 @@ export function transformStaffData(strapiStaff) {
     return {
       id: person?.id ?? null,
       slug: attributes.slug || '',
-      // Map fullName (schema) to name (frontend)
-      name: attributes.fullName || attributes.name || '',
+      // Construct name from firstName and lastName (schema) for display
+      firstName: attributes.firstName || '',
+      lastName: attributes.lastName || '',
+      name: `${attributes.firstName || ''} ${attributes.lastName || ''}`.trim(),
       title: attributes.title || '',
       phone: attributes.phone || '',
       email: attributes.email || '',
@@ -1610,8 +1612,8 @@ export function transformPublicationData(strapiPubs) {
       return {
         id: author?.id ?? null,
         slug: authorData.slug || '',
-        // Map fullName (schema) to name (frontend)
-        name: authorData.fullName || authorData.name || '',
+        // Construct name from firstName and lastName
+        name: `${authorData.firstName || ''} ${authorData.lastName || ''}`.trim(),
       };
     });
 
@@ -1866,7 +1868,7 @@ export function transformNewsData(strapiNews) {
     const attrs = person?.attributes ?? person ?? {};
     return {
       id: person?.id ?? null,
-      name: attrs.fullName || attrs.name || '',
+      name: `${attrs.firstName || ''} ${attrs.lastName || ''}`.trim() || attrs.name || '',
       slug: attrs.slug || '',
       title: attrs.title || '',
       image: resolveMediaUrl(attrs.portrait || attrs.profileImage),
@@ -1966,7 +1968,7 @@ export function transformProjectData(strapiProjects) {
             ? {
                 id: personEntry?.id ?? null,
                 slug: personAttr.slug || '',
-                name: personAttr.fullName || personAttr.name || '',
+                name: `${personAttr.firstName || ''} ${personAttr.lastName || ''}`.trim() || personAttr.name || '',
                 title: personAttr.title || '',
                 type: personAttr.type || '',
                 email: personAttr.email || '',
@@ -2077,7 +2079,7 @@ export function transformProjectData(strapiProjects) {
             person: personEntry ? {
               id: personEntry?.id ?? null,
               slug: personAttr.slug || '',
-              name: personAttr.fullName || personAttr.name || '',
+              name: `${personAttr.firstName || ''} ${personAttr.lastName || ''}`.trim() || personAttr.name || '',
               title: personAttr.title || '',
               type: personAttr.type || '',
               email: personAttr.email || '',
@@ -2093,7 +2095,7 @@ export function transformProjectData(strapiProjects) {
       return {
         id: c?.id ?? null,
         slug: personData.slug || '',
-        name: personData.fullName || personData.name || '',
+        name: `${personData.firstName || ''} ${personData.lastName || ''}`.trim() || personData.name || '',
         title: personData.title || '',
         type: personData.type || '',
         email: personData.email || '',
@@ -2106,7 +2108,7 @@ export function transformProjectData(strapiProjects) {
 
       const pubAuthors = toArray(pubData.authors?.data ?? pubData.authors).map((a) => {
         const aData = a?.attributes ?? a ?? {};
-        return aData.fullName || aData.name || '';
+        return `${aData.firstName || ''} ${aData.lastName || ''}`.trim() || aData.name || '';
       }).filter(Boolean);
 
       const pubDomainEntry = pubData.domain?.data ?? pubData.domain;
@@ -2258,12 +2260,12 @@ export function transformDepartmentData(strapiDepartments) {
     const coCoordinatorData = coCoordinatorEntry?.attributes ?? coCoordinatorEntry ?? {};
 
     const coordinator =
-      coordinatorData.fullName ||
+      `${coordinatorData.firstName || ''} ${coordinatorData.lastName || ''}`.trim() ||
       coordinatorData.name ||
       (typeof attributes.coordinator === 'string' ? attributes.coordinator : '') ||
       '';
     const coCoordinator =
-      coCoordinatorData.fullName ||
+      `${coCoordinatorData.firstName || ''} ${coCoordinatorData.lastName || ''}`.trim() ||
       coCoordinatorData.name ||
       (typeof attributes.coCoordinator === 'string' ? attributes.coCoordinator : '') ||
       '';
@@ -2352,7 +2354,7 @@ const RESOURCE_POPULATE = {
     fields: ['name', 'slug'],
   },
   maintainers: {
-    fields: ['fullName', 'slug'],
+    fields: ['firstName', 'lastName', 'slug'],
   },
 };
 
@@ -2406,7 +2408,7 @@ export function transformResourceData(strapiResources) {
     const maintainers = toArray(attributes.maintainers?.data ?? attributes.maintainers).map((m) => {
       const mAttr = m?.attributes ?? m ?? {};
       return {
-        name: mAttr.fullName || mAttr.name || '',
+        name: `${mAttr.firstName || ''} ${mAttr.lastName || ''}`.trim() || mAttr.name || '',
         slug: mAttr.slug || '',
       };
     });

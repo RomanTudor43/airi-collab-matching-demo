@@ -26,7 +26,7 @@ async function fetchAllUsers(token) {
 
   while (true) {
     const res = await fetch(
-      `${STRAPI_URL}/content-manager/collection-types/api::person.person?page=${page}&pageSize=${pageSize}&sort=fullName:ASC&populate=*`,
+      `${STRAPI_URL}/content-manager/collection-types/api::person.person?page=${page}&pageSize=${pageSize}&sort=lastName:ASC,firstName:ASC&populate=*`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     const json = await res.json();
@@ -58,7 +58,7 @@ async function main() {
   const missingBoth = [];
 
   for (const user of users) {
-    const name = user.fullName || "Unknown Name";
+    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || "Unknown Name";
     
     // Check fields
     const hasPortrait = user.portrait !== null && user.portrait !== undefined;

@@ -2,6 +2,18 @@
 
 This document outlines the upcoming architecture changes to the research paper graph pipeline. It is designed to be easily implementable.
 
+## Implementation Status
+
+| Item | Status | Notes |
+|------|--------|-------|
+| 1. Remove JSON Save-States | Not Started | Depends on #4 completion |
+| 2. Opt-in `importEligible` Flag | ✅ Done | User implemented |
+| 3. Drop Unpaywall API | ✅ Done | Completed; OpenAlex + arXiv only |
+| 4. Remove Preview Graph Build | Not Started | Depends on #3 completion |
+| 5. Remove `--dry-run` CLI Flag | Not Started | Cosmetic, can proceed after #4 |
+| 6. Collapse CLI Source Modes | Not Started | Cosmetic, can proceed after #4 |
+| 7. Clarify Output Artifacts | Not Started | Documentation/cleanup, final step |
+
 ## 1. Remove JSON Save-States
 
 Currently, the pipeline relies on local `.json` files inside the `outputs/` folder (e.g., `papers_{}.json`, `communities_{}.json`, `index_{}.json`) for caching and resuming execution.
@@ -41,6 +53,16 @@ Currently, the pipeline uses Unpaywall as a secondary source for PDF URLs. Given
    - arXiv DOI pattern synthesis (e.g., `10.48550/arxiv.2301.12345` → `https://arxiv.org/pdf/2301.12345.pdf`)
    - Return `None` if neither available (no PDF for this publication)
 4. **Remove PDF download stats:** Since there's only one strategy now, simplify the PDF result tracking in `upload_publications()` (remove `unpaywall_requested`, `unpaywall_resolved` counters).
+
+**Implementation Details (✅ Completed):**
+- Renamed `upload_pdf_from_unpaywall()` to `upload_pdf_from_openalex()` and simplified it to only use paper's `pdf_url` field and arXiv DOI synthesis
+- Removed `_extract_unpaywall_pdf_url()` helper method (no longer needed)
+- Updated `ensure_publication_pdf()` to call the new simplified method
+- Removed `unpaywall_email` parameter from `StrapiClient.__init__()` and `RuntimeSettings` dataclass
+- Updated `sources.py` to not pass `unpaywall_email` to StrapiClient
+- Simplified PDF stats tracking: removed `pdf_direct_builds`, `pdf_unpaywall_requests`, `pdf_downloaded` (kept `pdf_attempted`, `pdf_resolved`, `pdf_uploaded`)
+- Cleaned up logging messages for created and updated publications to reflect simplified PDF strategy
+- Removed `UNPAYWALL_EMAIL` from `.env.example`
 
 ## 4. Remove Preview Graph Build Phase
 

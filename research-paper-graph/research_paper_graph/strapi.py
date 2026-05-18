@@ -12,10 +12,9 @@ log = logging.getLogger(__name__)
 
 
 class StrapiClient:
-    def __init__(self, base_url, token, unpaywall_email=""):
+    def __init__(self, base_url, token):
         self.base_url = base_url.rstrip("/")
         self.api_url = f"{self.base_url}/api"
-        self.unpaywall_email = unpaywall_email or ""
         self.headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -72,47 +71,6 @@ class StrapiClient:
             "pdf_url": None,
             "pdf_source": None,
         }
-
-    def _extract_unpaywall_pdf_url(self, payload):
-        """Extract the best PDF URL from an Unpaywall response payload.
-
-        Unpaywall does not always populate the top-level url_for_pdf field.
-        Publisher records often keep the direct PDF under best_oa_location or
-        within the oa_locations list, so we inspect those fallbacks as well.
-        """
-        if not isinstance(payload, dict):
-            return None, None
-
-        direct_url = payload.get("url_for_pdf")
-        if direct_url:
-            return direct_url, "url_for_pdf"
-
-        nested_candidates = [
-            ("best_oa_location", payload.get("best_oa_location")),
-            ("first_oa_location", payload.get("first_oa_location")),
-        ]
-
-        for source_name, location in nested_candidates:
-            if isinstance(location, dict):
-                pdf_url = location.get("url_for_pdf")
-                if pdf_url:
-                    return pdf_url, source_name
-
-        for location in payload.get("oa_locations") or []:
-            if not isinstance(location, dict):
-                continue
-            pdf_url = location.get("url_for_pdf")
-            if pdf_url:
-                return pdf_url, "oa_locations"
-
-        for location in payload.get("oa_locations_embargoed") or []:
-            if not isinstance(location, dict):
-                continue
-            pdf_url = location.get("url_for_pdf")
-            if pdf_url:
-                return pdf_url, "oa_locations_embargoed"
-
-        return None, None
 
     def _build_pdf_url_from_doi(self, doi):
         """Build a direct PDF URL from DOI patterns we can resolve deterministically.
@@ -595,56 +553,42 @@ class StrapiClient:
                     break
         return matched
 
-    def upload_pdf_from_unpaywall(self, doi, filename, unpaywall_email):
-        """Download a PDF URL from Unpaywall and upload it to the Strapi media library."""
+    def upload_pdf_from_openalex(self, paper_data, filename):
+        """Download a PDF URL from OpenAlex or synthesize from DOI, then upload to Strapi media library.
+        
+        Tries two sources:
+        1. Direct OpenAlex open_access.oa_url
+        2. arXiv DOI pattern synthesis
+        
+        Returns None if neither is available.
+        """
         result = self._empty_pdf_result()
-
-        if not doi:
-            log.info("  Skipping PDF lookup: no DOI available")
-            return result
-
-        if not unpaywall_email:
-            log.warning("  Skipping PDF lookup: UNPAYWALL_EMAIL is not configured")
-            return result
-
-        normalized_doi = normalize_doi(doi)
-        if not normalized_doi:
-            log.warning(f"  Skipping PDF lookup: could not normalize DOI {doi}")
-            return result
-
         result["attempted"] = True
 
-        direct_pdf_url = self._build_pdf_url_from_doi(normalized_doi)
-        if direct_pdf_url:
-            result["direct_build"] = True
+        # Try OpenAlex direct URL first
+        oa_url = paper_data.get("pdf_url")
+        if oa_url:
             result["resolved"] = True
-            result["pdf_url"] = direct_pdf_url
-            result["pdf_source"] = "direct_doi_rule"
-            log.info(f"  Built direct PDF URL for DOI {normalized_doi}: {direct_pdf_url}")
+            result["pdf_url"] = oa_url
+            result["pdf_source"] = "openalex"
+            log.info(f"  Found PDF URL from OpenAlex: {oa_url}")
         else:
-            # Preserve DOI slashes in the Unpaywall path. Encoding them as %2F returns 404.
-            unpaywall_url = f"https://api.unpaywall.org/v2/{quote(normalized_doi, safe='/')}"
-            log.info(f"  Looking up PDF via Unpaywall for DOI: {normalized_doi}")
+            # Try arXiv pattern synthesis
+            doi = paper_data.get("doi")
+            if doi:
+                direct_pdf_url = self._build_pdf_url_from_doi(normalize_doi(doi))
+                if direct_pdf_url:
+                    result["resolved"] = True
+                    result["pdf_url"] = direct_pdf_url
+                    result["pdf_source"] = "arxiv_doi_pattern"
+                    log.info(f"  Built direct PDF URL from arXiv pattern: {direct_pdf_url}")
 
-            try:
-                result["unpaywall_requested"] = True
-                response = requests.get(unpaywall_url, params={"email": unpaywall_email}, timeout=15)
-                response.raise_for_status()
-                payload = response.json()
+        # If no PDF URL was found, return empty result
+        if not result.get("resolved"):
+            log.info(f"  No PDF URL available (no OpenAlex URL and not an arXiv paper)")
+            return result
 
-                pdf_url, pdf_source = self._extract_unpaywall_pdf_url(payload)
-                if not pdf_url:
-                    log.info(f"  Unpaywall returned no PDF URL for DOI: {normalized_doi}")
-                    return result
-
-                result["resolved"] = True
-                result["pdf_url"] = pdf_url
-                result["pdf_source"] = pdf_source or "unpaywall"
-                log.info(f"  Unpaywall PDF URL ({result['pdf_source']}): {pdf_url}")
-            except Exception as exc:
-                log.warning(f"  PDF download/upload failed for DOI {normalized_doi}: {exc}")
-                return result
-
+        # Download and upload the PDF
         try:
             pdf_response = requests.get(result["pdf_url"], timeout=15)
             pdf_response.raise_for_status()
@@ -666,7 +610,7 @@ class StrapiClient:
             log.info(f"  Uploaded PDF to Strapi media library: {attachment_id}")
             return result
         except Exception as exc:
-            log.warning(f"  PDF download/upload failed for DOI {normalized_doi}: {exc}")
+            log.warning(f"  PDF download/upload failed: {exc}")
             return result
 
     def ensure_publication_pdf(self, paper_data, *, existing_document_id=None):
@@ -674,10 +618,9 @@ class StrapiClient:
         if existing_document_id and self.has_publication_pdf(existing_document_id):
             return self._empty_pdf_result()
 
-        return self.upload_pdf_from_unpaywall(
-            paper_data.get("doi"),
+        return self.upload_pdf_from_openalex(
+            paper_data,
             self._build_pdf_filename(paper_data),
-            self.unpaywall_email,
         )
 
     def create_publication(self, paper_data, author_ids=None):

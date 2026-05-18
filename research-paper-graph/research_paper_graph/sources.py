@@ -43,7 +43,7 @@ def fetch_papers(institution=None, person=None, settings=None, logger=None):
         log.error("Runtime settings are required for Strapi people sync")
         sys.exit(1)
 
-    strapi = StrapiClient(settings.strapi_api_url, settings.strapi_token, settings.unpaywall_email)
+    strapi = StrapiClient(settings.strapi_api_url, settings.strapi_token)
     people = strapi.load_import_people()
     if not people:
         log.error("No people found in Strapi for author-based import")

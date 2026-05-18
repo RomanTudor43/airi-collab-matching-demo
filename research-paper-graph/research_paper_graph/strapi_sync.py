@@ -40,10 +40,7 @@ def upload_publications(strapi, papers_to_upload, logger=None):
         "failed": 0,
         "protected_manual": 0,
         "pdf_attempted": 0,
-        "pdf_direct_builds": 0,
-        "pdf_unpaywall_requests": 0,
         "pdf_resolved": 0,
-        "pdf_downloaded": 0,
         "pdf_uploaded": 0,
     }
 
@@ -85,14 +82,8 @@ def upload_publications(strapi, papers_to_upload, logger=None):
 
                 if pdf_result.get("attempted"):
                     stats["pdf_attempted"] += 1
-                if pdf_result.get("direct_build"):
-                    stats["pdf_direct_builds"] += 1
-                if pdf_result.get("unpaywall_requested"):
-                    stats["pdf_unpaywall_requests"] += 1
                 if pdf_result.get("resolved"):
                     stats["pdf_resolved"] += 1
-                if pdf_result.get("downloaded"):
-                    stats["pdf_downloaded"] += 1
                 if pdf_result.get("uploaded"):
                     stats["pdf_uploaded"] += 1
                     update_payload["pdfFile"] = pdf_result.get("attachment_id")
@@ -100,11 +91,10 @@ def upload_publications(strapi, papers_to_upload, logger=None):
                 strapi.update_publication(existing_id, update_payload)
                 stats["updated"] += 1
                 log.info(
-                    "  Updated: %s (%s, pdf: %s/%s/%s)",
+                    "  Updated: %s (%s, pdf: %s/%s)",
                     paper_label[:60],
                     match_type,
-                    "direct" if pdf_result.get("direct_build") else ("unpaywall" if pdf_result.get("unpaywall_requested") else ("already-present" if existing_has_pdf else "skipped")),
-                    "downloaded" if pdf_result.get("downloaded") else "not-downloaded",
+                    "resolved" if pdf_result.get("resolved") else ("already-present" if existing_has_pdf else "not-found"),
                     "uploaded" if pdf_result.get("uploaded") else ("already-present" if existing_has_pdf else "not-uploaded"),
                 )
             else:
@@ -121,14 +111,8 @@ def upload_publications(strapi, papers_to_upload, logger=None):
 
         if pdf_result.get("attempted"):
             stats["pdf_attempted"] += 1
-        if pdf_result.get("direct_build"):
-            stats["pdf_direct_builds"] += 1
-        if pdf_result.get("unpaywall_requested"):
-            stats["pdf_unpaywall_requests"] += 1
         if pdf_result.get("resolved"):
             stats["pdf_resolved"] += 1
-        if pdf_result.get("downloaded"):
-            stats["pdf_downloaded"] += 1
         if pdf_result.get("uploaded"):
             stats["pdf_uploaded"] += 1
 
@@ -137,10 +121,9 @@ def upload_publications(strapi, papers_to_upload, logger=None):
                 pub_map[oa_id] = doc_id
             stats["created"] += 1
             log.info(
-                "  Created: %s (pdf: %s/%s/%s)",
+                "  Created: %s (pdf: %s/%s)",
                 paper_label[:60],
                 "resolved" if pdf_result.get("resolved") else "missing",
-                "downloaded" if pdf_result.get("downloaded") else "not-downloaded",
                 "uploaded" if pdf_result.get("uploaded") else "not-uploaded",
             )
         else:
@@ -151,9 +134,7 @@ def upload_publications(strapi, papers_to_upload, logger=None):
         f"{stats['skipped']} skipped, {stats['protected_manual']} manual protected, {stats['failed']} failed"
     )
     log.info(
-        f"PDFs: {stats['pdf_attempted']} attempted, {stats['pdf_resolved']} resolved, "
-        f"{stats['pdf_downloaded']} downloaded, {stats['pdf_uploaded']} uploaded, "
-        f"{stats['pdf_direct_builds']} direct builds, {stats['pdf_unpaywall_requests']} Unpaywall requests"
+        f"PDFs: {stats['pdf_attempted']} attempted, {stats['pdf_resolved']} resolved, {stats['pdf_uploaded']} uploaded"
     )
     return pub_map, stats
 

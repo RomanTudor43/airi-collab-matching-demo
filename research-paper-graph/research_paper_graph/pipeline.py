@@ -65,19 +65,6 @@ def _log_quality_metrics_summary(log, label, metrics):
         log.info("[%s] Diagnostics suggestion: %s", label, suggestion)
 
 
-def save_paper_snapshot(papers, label, logger=None):
-    """Persist the fetched paper payload for reuse and debugging."""
-    log = logger or logging.getLogger("paper-sync")
-    os.makedirs("outputs", exist_ok=True)
-    out_path = os.path.join("outputs", f"papers_{label}.json")
-
-    with open(out_path, "w", encoding="utf-8") as handle:
-        json.dump(papers, handle, indent=2)
-
-    log.info(f"Saved to {out_path}")
-    return out_path
-
-
 def build_graph_artifacts(
     papers,
     label,
@@ -107,10 +94,6 @@ def build_graph_artifacts(
         model_name=model_name,
     )
 
-    if len(filtered_papers) > 0:
-        index_path = os.path.join("outputs", f"index_{label}.json")
-        gg.save_index(embeddings, filtered_papers, index_path)
-
     indexed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     embedding_payloads = gg.build_embedding_payloads(
         filtered_papers,
@@ -131,19 +114,6 @@ def build_graph_artifacts(
             clean_links,
             resolution=1.0,
         )
-
-        comm_path = os.path.join("outputs", f"communities_{label}.json")
-        with open(comm_path, "w", encoding="utf-8") as handle:
-            json.dump(
-                {
-                    "assignments": communities,
-                    "labels": community_labels,
-                    "secondary_clusters": secondary_clusters,
-                },
-                handle,
-                indent=2,
-            )
-        log.info(f"Saved community data to {comm_path}")
 
     # Build topic hierarchy (superclusters)
     topic_hierarchy = {}

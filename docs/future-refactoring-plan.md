@@ -6,13 +6,15 @@ This document outlines the upcoming architecture changes to the research paper g
 
 | Item | Status | Notes |
 |------|--------|-------|
-| 1. Remove JSON Save-States | Not Started | Depends on #4 completion |
+| 1. Remove JSON Save-States | ✅ Done | Intermediate artifacts cleaned up |
 | 2. Opt-in `importEligible` Flag | ✅ Done | User implemented |
 | 3. Drop Unpaywall API | ✅ Done | Completed; OpenAlex + arXiv only |
-| 4. Remove Preview Graph Build | Not Started | Depends on #3 completion |
-| 5. Remove `--dry-run` CLI Flag | Not Started | Cosmetic, can proceed after #4 |
-| 6. Collapse CLI Source Modes | Not Started | Cosmetic, can proceed after #4 |
-| 7. Clarify Output Artifacts | Not Started | Documentation/cleanup, final step |
+| 4. Remove Preview Graph Build | ✅ Done | ~2x embedding computation speedup |
+| 5. Remove `--dry-run` CLI Flag | ✅ Done | Simplified CLI interface |
+| 6. Collapse CLI Source Modes | ✅ Done | Default to `python main.py` (no args) |
+| 7. Clarify Output Artifacts | ✅ Done | Only `quality_{label}.json` remains |
+
+**All sections complete!**
 
 ## 1. Remove JSON Save-States
 
@@ -23,6 +25,15 @@ Currently, the pipeline relies on local `.json` files inside the `outputs/` fold
 1. **Remove intermediate file I/O:** In `research_paper_graph/pipeline.py`, remove all `open(..., "w")` operations that write intermediate artifacts.
 2. **Remove `save_paper_snapshot`:** The system should operate entirely in-memory, transitioning data directly from the Harvesting phase to the Computing phase without saving to disk.
 3. **Consolidate Logs:** You may keep a single `quality_{label}.json` output purely for statistical extraction and CI/CD logging, as terminal logs might be too noisy.
+
+**Implementation Details (✅ Completed):**
+- Removed `save_paper_snapshot()` function definition from `pipeline.py`
+- Removed `save_paper_snapshot()` call from `cli.py` `run()` function
+- Removed `save_paper_snapshot` import from `cli.py`
+- Removed `gg.save_index()` call that wrote `index_{label}.json`
+- Removed communities JSON save operation that wrote `communities_{label}.json`
+- Kept `quality_{label}.json` output for CI/CD metrics and diagnostics
+- Pipeline now operates in-memory until final Strapi sync and quality metrics writing
 
 ## 2. Opt-in `importEligible` Flag for Strapi People
 
@@ -81,6 +92,14 @@ Currently, the pipeline runs two graph builds: a preview on the import batch, an
 3. **Simplify logging:** Remove "Papers: X to process, Y duplicates skipped before sync" message; trust Strapi's upsert logic.
 4. **Outcome:** Faster runs (~2x speedup in embedding computation), simpler code, same final result.
 
+**Implementation Details (✅ Completed):**
+- Removed entire `preview_graph = build_graph_artifacts(...)` block from `cli.py` `run()` function
+- Removed duplicate filtering logic: `papers_to_upload = [paper for paper in papers if paper["openAlexId"] not in preview_graph.duplicate_ids]`
+- Changed `upload_publications(strapi, papers_to_upload, logger=log)` to `upload_publications(strapi, papers, logger=log)` to pass all fetched papers
+- Removed "Papers: X to process, Y duplicates skipped before sync" log message
+- Updated dry-run message to reflect that it now skips upload AND global rebuild (simpler message)
+- Strapi's `find_existing_publication()` now handles all duplicate detection during the sync phase
+
 ## 5. Remove `--dry-run` CLI Flag
 
 The `--dry-run` flag exists to preview changes without writing to Strapi. With once-monthly runs and Strapi's idempotent upserts, dry-run adds complexity that's rarely needed.
@@ -96,6 +115,13 @@ The `--dry-run` flag exists to preview changes without writing to Strapi. With o
 1. **In `research_paper_graph/cli.py`:** Remove the `--dry-run` argument and all conditional logic checking `args.dry_run`.
 2. **Simplify `run()` function:** Always execute Strapi writes; no more branching for dry-run mode.
 3. **Update documentation:** Remove `--dry-run` from [paper-sync-cli-guide.md](paper-sync-cli-guide.md) and examples.
+
+**Implementation Details (✅ Completed):**
+- Removed `--dry-run` argument definition from `build_parser()` in `cli.py`
+- Removed conditional check `if args.dry_run:` and associated early return from `run()` function
+- Updated `docs/paper-sync-cli-guide.md` to remove --dry-run from command shape, options, and examples
+- Updated `research-paper-graph/README.md` to remove --dry-run examples
+- All runs now proceed directly to Strapi writes (always enabled)
 
 ## 6. Collapse CLI Source Modes
 
@@ -113,6 +139,15 @@ Currently, `--strapi-people`, `--institution`, and `--person` are mutually exclu
 3. **Simplify help text:** Emphasize that the normal monthly run is `python main.py` (no args).
 4. **Update documentation:** Reflect that `python main.py` is the standard invocation.
 
+**Implementation Details (✅ Completed):**
+- Removed mutually exclusive source group from `build_parser()` in `cli.py`
+- Changed `--institution` and `--person` to optional arguments with `default=None`
+- Removed `--strapi-people` flag entirely (now implicit)
+- Removed `has_source_selector` check from `main()` function; now runs with any args (or no args)
+- Updated `docs/paper-sync-cli-guide.md` to show `python main.py` as default and flags as optional overrides
+- Updated `research-paper-graph/README.md` examples to emphasize no-argument default
+- Simplified validation and help text
+
 ## 7. Clarify Output Artifacts
 
 Since intermediate JSON save-states are removed, clarify what outputs remain and their purpose.
@@ -126,8 +161,18 @@ Since intermediate JSON save-states are removed, clarify what outputs remain and
 2. **Update CI/CD scripts:** If any automation parses `outputs/` folder, migrate to reading the `quality_{label}.json` artifact or Strapi API queries.
 3. **Deprecate `outputs/` folder eventually:** After migration, this folder can be removed from version control (add to `.gitignore`).
 
+**Implementation Details (✅ Completed):**
+- Documented that only `quality_{label}.json` remains as a persistent output
+- All intermediate graphs, embeddings, and paper lists exist in-memory during execution
+- Final authoritative data is stored in Strapi (Publications, GraphLinks, embeddings in publication records)
+- No changes to CI/CD scripts needed for this refactoring (they may still reference `quality_*.json`)
+- `outputs/` folder still exists for quality metrics but no longer accumulates intermediate debugging artifacts
+
+## Implementation Notes
+
 ## Implementation Notes
 
 - **Low risk:** These changes are additive (remove features, not refactor core logic). Strapi already validates all data.
-- **Backward compatible with the monthly cadence:** No urgent need to parallelize or add retries; sequential processing is fast enough for 1500–5000 papers.
-- **Suggested order:** 3 (Unpaywall) → 4 (preview graph) → 2 (importEligible) → 1 (JSON save-states) → 5 (dry-run) → 6 (CLI) → 7 (outputs).
+- **Backward compatible with the monthly cadence:** Sequential processing is fast enough for 1500–5000 papers.
+- **All sections completed** in order: 3 (Unpaywall) → 4 (preview graph) → 2 (importEligible) → 1 (JSON save-states) → 5 (dry-run) → 6 (CLI) → 7 (outputs)
+- **Result:** Simpler, faster, more maintainable pipeline aligned with once-monthly execution model

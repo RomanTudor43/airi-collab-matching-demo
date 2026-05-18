@@ -35,12 +35,9 @@ python main.py --help
 Common examples:
 
 ```bash
-python main.py --strapi-people
-python main.py --strapi-people --dry-run
+python main.py
 python main.py --institution "Technical University of Cluj-Napoca"
-python main.py --institution "Technical University of Cluj-Napoca" --dry-run
 python main.py --person "Adrian Groza"
-python main.py --person "Adrian Groza" --dry-run
 ```
 
 ## Documentation

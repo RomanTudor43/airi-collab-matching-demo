@@ -150,6 +150,10 @@
       "relation": "manyToMany",
       "target": "api::project.project",
       "mappedBy": "contributors"
+    },
+    "importEligible": {
+      "type": "boolean",
+      "default": false
     }
   }
 }

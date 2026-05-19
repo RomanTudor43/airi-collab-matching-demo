@@ -455,18 +455,28 @@ class StrapiClient:
         people = self._fetch_all_pages(
             "people",
             {
-                "fields[0]": "fullName",
-                "fields[1]": "documentId",
-                "fields[2]": "slug",
-                "fields[3]": "type",
+                "fields[0]": "firstName",
+                "fields[1]": "lastName",
+                "fields[2]": "documentId",
+                "fields[3]": "slug",
+                "fields[4]": "type",
+                "fields[5]": "importEligible",
             },
         )
 
         import_people = []
-        for person in people:
+        for person in people: 
             attributes = person.get("attributes", person)
+            import_eligible = attributes.get("importEligible")
+            if import_eligible == False:
+                continue
+
             document_id = person.get("documentId") or person.get("id")
-            full_name = attributes.get("fullName")
+            first = (attributes.get("firstName") or "").strip()
+            last = (attributes.get("lastName") or "").strip()
+            if first or last:
+                full_name = (f"{first} {last}".strip())
+
             if not full_name or not document_id:
                 continue
             import_people.append(

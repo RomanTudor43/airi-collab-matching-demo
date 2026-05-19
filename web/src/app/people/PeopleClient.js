@@ -91,12 +91,6 @@ const getRoleConfig = (type) => {
       color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
       chipColor: "bg-purple-500 hover:bg-purple-600 dark:bg-purple-600 dark:hover:bg-purple-700",
     },
-    visiting_researcher: {
-      label: "Visiting",
-      icon: FaGlobe,
-      color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-      chipColor: "bg-purple-500 hover:bg-purple-600 dark:bg-purple-600 dark:hover:bg-purple-700",
-    },
     external: {
       label: "External",
       icon: FaHandshake,

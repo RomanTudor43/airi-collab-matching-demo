@@ -193,11 +193,6 @@ export default async function PersonDetailPage({ params }) {
         icon: FaGlobe, 
         color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
       },
-      visiting_researcher: { 
-        label: "Visiting", 
-        icon: FaGlobe, 
-        color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
-      },
       external: { 
         label: "External", 
         icon: FaHandshake, 

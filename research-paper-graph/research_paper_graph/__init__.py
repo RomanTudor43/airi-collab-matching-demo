@@ -2,7 +2,7 @@
 
 from .cli import build_parser, main, run
 from .config import RuntimeSettings, load_runtime_settings
-from .pipeline import GraphArtifacts, build_graph_artifacts, save_paper_snapshot
+from .pipeline import GraphArtifacts, build_graph_artifacts
 from .strapi_sync import (
 	create_client,
 	replace_graph_links,

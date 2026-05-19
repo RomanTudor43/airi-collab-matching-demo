@@ -22,7 +22,7 @@ def _build_paper_text(paper):
 
 
 def create_client(settings):
-    return StrapiClient(settings.strapi_api_url, settings.strapi_token, settings.unpaywall_email)
+    return StrapiClient(settings.strapi_api_url, settings.strapi_token)
 
 
 def upload_publications(strapi, papers_to_upload, logger=None):

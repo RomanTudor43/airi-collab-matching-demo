@@ -820,6 +820,39 @@ def build_topic_hierarchy(papers, model_name="all-MiniLM-L6-v2"):
     }
 
 
+def build_macro_topic_hierarchies(papers, paper_macro_map, model_name="all-MiniLM-L6-v2"):
+    """Build topic hierarchies per macro and return per-paper assignments."""
+    macro_papers = defaultdict(list)
+    for paper in papers:
+        paper_id = paper_identifier(paper)
+        if not paper_id:
+            continue
+        macro_id = paper_macro_map.get(paper_id)
+        if not macro_id:
+            continue
+        macro_papers[macro_id].append(paper)
+
+    if not macro_papers:
+        log.warning("No macro assignments available; skipping macro topic hierarchies")
+        return {}, {}
+
+    macro_hierarchies = {}
+    paper_superclusters = {}
+    for macro_id in sorted(macro_papers, key=lambda value: str(value)):
+        macro_paper_list = macro_papers[macro_id]
+        log.info(
+            "Building topic hierarchy for macro %s (%s papers)...",
+            macro_id,
+            len(macro_paper_list),
+        )
+        hierarchy = build_topic_hierarchy(macro_paper_list, model_name)
+        macro_hierarchies[macro_id] = hierarchy
+        assignments = build_paper_topic_superclusters(macro_paper_list, hierarchy)
+        paper_superclusters.update(assignments)
+
+    return macro_hierarchies, paper_superclusters
+
+
 def assign_paper_topic_clusters(papers, topic_to_cluster):
     """Assign each paper to topic superclusters based on its topics.
 

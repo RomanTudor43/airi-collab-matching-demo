@@ -89,8 +89,6 @@ def run(args):
         logger=log,
     )
 
-    update_graph_metadata(strapi, global_graph, global_pub_map, logger=log)
-
     _macro_updated, macro_map = update_macro_assignments(
         strapi,
         global_graph,
@@ -100,12 +98,26 @@ def run(args):
         logger=log,
     )
 
+    macro_hierarchies, macro_superclusters = gg.build_macro_topic_hierarchies(
+        global_papers,
+        macro_map,
+        model_name,
+    )
+    if macro_superclusters:
+        global_graph.paper_topic_superclusters = macro_superclusters
+    else:
+        macro_hierarchies = None
+        log.warning("No macro topic superclusters produced; keeping global topic assignments")
+
+    update_graph_metadata(strapi, global_graph, global_pub_map, logger=log)
+
     update_meso_assignments(
         strapi,
         global_graph,
         global_papers,
         global_pub_map,
         macro_map,
+        macro_hierarchies,
         logger=log,
     )
 

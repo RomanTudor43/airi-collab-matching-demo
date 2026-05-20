@@ -3,7 +3,7 @@ export const metadata = {
   description: "Research departments and units within the Artificial Intelligence Research Institute at UTCN.",
 };
 
-import ResearchClient from "./DepartmentsClient";
+import DepartmentsClient from "./DepartmentsClient";
 import {
   getDepartments,
   getProjects,
@@ -29,7 +29,7 @@ export default async function ResearchPage() {
   const publications = transformPublicationData(publicationsData);
 
   return (
-    <ResearchClient
+    <DepartmentsClient
       staffData={staff}
       departments={departments}
       projects={projects}

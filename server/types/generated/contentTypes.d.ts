@@ -768,7 +768,7 @@ export interface ApiPersonPerson extends Struct.CollectionTypeSchema {
     >;
     publishedAt: Schema.Attribute.DateTime;
     scholarId: Schema.Attribute.String;
-    slug: Schema.Attribute.UID<'fullName'> & Schema.Attribute.Required;
+    slug: Schema.Attribute.UID<'lastName'> & Schema.Attribute.Required;
     socialLinks: Schema.Attribute.Component<'shared.contact-link', true>;
     title: Schema.Attribute.Enumeration<
       [
@@ -781,20 +781,23 @@ export interface ApiPersonPerson extends Struct.CollectionTypeSchema {
       ]
     >;
     type: Schema.Attribute.Enumeration<
-      [
-        'staff',
-        'researcher',
-        'alumni',
-        'visitor',
-        'visiting_researcher',
-        'student',
-        'external',
-      ]
+      ['staff', 'researcher', 'alumni', 'visiting', 'student', 'external']
     > &
       Schema.Attribute.DefaultTo<'researcher'>;
     type_alumni: Schema.Attribute.Enumeration<['alumni_AIRI', 'alumni_UTCN']>;
     type_external: Schema.Attribute.Enumeration<['mentor']>;
     type_student: Schema.Attribute.Enumeration<['highschool', 'university']>;
+    type_visiting: Schema.Attribute.Enumeration<
+      [
+        'visiting_researcher',
+        'visiting_scholar',
+        'visiting_student',
+        'industry_partner',
+        'guest_speaker',
+        'media_press',
+        'other_guest',
+      ]
+    >;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;

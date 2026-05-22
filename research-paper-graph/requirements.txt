@@ -3,9 +3,8 @@ requests>=2.31
 python-dotenv>=1.0
 numpy>=1.24
 
-# ML – embeddings
+# ML – embeddings (torch installed separately with CPU-only index in Dockerfile)
 sentence-transformers>=2.2
-torch --index-url https://download.pytorch.org/whl/cpu
 
 # Community detection
 networkx>=3.1

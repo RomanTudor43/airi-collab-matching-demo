@@ -67,6 +67,19 @@ jobs:
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web:buildcache,mode=max
 
+      # --- Build and Push Paper Sync (Python importer) ---
+      - name: Build and push Paper Sync
+        uses: docker/build-push-action@v5
+        with:
+          context: ./research-paper-graph
+          file: ./research-paper-graph/dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/paper-sync:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/paper-sync:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/paper-sync:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/paper-sync:buildcache,mode=max
+
       # --- Deployment Summary (visible in GitHub Actions tab) ---
       - name: Write deployment summary
         run: |
@@ -76,6 +89,7 @@ jobs:
           echo "| ----- | --- |" >> $GITHUB_STEP_SUMMARY
           echo "| **Server (Strapi)** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Web (Next.js)** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Paper Sync (Python)** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY

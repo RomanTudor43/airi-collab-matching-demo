@@ -125,5 +125,25 @@ services:
       '
     restart: always
 
+  paper-sync:
+    image: ghcr.io/airi-utcn/ai-institute-site/paper-sync:latest
+    restart: always
+    environment:
+      # Strapi connection (inside Docker network)
+      STRAPI_URL: ${STRAPI_INTERNAL_URL:-http://strapi:1337}
+      STRAPI_API_TOKEN: ${STRAPI_API_TOKEN}
+      # Graph tuning knobs used by research-paper-graph runtime settings
+      GRAPH_SIMILARITY_THRESHOLD: ${GRAPH_SIMILARITY_THRESHOLD:-0.5}
+      GRAPH_DUPLICATE_THRESHOLD: ${GRAPH_DUPLICATE_THRESHOLD:-0.92}
+      GRAPH_AI_MODEL: ${GRAPH_AI_MODEL:-all-MiniLM-L6-v2}
+      GRAPH_HDBSCAN_MIN_CLUSTER_SIZE: ${GRAPH_HDBSCAN_MIN_CLUSTER_SIZE:-20}
+      GRAPH_HDBSCAN_MIN_SAMPLES: ${GRAPH_HDBSCAN_MIN_SAMPLES:-5}
+      GRAPH_SECONDARY_CLUSTER_DISTANCE_THRESHOLD: ${GRAPH_SECONDARY_CLUSTER_DISTANCE_THRESHOLD:-0.7}
+      GRAPH_TOPIC_HDBSCAN_MIN_CLUSTER_SIZE: ${GRAPH_TOPIC_HDBSCAN_MIN_CLUSTER_SIZE:-3}
+      GRAPH_TOPIC_HDBSCAN_MIN_SAMPLES: ${GRAPH_TOPIC_HDBSCAN_MIN_SAMPLES:-2}
+    depends_on:
+      strapi:
+        condition: service_healthy
+
 volumes:
   pgdata:

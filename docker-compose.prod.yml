@@ -17,6 +17,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
 
   strapi:
     # -----------------------------------------------------------
@@ -51,16 +53,12 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:1337/admin"]
+      test: ["CMD-SHELL", "netstat -tln | grep 1337 || exit 1"] # Don't question it. It works.
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
-
   nextjs:
-    # -----------------------------------------------------------
-    # CHANGE THIS: Replace 'YOUR_GITHUB_USER' with your username
-    # -----------------------------------------------------------
     image: ghcr.io/airi-utcn/ai-institute-site/web:latest
     restart: always
     environment:
@@ -88,6 +86,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # Mount the Docker config directory (contains auth credentials)
+      # Prod server specific: you need to be careful on how you did the docker login on the prod server. This assumes you have a config.json with credentials for GHCR auth in ~/.docker/config.json
       - ~/.docker/config.json:/config.json:ro
     command: --interval 300 --cleanup
     environment:
@@ -124,6 +123,9 @@ services:
         done
       '
     restart: always
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
 
   paper-sync:
     image: ghcr.io/airi-utcn/ai-institute-site/paper-sync:latest

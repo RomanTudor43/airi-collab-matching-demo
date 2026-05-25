@@ -29,7 +29,7 @@
     },
     "slug": {
       "type": "uid",
-      "targetField": "fullName",
+      "targetField": "lastName",
       "required": true
     },
     "type": {
@@ -39,8 +39,7 @@
         "staff",
         "researcher",
         "alumni",
-        "visitor",
-        "visiting_researcher",
+        "visiting",
         "student",
         "external"
       ]
@@ -60,6 +59,28 @@
       "enum": [
         "alumni_AIRI",
         "alumni_UTCN"
+      ]
+    },
+    "type_visiting": {
+      "type": "enumeration",
+      "conditions": {
+        "visible": {
+          "==": [
+            {
+              "var": "type"
+            },
+            "visiting"
+          ]
+        }
+      },
+      "enum": [
+        "visiting_researcher",
+        "visiting_scholar",
+        "visiting_student",
+        "industry_partner",
+        "guest_speaker",
+        "media_press",
+        "other_guest"
       ]
     },
     "type_student": {

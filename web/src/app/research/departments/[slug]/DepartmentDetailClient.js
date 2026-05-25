@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaUsers, FaFlask, FaBook, FaInfoCircle, FaArrowLeft, FaEnvelope, FaGlobe, FaStar, FaProjectDiagram, FaUserCog, FaUserTie } from "react-icons/fa";
 import { useTranslations } from "next-intl";
-import ExpandableMarkdown from "@/components/shared/ExpandableMarkdown";
+import RichMarkdown from "@/components/shared/RichMarkdown";
 
 const PHASE_STYLES = {
   ongoing:   'bg-green-100  dark:bg-green-900/30  text-green-700  dark:text-green-300',
@@ -335,12 +335,13 @@ export default function DepartmentDetailClient({
               className="space-y-6"
             >
               {/* Description */}
-              {department.description && (
+                {department.rawDescription && (
                 <motion.div variants={itemVariants} className="card p-6">
                   <h2 className="heading-3 heading-accent mb-4">{t("overview.about")}</h2>
-                  <div className="prose prose-gray dark:prose-invert max-w-none">
-                    <p className="text-body">{department.description}</p>
-                  </div>
+                  <RichMarkdown
+                     content={department.rawDescription}
+                    className="prose prose-gray dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 prose-p:my-2 prose-headings:my-3"
+                  />
                 </motion.div>
               )}
 

@@ -14,7 +14,8 @@ const LANGUAGES = [
   { code: "el", name: "Ελληνικά", flag: "🇬🇷" },
   { code: "tr", name: "Türkçe", flag: "🇹🇷" },
   { code: "bg", name: "Български", flag: "🇧🇬" },
-  { code: "lv", name: "Latviešu", flag: "🇱🇻" }
+  { code: "lv", name: "Latviešu", flag: "🇱🇻" },
+  { code: "zh", name: "简体中文", flag: "🇨🇳"}
 ];
 
 export default function LanguageSwitcher({ compact = false }) {

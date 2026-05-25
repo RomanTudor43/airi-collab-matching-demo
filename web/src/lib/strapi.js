@@ -33,7 +33,7 @@ const DEFAULT_REVALIDATE_SECONDS = 60; // 1 minute
 export const PERSON_TYPE_FILTERS = {
   staff: ['staff', 'personal'],
   researchers: ['researcher', 'research'],
-  visiting: ['visiting', 'visitor', 'visiting_researcher', 'visiting researcher'],
+  visiting: ['visiting'],
   students: ['student'],
   external: ['external', 'collaborator'],
   alumni: ['alumni', 'alumnus'], 
@@ -197,7 +197,7 @@ const createParams = ({ fields = [], populate = {}, filters = null, sort = null,
   return params;
 };
 
-const PERSON_FIELDS = ['firstName', 'lastName', 'slug', 'title', 'email', 'phone', 'type', 'scholarId', 'type_alumni', 'type_student', 'type_external'];
+const PERSON_FIELDS = ['firstName', 'lastName', 'slug', 'title', 'email', 'phone', 'type', 'scholarId', 'type_alumni', 'type_student', 'type_external', 'type_visiting'];
 
 const PERSON_FLAT_POPULATE = {
   fields: PERSON_FIELDS,
@@ -249,9 +249,6 @@ const STAFF_TYPE_LABELS = {
   alumni: 'Alumni',
   alumnus: 'Alumni',
   visiting: 'Visiting Researchers',
-  visitor: 'Visiting Researchers',
-  'visiting researcher': 'Visiting Researchers',
-  visiting_researcher: 'Visiting Researchers',
   external: 'External',
   collaborator: 'External',
 };
@@ -1539,6 +1536,9 @@ export function transformStaffData(strapiStaff) {
     
     const getValidSubtype = () => {
       // Only include subtype if it matches the parent type
+      if (typeKey === 'visiting' && attributes.type_visiting) {
+        return attributes.type_visiting;
+      }
       if (typeKey === 'alumni' && attributes.type_alumni) {
         return attributes.type_alumni;
       }
@@ -1571,6 +1571,7 @@ export function transformStaffData(strapiStaff) {
       type_alumni: typeKey === 'alumni' ? attributes.type_alumni || null : null,
       type_student: typeKey === 'student' ? attributes.type_student || null : null,
       type_external: typeKey === 'external' ? attributes.type_external || null : null,
+      type_visiting: typeKey === 'visiting' ? attributes.type_visiting || null : null,
       department: department?.name || '',
       departmentInfo: department,
       image,

@@ -27,7 +27,6 @@ class StrapiClient:
         self._pub_by_doi = {}
         self._pub_by_title = {}
         self._pub_source_kind = {}
-        self._pub_listing_eligible = {}
         self._pub_slug = {}
         self._pub_published = {}
         self._pub_has_pdf = {}
@@ -105,7 +104,6 @@ class StrapiClient:
                 "slug": self.build_publication_slug(paper_data),
                 "sourceKind": "openAlexAutomated",
                 "graphEligible": True,
-                "listingEligible": False,
                 "publishedAt": self._utc_now(),
             }
         )
@@ -238,9 +236,8 @@ class StrapiClient:
                 "fields[2]": "doi",
                 "fields[3]": "documentId",
                 "fields[4]": "sourceKind",
-                "fields[5]": "listingEligible",
-                "fields[6]": "slug",
-                "fields[7]": "publishedAt",
+                "fields[5]": "slug",
+                "fields[6]": "publishedAt",
                 "populate[pdfFile][fields][0]": "id",
             },
         )
@@ -248,7 +245,6 @@ class StrapiClient:
             attributes = publication.get("attributes", publication)
             document_id = publication.get("documentId") or publication.get("id")
             self._pub_source_kind[document_id] = self._normalize_source_kind(attributes.get("sourceKind"))
-            self._pub_listing_eligible[document_id] = bool(attributes.get("listingEligible"))
             self._pub_slug[document_id] = attributes.get("slug") or ""
             self._pub_published[document_id] = bool(attributes.get("publishedAt"))
             self._pub_has_pdf[document_id] = bool(self._extract_relation_items(attributes.get("pdfFile")))
@@ -293,9 +289,6 @@ class StrapiClient:
 
         for publication in publications:
             attributes = publication.get("attributes", publication)
-            source_kind = self._normalize_source_kind(attributes.get("sourceKind"))
-            if source_kind != "openAlexAutomated":
-                continue
             document_id = publication.get("documentId") or publication.get("id")
             graph_id = attributes.get("openAlexId") or f"publication:{document_id}"
 
@@ -691,8 +684,6 @@ class StrapiClient:
             response.raise_for_status()
             if "sourceKind" in update_data:
                 self._pub_source_kind[document_id] = self._normalize_source_kind(update_data.get("sourceKind"))
-            if "listingEligible" in update_data:
-                self._pub_listing_eligible[document_id] = bool(update_data.get("listingEligible"))
             if "slug" in update_data:
                 self._pub_slug[document_id] = update_data.get("slug") or ""
             if "publishedAt" in update_data:
@@ -778,9 +769,8 @@ class StrapiClient:
             "fields[0]": "documentId",
             "fields[1]": "id",
             "fields[2]": "sourceKind",
-            "fields[3]": "listingEligible",
-            "fields[4]": "slug",
-            "fields[5]": "publishedAt",
+            "fields[3]": "slug",
+            "fields[4]": "publishedAt",
         }
         try:
             response = requests.get(f"{self.api_url}/publications", headers=self.headers, params=params)
@@ -790,7 +780,6 @@ class StrapiClient:
                 document_id = data[0].get("documentId") or data[0].get("id")
                 attributes = data[0].get("attributes", data[0])
                 self._pub_source_kind[document_id] = self._normalize_source_kind(attributes.get("sourceKind"))
-                self._pub_listing_eligible[document_id] = bool(attributes.get("listingEligible"))
                 self._pub_slug[document_id] = attributes.get("slug") or ""
                 self._pub_published[document_id] = bool(attributes.get("publishedAt"))
                 self._pub_has_pdf[document_id] = bool(self._extract_relation_items(attributes.get("pdfFile")))

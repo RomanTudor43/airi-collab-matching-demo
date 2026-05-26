@@ -34,11 +34,7 @@
     },
     "graphEligible": {
       "type": "boolean",
-      "default": true
-    },
-    "listingEligible": {
-      "type": "boolean",
-      "default": true
+      "default": false
     },
     "doi": {
       "type": "string"

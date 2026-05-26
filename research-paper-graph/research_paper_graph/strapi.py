@@ -411,9 +411,6 @@ class StrapiClient:
     def get_publication_source_kind(self, document_id):
         return self._pub_source_kind.get(document_id)
 
-    def get_publication_listing_eligible(self, document_id):
-        return bool(self._pub_listing_eligible.get(document_id))
-
     def get_publication_slug(self, document_id):
         return self._pub_slug.get(document_id) or ""
 
@@ -648,7 +645,6 @@ class StrapiClient:
             document_id = created.get("documentId") or created.get("id")
             if document_id:
                 self._pub_source_kind[document_id] = "openAlexAutomated"
-                self._pub_listing_eligible[document_id] = False
                 self._pub_slug[document_id] = payload.get("slug") or ""
                 self._pub_published[document_id] = bool(payload.get("publishedAt"))
                 if attachment_id:

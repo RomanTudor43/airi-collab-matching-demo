@@ -765,6 +765,16 @@ export async function getGraphPublications(options = {}) {
     const { community, macroSlug } = options;
     const filters = {
       graphEligible: { $eq: true },
+      $or: [
+        { sourceKind: { $ne: 'manual' } },
+        {
+          $and: [
+            { sourceKind: { $eq: 'manual' } },
+            { graphMacroPrimary: { id: { $notNull: true } } },
+            { graphMesoPrimary: { id: { $notNull: true } } },
+          ],
+        },
+      ],
     };
 
     if (typeof macroSlug === 'string' && macroSlug.trim()) {
@@ -796,6 +806,7 @@ export async function getGraphPublications(options = {}) {
         pdfFile: { fields: ['url'] },
         graphMacroPrimary: { fields: ['name', 'slug', 'sortOrder', 'isActive'] },
         graphMacroTags: { fields: ['name', 'slug'] },
+        graphMesoPrimary: { fields: ['name', 'slug'] },
         graphMesoTags: { fields: ['name', 'slug'] },
       },
     };
@@ -875,8 +886,8 @@ export async function getGraphLinks() {
     const baseOptions = {
       fields: ['isCrossCluster', 'score'],
       populate: {
-        source: { fields: ['openAlexId'] },
-        target: { fields: ['openAlexId'] },
+        source: { fields: ['openAlexId', 'documentId'] },
+        target: { fields: ['openAlexId', 'documentId'] },
       },
     };
 
@@ -994,8 +1005,18 @@ export function transformGraphPublicationData(strapiPublications) {
         })
         .filter((entry) => entry.id !== null || entry.slug || entry.name);
 
+      const mesoPrimaryEntry = attributes.graphMesoPrimary?.data ?? attributes.graphMesoPrimary;
+      const mesoPrimaryAttributes = mesoPrimaryEntry?.attributes ?? mesoPrimaryEntry ?? {};
+      const graphMesoPrimary = mesoPrimaryEntry
+        ? {
+            id: mesoPrimaryEntry?.documentId ?? mesoPrimaryEntry?.id ?? null,
+            slug: mesoPrimaryAttributes.slug || '',
+            name: mesoPrimaryAttributes.name || '',
+          }
+        : null;
+
       return {
-        id: publication?.id ?? null,
+        id: publication?.documentId ?? publication?.id ?? null,
         slug,
         publicationHref,
         openAlexId: attributes.openAlexId || '',
@@ -1013,6 +1034,7 @@ export function transformGraphPublicationData(strapiPublications) {
         topicSuperclusters,
         graphMacroPrimary,
         graphMacroTags,
+        graphMesoPrimary,
         graphMesoTags,
         _strapi: publication,
       };
@@ -1041,8 +1063,8 @@ export function transformGraphLinkData(strapiLinks, oaToIdMap = {}) {
       const sourceOpenAlexId = sourceData.openAlexId || '';
       const targetOpenAlexId = targetData.openAlexId || '';
 
-      const sourceId = oaToIdMap[sourceOpenAlexId] ?? null;
-      const targetId = oaToIdMap[targetOpenAlexId] ?? null;
+      const sourceId = sourceEntry?.documentId ?? sourceEntry?.id ?? oaToIdMap[sourceOpenAlexId] ?? null;
+      const targetId = targetEntry?.documentId ?? targetEntry?.id ?? oaToIdMap[targetOpenAlexId] ?? null;
 
       const scoreValue = Number(attributes.score);
       const score = Number.isFinite(scoreValue) ? scoreValue : 0;

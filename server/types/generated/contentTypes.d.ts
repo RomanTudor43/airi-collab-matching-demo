@@ -1032,7 +1032,7 @@ export interface ApiPublicationPublication extends Struct.CollectionTypeSchema {
     embeddingModel: Schema.Attribute.String;
     embeddingSourceHash: Schema.Attribute.String;
     embeddingUpdatedAt: Schema.Attribute.DateTime;
-    graphEligible: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    graphEligible: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     graphMacroPrimary: Schema.Attribute.Relation<
       'manyToOne',
       'api::graph-macro.graph-macro'
@@ -1056,8 +1056,6 @@ export interface ApiPublicationPublication extends Struct.CollectionTypeSchema {
     kind: Schema.Attribute.String;
     lastGraphIndexedAt: Schema.Attribute.DateTime;
     lastImportedAt: Schema.Attribute.DateTime;
-    listingEligible: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<true>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',

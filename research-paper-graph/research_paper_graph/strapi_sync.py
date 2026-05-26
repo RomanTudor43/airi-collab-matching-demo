@@ -61,7 +61,6 @@ def upload_publications(strapi, papers_to_upload, logger=None):
             if oa_id:
                 pub_map[oa_id] = existing_id
             existing_source = strapi.get_publication_source_kind(existing_id)
-            existing_listing_eligible = strapi.get_publication_listing_eligible(existing_id)
             existing_has_pdf = strapi.has_publication_pdf(existing_id)
 
             # Ensure imported automated records are routeable by slug pages.
@@ -75,7 +74,7 @@ def upload_publications(strapi, papers_to_upload, logger=None):
                     strapi.update_publication(existing_id, ensure_payload)
 
             # Update existing automated publications with fresh data
-            if existing_source == "openAlexAutomated" and not existing_listing_eligible:
+            if existing_source == "openAlexAutomated":
                 merged_author_ids = strapi.merge_publication_author_ids(existing_id, author_ids)
                 update_payload = strapi.build_import_update_payload(paper, author_ids=merged_author_ids)
                 pdf_result = strapi.ensure_publication_pdf(paper, existing_document_id=existing_id)

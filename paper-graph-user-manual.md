@@ -1,0 +1,263 @@
+# Research Paper Graph Author Guide
+
+This guide explains the graph-related Strapi fields introduced on this branch and how they are meant to be used by editors, authors, and maintainers.
+
+The key idea is simple:
+
+- `importEligible` controls whether a person is used by the Python import pipeline.
+- `graphEligible` controls whether a publication is included in the graph rebuild.
+- `sourceKind=manual` means the record is editor-owned and should not be overwritten by the import pipeline.
+- Macro and meso relations are mostly pipeline-managed for automated publications.
+
+## 1. The Two Main Switches
+
+### Person: `importEligible`
+
+Location: `Person`
+
+Default: `false`
+
+What it does:
+
+- When `importEligible` is enabled, the Python pipeline may use that person as an import source.
+- If it is disabled, the person is ignored by author-based imports.
+
+Use this for:
+
+- researchers who should be synced from OpenAlex or other source systems
+- people who should not trigger paper imports, such as administrative staff or profiles that are not part of the publication workflow
+
+Important:
+
+- This field does not control whether a person appears on the site.
+- It only controls whether the import pipeline treats the person as a valid source.
+
+### Publication: `graphEligible`
+
+Location: `Publication`
+
+Default: `true`
+
+What it does:
+
+- When `graphEligible` is enabled, the publication participates in graph rebuilds.
+- The pipeline reloads all graph-eligible publications from Strapi and computes links, duplicates, communities, embeddings, macro assignment, and meso assignment from that set.
+- When it is disabled, the publication is excluded from the graph pipeline.
+
+Use this for:
+
+- publications that should remain in the database but not appear in the graph
+- records that are incomplete or should be held out from automated graph processing
+
+Important:
+
+- `graphEligible` is not the same as `sourceKind`.
+- A publication can be manual and still graph-eligible.
+- A publication can be graph-ineligible even if it is otherwise valid content.
+
+## 2. Ownership: Manual vs Automated
+
+### `sourceKind`
+
+Location: `Publication`
+
+Values:
+
+- `manual`
+- `openAlexAutomated`
+
+What it does:
+
+- `manual` marks a publication as editor-curated.
+- `openAlexAutomated` marks a publication as pipeline-managed.
+
+Pipeline behavior:
+
+- existing automated records may be updated by the import pipeline
+- manual records are protected from automated overwrite
+- if a source import finds a record with the same title, DOI, or OpenAlex ID, the pipeline reuses that record instead of creating a duplicate
+
+Practical rule:
+
+- If an editor creates or curates a publication in Strapi, leave it as `manual` unless you explicitly want the Python pipeline to manage it.
+
+## 3. Publication Fields Used by the Graph Pipeline
+
+These fields are either written by the pipeline or used as graph metadata.
+
+### Embedding and graph metadata
+
+Location: `Publication`
+
+Fields:
+
+- `embedding`
+- `embeddingModel`
+- `embeddingSourceHash`
+- `embeddingUpdatedAt`
+- `lastGraphIndexedAt`
+
+Meaning:
+
+- These are pipeline-managed technical fields.
+- They describe how the current embedding was produced and when the record was last processed.
+- Editors should normally not change them manually.
+
+### Community fields
+
+Fields:
+
+- `community`
+- `communityLabel`
+- `secondaryClusters`
+
+Meaning:
+
+- These are graph outputs produced from the similarity and clustering pipeline.
+- They are not the primary editorial taxonomy.
+- Treat them as computed metadata, not hand-edited categorization.
+
+### Macro and meso placement fields
+
+Fields:
+
+- `graphMacroPrimary`
+- `graphMacroTags`
+- `graphMesoPrimary`
+- `graphMesoTags`
+
+Meaning:
+
+- `graphMacroPrimary` is the main macro category used for placement.
+- `graphMacroTags` are secondary macro matches and should be treated as highlights.
+- `graphMesoPrimary` is the main meso bucket used for placement.
+- `graphMesoTags` are secondary meso matches and should be treated as highlights.
+
+Pipeline rule:
+
+- For non-manual publications, these relations are regenerated on each global graph rebuild.
+- For manual publications, the pipeline is intended to leave editorial ownership alone.
+
+## 4. Macro Taxonomy: `GraphMacro`
+
+Location: `GraphMacro`
+
+These are the broad research domains used by the graph pipeline.
+
+Fields:
+
+- `name`
+- `slug`
+- `description`
+- `keywords`
+- `sortOrder`
+- `isActive`
+
+How the pipeline uses them:
+
+- The pipeline builds a text representation from `name`, `keywords`, and `description`.
+- That text is embedded and compared against each paper embedding.
+- The best match becomes `graphMacroPrimary`.
+- Additional matches can be stored in `graphMacroTags`.
+
+What editors should change:
+
+- edit `name` when the macro label itself should change
+- edit `keywords` when you want to steer matching toward a different vocabulary
+- edit `description` when you want more context or a clearer human-facing explanation
+- edit `sortOrder` to influence presentation order
+- use `isActive` to hide a macro from active use without deleting it
+
+What not to do:
+
+- do not manually assign macro relations on every publication as a maintenance strategy
+- do not treat `graphMacroTags` as a replacement for `graphMacroPrimary`
+
+## 5. Meso Taxonomy: `GraphMeso`
+
+Location: `GraphMeso`
+
+These are the mid-level topic buckets used by the graph UI and pipeline.
+
+Fields:
+
+- `name`
+- `slug`
+- `description`
+- `keywords`
+- `sortOrder`
+- `isActive`
+- `macro`
+
+How the pipeline uses them:
+
+- The pipeline creates or updates meso nodes from topic superclusters.
+- Each meso is associated with a macro.
+- Publications are then tagged with `graphMesoPrimary` and `graphMesoTags`.
+
+What editors should change:
+
+- edit `name` to improve the human-facing label
+- edit `keywords` to help the meso better reflect its topic cluster
+- edit `description` to clarify what belongs in the bucket
+- edit `sortOrder` to control display order
+- edit `isActive` to temporarily disable a meso without deleting it
+- edit `macro` when a meso belongs under a different broad domain
+
+What not to do:
+
+- do not use meso fields as a manual per-paper override mechanism
+- do not expect paper placement to stay fixed if the pipeline is rerun and the taxonomy changes
+
+## 6. Recommended Editor Workflow
+
+### If you are adding or editing a person
+
+1. Set `importEligible=true` only if that person should be used as an import source.
+2. Leave it `false` for non-research personnel or profiles that should not trigger imports.
+
+### If you are adding or editing a publication
+
+1. Leave `sourceKind=manual` for curated records.
+2. Set `graphEligible=true` if the publication should participate in the graph.
+3. Set `graphEligible=false` if the publication should stay in Strapi but be excluded from graph generation.
+4. Avoid hand-editing embedding, community, macro, or meso output fields unless you are intentionally changing the underlying taxonomy.
+
+### If you are editing graph categories
+
+1. Use `GraphMacro` to control broad domains.
+2. Use `GraphMeso` to control subtopics within a macro.
+3. Change names, keywords, and descriptions when you want the pipeline to classify future rebuilds differently.
+
+## 7. What the Python Pipeline Does on Sync
+
+The current sync flow is:
+
+1. load source people, filtered by `importEligible`
+2. fetch papers for those people from the source system
+3. deduplicate against existing Strapi publications using OpenAlex ID, DOI, and title matching
+4. create or update automated publications
+5. reload all `graphEligible` publications from Strapi
+6. recompute graph links, duplicates, communities, macro assignments, and meso assignments
+
+This means the graph is always based on the current eligible Strapi corpus, not just on the freshly imported batch.
+
+## 8. Practical Rules of Thumb
+
+- Use `importEligible` to decide who can seed imports.
+- Use `graphEligible` to decide which publications participate in the graph.
+- Use `sourceKind=manual` for editorially managed publications.
+- Use `GraphMacro` and `GraphMeso` to shape the taxonomy, not individual publication records.
+- Expect macro and meso assignments to be regenerated for automated publications when the pipeline runs.
+
+## 9. If You Need One Sentence Per Field
+
+- `importEligible`: this person may seed the import pipeline.
+- `graphEligible`: this publication should be included in graph rebuilds.
+- `sourceKind`: this record is manual or pipeline-managed.
+- `graphMacroPrimary`: the main broad-domain assignment.
+- `graphMacroTags`: additional broad-domain matches.
+- `graphMesoPrimary`: the main mid-level topic assignment.
+- `graphMesoTags`: additional mid-level matches.
+
+If you want, the next step can be a shorter editor-facing version for non-technical users, or a companion appendix that lists every graph-related field in table form.

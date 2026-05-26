@@ -66,7 +66,7 @@ def run(args):
     log.info(f"Fetched {len(papers)} papers ({label})")
 
     strapi = create_client(SETTINGS)
-    pub_map, _stats = upload_publications(strapi, papers, logger=log)
+    upload_publications(strapi, papers, logger=log)
 
     global_papers, global_pub_map = strapi.load_graph_eligible_publications()
     global_graph = build_graph_artifacts(

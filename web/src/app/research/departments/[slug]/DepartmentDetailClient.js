@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaUsers, FaFlask, FaBook, FaInfoCircle, FaArrowLeft, FaEnvelope, FaGlobe, FaStar, FaProjectDiagram, FaUserCog, FaUserTie } from "react-icons/fa";
 import { useTranslations } from "next-intl";
+import ExpandableMarkdown from "@/components/shared/ExpandableMarkdown";
 import RichMarkdown from "@/components/shared/RichMarkdown";
 
 const PHASE_STYLES = {

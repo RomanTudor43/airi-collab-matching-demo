@@ -73,6 +73,18 @@ function linkStyle(score, isCross) {
   return { stroke: "#4d7fff", width: 0.9, opacity: 0.40, dash: "none" };
 }
 
+function drawTextWithHalo(ctx, text, x, y, font, fill, stroke = "rgba(3,7,15,0.95)", lineWidth = 4) {
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = font;
+  ctx.lineWidth = lineWidth;
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = stroke;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = fill;
+  ctx.fillText(text, x, y);
+}
+
 // ─── Grid lines ──────────────────────────────────────────────────────────────
 const GRID_COLS = Array.from({ length: Math.ceil(MAP_W / 220) + 1 }, (_, i) => i * 220);
 const GRID_ROWS = Array.from({ length: Math.ceil(MAP_H / 220) + 1 }, (_, i) => i * 220);
@@ -258,7 +270,7 @@ export default function PaperGraphClient({
       className="relative w-full overflow-hidden select-none"
       style={{
         height: "calc(100vh - 4rem)",
-        background: "#03070f",
+        background: "linear-gradient(180deg, #050915 0%, #03070f 52%, #02050b 100%)",
         cursor: panning ? "grabbing" : "grab",
       }}
       onMouseDown={onMouseDown}
@@ -272,8 +284,8 @@ export default function PaperGraphClient({
         className="pointer-events-none absolute inset-0 z-20"
         style={{
           backgroundImage:
-            "repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.12) 2px,rgba(0,0,0,0.12) 4px)",
-          mixBlendMode: "multiply",
+            "repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 6px)",
+          mixBlendMode: "soft-light",
         }}
       />
 
@@ -284,7 +296,7 @@ export default function PaperGraphClient({
         "bottom-3 left-3 border-b-2 border-l-2",
         "bottom-3 right-3 border-b-2 border-r-2",
       ].map((cls) => (
-        <div key={cls} aria-hidden className={`pointer-events-none absolute ${cls} border-amber-500/30 w-8 h-8 z-30`} />
+        <div key={cls} aria-hidden className={`pointer-events-none absolute ${cls} border-amber-400/35 w-8 h-8 z-30`} />
       ))}
 
       {/* Back navigation */}
@@ -309,21 +321,21 @@ export default function PaperGraphClient({
       )}
 
       {/* Top-left HUD */}
-      <div className="pointer-events-none absolute top-12 left-5 z-30 font-mono">
-        <div className="text-amber-400/50 text-[10px] tracking-widest">
+      <div className="pointer-events-none absolute top-12 left-5 z-30 rounded-2xl border px-3 py-2 font-mono" style={{ background: "rgba(4,10,20,0.5)", borderColor: "rgba(255,180,0,0.14)", backdropFilter: "blur(8px)" }}>
+        <div className="text-amber-300/65 text-[10px] tracking-widest">
           {papers.length} PAPERS &nbsp;·&nbsp; {visibleLinks.length} LINKS
         </div>
       </div>
 
       {/* Top-right HUD */}
-      <div className="pointer-events-none absolute top-4 right-5 z-30 font-mono text-right">
-        <div className="text-amber-400/50 text-[10px] tracking-widest">AI RESEARCH INSTITUTE</div>
-        <div className="text-amber-500/25 text-[9px] tracking-widest mt-0.5">DEMOCRACY SCIENCE DIVISION</div>
+      <div className="pointer-events-none absolute top-4 right-5 z-30 rounded-2xl border px-3 py-2 font-mono text-right" style={{ background: "rgba(4,10,20,0.46)", borderColor: "rgba(255,180,0,0.12)", backdropFilter: "blur(8px)" }}>
+        <div className="text-amber-300/65 text-[10px] tracking-widest">AI RESEARCH INSTITUTE</div>
+        <div className="text-amber-200/45 text-[9px] tracking-widest mt-0.5">DEMOCRACY SCIENCE DIVISION</div>
       </div>
 
       {/* Legend */}
-      <div className="pointer-events-none absolute bottom-6 left-5 z-30 font-mono text-[10px]">
-        <div className="text-amber-500/50 tracking-widest mb-2">LINK STRENGTH</div>
+      <div className="pointer-events-none absolute bottom-6 left-5 z-30 rounded-2xl border px-3 py-2 font-mono text-[10px]" style={{ background: "rgba(4,10,20,0.46)", borderColor: "rgba(255,180,0,0.14)", backdropFilter: "blur(8px)" }}>
+        <div className="text-amber-300/65 tracking-widest mb-2">LINK STRENGTH</div>
         {[
           { color: "#4d7fff", label: "WEAK   0.50–0.65", w: 1 },
           { color: "#ff8c00", label: "MODERATE  0.65–0.80", w: 2 },
@@ -344,7 +356,7 @@ export default function PaperGraphClient({
       </div>
 
       {/* Controls hint */}
-      <div className="pointer-events-none absolute bottom-6 right-5 z-30 font-mono text-[9px] text-amber-500/30 text-right tracking-widest">
+      <div className="pointer-events-none absolute bottom-6 right-5 z-30 rounded-2xl border px-3 py-2 font-mono text-[9px] text-right tracking-widest" style={{ color: "rgba(255,227,153,0.9)", background: "rgba(4,10,20,0.4)", borderColor: "rgba(255,180,0,0.12)", backdropFilter: "blur(8px)" }}>
         <div>SCROLL TO ZOOM</div>
         <div>DRAG TO PAN</div>
         <div>CLICK NODE TO OPEN PAGE</div>
@@ -353,15 +365,15 @@ export default function PaperGraphClient({
 
       {/* Filter controls */}
       <div
-        className="absolute bottom-20 right-5 z-40 font-mono text-[9px]"
+        className="absolute bottom-20 right-5 z-40 rounded-2xl border px-3 py-2 font-mono text-[9px]"
         style={{
-          background: "rgba(3,7,15,0.92)",
-          border: "1px solid rgba(255,180,0,0.25)",
-          padding: "10px 14px",
+          background: "rgba(4,10,20,0.78)",
+          border: "1px solid rgba(255,180,0,0.18)",
+          boxShadow: "0 8px 30px rgba(0,0,0,0.32)",
         }}
       >
-        <div className="text-amber-500/60 tracking-widest mb-2">FILTERS</div>
-        <label className="flex items-center gap-2 text-amber-400/70 mb-2">
+        <div className="text-amber-300/65 tracking-widest mb-2">FILTERS</div>
+        <label className="flex items-center gap-2 text-amber-200/75 mb-2">
           <span className="w-20">MIN SCORE</span>
           <input
             type="range" min="0.3" max="0.9" step="0.05"
@@ -369,9 +381,9 @@ export default function PaperGraphClient({
             onChange={(e) => setMinScore(parseFloat(e.target.value))}
             className="w-20 accent-amber-500"
           />
-          <span className="text-amber-300 w-8 text-right">{minScore.toFixed(2)}</span>
+          <span className="text-amber-100 w-8 text-right">{minScore.toFixed(2)}</span>
         </label>
-        <label className="flex items-center gap-2 text-amber-400/70 cursor-pointer">
+        <label className="flex items-center gap-2 text-amber-200/75 cursor-pointer">
           <input
             type="checkbox"
             checked={showCrossCluster}
@@ -522,8 +534,16 @@ export default function PaperGraphClient({
                 dominantBaseline="middle"
                 fontSize={9}
                 fontFamily="monospace"
-                fill={isDim ? "#ffffff1a" : isHot ? "#ffe066" : "#5599cc"}
-                style={{ transition: "all 0.2s", userSelect: "none", pointerEvents: "none" }}
+                fill={isDim ? "#ffffff1a" : isHot ? "#fff2b8" : "#8ab4ea"}
+                style={{
+                  paintOrder: "stroke fill",
+                  stroke: "rgba(3,7,15,0.95)",
+                  strokeWidth: isHot ? 2.6 : 2.2,
+                  strokeLinejoin: "round",
+                  transition: "all 0.2s",
+                  userSelect: "none",
+                  pointerEvents: "none",
+                }}
               >
                 {paper.year ?? "?"}
               </text>
@@ -531,10 +551,18 @@ export default function PaperGraphClient({
                 <text
                   y={r + 13}
                   textAnchor="middle"
-                  fontSize={7}
+                  fontSize={7.15}
                   fontFamily="monospace"
-                  fill={isDim ? "#ffffff0d" : isHot ? "#ffe066aa" : "#33608a"}
-                  style={{ transition: "all 0.2s", userSelect: "none", pointerEvents: "none" }}
+                  fill={isDim ? "#ffffff12" : isHot ? "#fff3c4" : "#c3d4ef"}
+                  style={{
+                    paintOrder: "stroke fill",
+                    stroke: "rgba(3,7,15,0.95)",
+                    strokeWidth: isHot ? 2.2 : 1.8,
+                    strokeLinejoin: "round",
+                    transition: "all 0.2s",
+                    userSelect: "none",
+                    pointerEvents: "none",
+                  }}
                 >
                   {(paper.title ?? "").slice(0, 24)}
                   {(paper.title ?? "").length > 24 ? "…" : ""}
@@ -593,26 +621,26 @@ function IntelPanel({ paper, links, paperById, macroTheme, sx, sy, scale }) {
         boxShadow: "0 0 24px rgba(255,140,0,0.18), inset 0 0 18px rgba(255,140,0,0.04)",
         padding: "14px 16px",
       }}>
-        <div className="text-amber-300 text-[11px] font-bold leading-snug mb-2">{paper.title}</div>
-        <div className="flex gap-4 text-[10px] text-amber-500/60 tracking-wider mb-2">
+        <div className="text-amber-100 text-[11px] font-bold leading-snug mb-2" style={{ paintOrder: "stroke fill", stroke: "rgba(3,7,15,0.95)", strokeWidth: 1.4, strokeLinejoin: "round" }}>{paper.title}</div>
+        <div className="flex gap-4 text-[10px] text-amber-200/70 tracking-wider mb-2">
           {paper.year && <span>◈ {paper.year}</span>}
           {paper.cited_by != null && <span>⬡ {paper.cited_by} citations</span>}
           <span>⇌ {links.length} links</span>
         </div>
         {macroTheme && (
-          <div className="text-[9px] text-amber-400/55 mb-2 border border-amber-500/20 px-1.5 py-0.5 inline-block tracking-[0.12em]">
+          <div className="text-[9px] text-amber-300/65 mb-2 border border-amber-500/20 px-1.5 py-0.5 inline-block tracking-[0.12em]">
             ✦ {macroTheme}
           </div>
         )}
         {paper.communityLabel && (
-          <div className="text-[9px] text-amber-400/50 mb-2 border border-amber-500/20 px-1.5 py-0.5 inline-block">
+          <div className="text-[9px] text-amber-300/60 mb-2 border border-amber-500/20 px-1.5 py-0.5 inline-block">
             ◈ {paper.communityLabel}
           </div>
         )}
         {paper.secondaryClusters?.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
             {paper.secondaryClusters.map((sc, idx) => (
-              <span key={`${sc.clusterId ?? "cluster"}-${sc.distance ?? "distance"}-${idx}`} className="text-purple-400/60 border border-purple-500/30 px-1.5 py-0.5 bg-purple-900/10"
+              <span key={`${sc.clusterId ?? "cluster"}-${sc.distance ?? "distance"}-${idx}`} className="text-purple-200/80 border border-purple-500/30 px-1.5 py-0.5 bg-purple-950/30"
                 style={{ fontSize: 8, letterSpacing: "0.05em" }}
                 title={`Distance: ${(sc.distance || 0).toFixed(3)}`}>
                 ⟡ {sc.clusterLabel || `Cluster ${sc.clusterId}`}
@@ -623,7 +651,7 @@ function IntelPanel({ paper, links, paperById, macroTheme, sx, sy, scale }) {
         {paper.topics?.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
             {paper.topics.map((t, idx) => (
-              <span key={`${t}-${idx}`} className="text-amber-400/70 border border-amber-500/30 px-1.5 py-0.5"
+              <span key={`${t}-${idx}`} className="text-amber-200/80 border border-amber-500/30 px-1.5 py-0.5"
                 style={{ fontSize: 8, letterSpacing: "0.06em" }}>
                 {t}
               </span>
@@ -631,17 +659,17 @@ function IntelPanel({ paper, links, paperById, macroTheme, sx, sy, scale }) {
           </div>
         )}
         {paper.abstract && (
-          <div className="text-blue-200/50 leading-relaxed border-t border-amber-500/20 pt-2 mt-1"
+          <div className="text-slate-100/85 leading-relaxed border-t border-amber-500/20 pt-2 mt-1"
             style={{ fontSize: 9 }}>
             {paper.abstract.slice(0, 220)}…
           </div>
         )}
         {links.length > 0 && (
           <div className="flex gap-3 mt-2 pt-2 border-t border-amber-500/15" style={{ fontSize: 9 }}>
-            {strong > 0 && <span style={{ color: "#ffe066" }}>◆ {strong} strong</span>}
-            {moderate > 0 && <span style={{ color: "#ff8c00" }}>◆ {moderate} moderate</span>}
-            {weak > 0 && <span style={{ color: "#4d7fff" }}>◆ {weak} weak</span>}
-            {cross > 0 && <span style={{ color: "#ffa500" }}>◆ {cross} cross-cluster</span>}
+            {strong > 0 && <span style={{ color: "#ffe88a" }}>◆ {strong} strong</span>}
+            {moderate > 0 && <span style={{ color: "#ff9d2f" }}>◆ {moderate} moderate</span>}
+            {weak > 0 && <span style={{ color: "#6f8eff" }}>◆ {weak} weak</span>}
+            {cross > 0 && <span style={{ color: "#ffb74d" }}>◆ {cross} cross-cluster</span>}
           </div>
         )}
         {/* Cross-cluster connections section */}
@@ -661,21 +689,21 @@ function IntelPanel({ paper, links, paperById, macroTheme, sx, sy, scale }) {
           
           return (
             <div className="mt-2 pt-2 border-t border-orange-500/20">
-              <div className="text-[8px] text-orange-400/70 tracking-wider mb-1.5">
+              <div className="text-[8px] text-orange-300/75 tracking-wider mb-1.5">
                 ⟡ RELATED IN OTHER CLUSTERS
               </div>
               <div className="space-y-1">
                 {crossLinks.map(({ paper: p, score }, idx) => (
                   <div key={`${p.id ?? "paper"}-${score}-${idx}`} className="flex items-start gap-1.5">
-                    <span className="text-orange-400/50 text-[7px] shrink-0 mt-0.5">
+                    <span className="text-orange-300/55 text-[7px] shrink-0 mt-0.5">
                       {(score * 100).toFixed(0)}%
                     </span>
                     <div className="min-w-0">
-                      <div className="text-orange-200/70 text-[8px] leading-tight truncate">
+                      <div className="text-orange-100/85 text-[8px] leading-tight truncate">
                         {p.title}
                       </div>
                       {p.communityLabel && (
-                        <div className="text-orange-400/40 text-[7px] truncate">
+                        <div className="text-orange-200/50 text-[7px] truncate">
                           in {p.communityLabel}
                         </div>
                       )}
@@ -688,11 +716,11 @@ function IntelPanel({ paper, links, paperById, macroTheme, sx, sy, scale }) {
         })()}
       </div>
       <div className="flex items-center gap-1 mt-0.5 px-1">
-        <div className="h-px flex-1 bg-amber-500/25" />
-        <span className="text-amber-500/25 text-[7px] tracking-[0.3em]">
+        <div className="h-px flex-1 bg-amber-400/22" />
+        <span className="text-amber-200/30 text-[7px] tracking-[0.3em]">
           {paper.openAlexId?.split("/").at(-1) ?? ""}
         </span>
-        <div className="h-px flex-1 bg-amber-500/25" />
+        <div className="h-px flex-1 bg-amber-400/22" />
       </div>
     </div>
   );

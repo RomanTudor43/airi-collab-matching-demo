@@ -40,6 +40,18 @@ const seedFromId = (value) => {
   return hash >>> 0;
 };
 
+function drawTextWithHalo(ctx, text, x, y, font, fill, stroke = "rgba(3,7,15,0.95)", lineWidth = 4) {
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = font;
+  ctx.lineWidth = lineWidth;
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = stroke;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = fill;
+  ctx.fillText(text, x, y);
+}
+
 // ─── Layout macros in a nice spread ─────────────────────────────────────
 function layoutMacros(macros, w, h) {
   const PAD = 160;
@@ -427,26 +439,35 @@ export default function GalaxyClient({ macros, interLinks, crossClusterLinks = [
         const pos = positions[mi];
         const isHov = hoveredIdx === mi;
 
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-
         // Community name
-        ctx.font = `${isHov ? "bold " : ""}11px monospace`;
-        ctx.fillStyle = macro.color + (isHov ? "ee" : "aa");
         const label = macro.label.length > 32 ? macro.label.slice(0, 32) + "…" : macro.label;
-        ctx.fillText(label, pos.x, pos.y - 4);
+        drawTextWithHalo(
+          ctx,
+          label,
+          pos.x,
+          pos.y - 4,
+          `${isHov ? "bold " : ""}11px monospace`,
+          macro.color + (isHov ? "ff" : "cf"),
+          "rgba(3,7,15,0.96)",
+          isHov ? 4 : 3
+        );
 
         // Paper count
-        ctx.font = "9px monospace";
-        ctx.fillStyle = macro.color + "60";
-        ctx.fillText(`${macro.paperCount} papers`, pos.x, pos.y + 10);
+        drawTextWithHalo(
+          ctx,
+          `${macro.paperCount} papers`,
+          pos.x,
+          pos.y + 10,
+          "9px monospace",
+          macro.color + "96",
+          "rgba(3,7,15,0.96)",
+          2.5
+        );
 
         // Hover extras
         if (isHov && macro.topTopics?.length > 0) {
-          ctx.font = "8px monospace";
-          ctx.fillStyle = macro.color + "80";
           const topicLine = macro.topTopics.slice(0, 3).join(" · ");
-          ctx.fillText(topicLine, pos.x, pos.y + 22);
+          drawTextWithHalo(ctx, topicLine, pos.x, pos.y + 22, "8px monospace", macro.color + "b0", "rgba(3,7,15,0.96)", 2.2);
         }
       });
 
@@ -463,7 +484,7 @@ export default function GalaxyClient({ macros, interLinks, crossClusterLinks = [
   return (
     <div
       className="relative w-full h-screen overflow-hidden"
-      style={{ background: "#03070f" }}
+       style={{ background: "linear-gradient(180deg, #050915 0%, #03070f 52%, #02050b 100%)" }}
     >
       <canvas
         ref={canvasRef}
@@ -513,8 +534,8 @@ export default function GalaxyClient({ macros, interLinks, crossClusterLinks = [
         className="pointer-events-none absolute inset-0 z-10"
         style={{
           backgroundImage:
-            "repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px)",
-          mixBlendMode: "multiply",
+             "repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 6px)",
+           mixBlendMode: "soft-light",
         }}
       />
 
@@ -525,44 +546,44 @@ export default function GalaxyClient({ macros, interLinks, crossClusterLinks = [
         "bottom-3 left-3 border-b-2 border-l-2",
         "bottom-3 right-3 border-b-2 border-r-2",
       ].map((cls) => (
-        <div key={cls} aria-hidden className={`pointer-events-none absolute ${cls} border-amber-500/30 w-8 h-8 z-20`} />
+         <div key={cls} aria-hidden className={`pointer-events-none absolute ${cls} border-amber-400/35 w-8 h-8 z-20`} />
       ))}
 
       {/* Top-left HUD */}
-      <div className="pointer-events-none absolute top-5 left-6 z-20 font-mono">
+      <div className="pointer-events-none absolute top-5 left-6 z-20 rounded-2xl border px-3 py-2 font-mono" style={{ background: "rgba(4,10,20,0.5)", borderColor: "rgba(255,180,0,0.16)", backdropFilter: "blur(8px)" }}>
         <div className="text-amber-400 text-xs tracking-[0.25em] font-bold">
           ◈ GALACTIC RESEARCH INTELLIGENCE DIVISION
         </div>
-        <div className="text-amber-500/40 text-[10px] tracking-widest mt-0.5">
+        <div className="text-amber-300/65 text-[10px] tracking-widest mt-0.5">
           MACRO MAP &nbsp;·&nbsp; {macros.length} MACROS &nbsp;·&nbsp; {totalPapers} PAPERS
         </div>
       </div>
 
       {/* Top-right HUD */}
-      <div className="pointer-events-none absolute top-5 right-6 z-20 font-mono text-right">
-        <div className="text-amber-400/50 text-[10px] tracking-widest">AI RESEARCH INSTITUTE</div>
-        <div className="text-amber-500/25 text-[9px] tracking-widest mt-0.5">DEMOCRACY SCIENCE DIVISION</div>
+      <div className="pointer-events-none absolute top-5 right-6 z-20 rounded-2xl border px-3 py-2 font-mono text-right" style={{ background: "rgba(4,10,20,0.46)", borderColor: "rgba(255,180,0,0.14)", backdropFilter: "blur(8px)" }}>
+        <div className="text-amber-300/70 text-[10px] tracking-widest">AI RESEARCH INSTITUTE</div>
+        <div className="text-amber-200/45 text-[9px] tracking-widest mt-0.5">DEMOCRACY SCIENCE DIVISION</div>
       </div>
 
       {/* Bottom-right hint */}
-      <div className="pointer-events-none absolute bottom-6 right-5 z-20 font-mono text-[9px] text-amber-500/30 text-right tracking-widest">
+      <div className="pointer-events-none absolute bottom-6 right-5 z-20 rounded-2xl border px-3 py-2 font-mono text-[9px] text-right tracking-widest" style={{ color: "rgba(255,227,153,0.9)", background: "rgba(4,10,20,0.4)", borderColor: "rgba(255,180,0,0.14)", backdropFilter: "blur(8px)" }}>
         <div>CLICK MACRO TO EXPLORE</div>
         <div>HOVER FOR DETAILS</div>
       </div>
 
       {/* Bottom-left legend */}
-      <div className="pointer-events-none absolute bottom-6 left-5 z-20 font-mono text-[10px]">
-        <div className="text-amber-500/50 tracking-widest mb-2">MACROS</div>
+      <div className="pointer-events-none absolute bottom-6 left-5 z-20 rounded-2xl border px-3 py-2 font-mono text-[10px]" style={{ background: "rgba(4,10,20,0.46)", borderColor: "rgba(255,180,0,0.14)", backdropFilter: "blur(8px)" }}>
+        <div className="text-amber-300/65 tracking-widest mb-2">MACROS</div>
         {macros.slice(0, 8).map((macro, i) => (
           <div key={macro.id} className="flex items-center gap-2 mb-1">
             <div className="w-2 h-2 rounded-full" style={{ background: macro.color }} />
-            <span style={{ color: macro.color + "aa" }}>
+            <span style={{ color: macro.color + "cf", textShadow: "0 0 10px rgba(0,0,0,0.9)" }}>
               {macro.label.length > 24 ? macro.label.slice(0, 24) + "…" : macro.label}
             </span>
           </div>
         ))}
         {macros.length > 8 && (
-          <div className="text-amber-500/30 mt-1">+{macros.length - 8} more</div>
+          <div className="text-amber-200/35 mt-1">+{macros.length - 8} more</div>
         )}
       </div>
     </div>

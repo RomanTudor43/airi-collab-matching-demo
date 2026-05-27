@@ -100,9 +100,18 @@ function buildBiasedPositions(items, sideById) {
 
 // ─── Link visual style by score ──────────────────────────────────────────────
 function linkStyle(score) {
-  if (score >= 0.8) return { stroke: "#ffe066", width: 2.2, opacity: 0.85, dash: "none" };
-  if (score >= 0.65) return { stroke: "#ff8c00", width: 1.5, opacity: 0.7, dash: "none" };
-  return { stroke: "#4d7fff", width: 0.9, opacity: 0.45, dash: "none" };
+  if (score >= 0.8) return { stroke: "#ffe88a", width: 2.35, opacity: 0.95, dash: "none" };
+  if (score >= 0.65) return { stroke: "#ff9d2f", width: 1.7, opacity: 0.8, dash: "none" };
+  return { stroke: "#6f8eff", width: 1.05, opacity: 0.6, dash: "none" };
+}
+
+function textHaloStyle(strokeColor, strokeWidth = 2) {
+  return {
+    paintOrder: "stroke fill",
+    stroke: strokeColor,
+    strokeWidth,
+    strokeLinejoin: "round",
+  };
 }
 
 // ─── Grid lines ──────────────────────────────────────────────────────────────
@@ -281,7 +290,8 @@ export default function IntersectionGraphClient({
       className="relative w-full overflow-hidden select-none"
       style={{
         height: "100vh",
-        background: "#03070f",
+        background:
+          "radial-gradient(circle at 25% 18%, rgba(79,172,254,0.09), transparent 30%), radial-gradient(circle at 78% 24%, rgba(255,174,92,0.08), transparent 26%), linear-gradient(180deg, #050915 0%, #03070f 52%, #02050b 100%)",
         cursor: panning ? "grabbing" : "grab",
       }}
       onMouseDown={onMouseDown}
@@ -295,8 +305,8 @@ export default function IntersectionGraphClient({
         className="pointer-events-none absolute inset-0 z-20"
         style={{
           backgroundImage:
-            "repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.12) 2px,rgba(0,0,0,0.12) 4px)",
-          mixBlendMode: "multiply",
+            "repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 6px)",
+          mixBlendMode: "soft-light",
         }}
       />
 
@@ -307,29 +317,32 @@ export default function IntersectionGraphClient({
         "bottom-3 left-3 border-b-2 border-l-2",
         "bottom-3 right-3 border-b-2 border-r-2",
       ].map((cls) => (
-        <div key={cls} aria-hidden className={`pointer-events-none absolute ${cls} border-amber-500/30 w-8 h-8 z-30`} />
+        <div key={cls} aria-hidden className={`pointer-events-none absolute ${cls} border-amber-400/35 w-8 h-8 z-30`} />
       ))}
 
       {/* Back navigation */}
-      <div className="absolute top-4 left-5 z-40 flex items-center gap-3 font-mono text-[10px]">
+      <div
+        className="absolute top-4 left-5 z-40 flex items-center gap-3 rounded-full border px-3 py-2 font-mono text-[10px] backdrop-blur-md"
+        style={{ background: "rgba(4,10,20,0.72)", borderColor: "rgba(255,180,0,0.18)", boxShadow: "0 8px 30px rgba(0,0,0,0.32)" }}
+      >
         <Link
           href={`/research/paper-graph/${leftMacro?.slug}`}
-          className="text-amber-400 border border-amber-500/40 px-2 py-0.5 hover:bg-amber-500/20 transition-colors"
+          className="text-amber-300 border border-amber-500/30 px-2 py-0.5 hover:bg-amber-500/20 transition-colors"
         >
           ◂ BACK
         </Link>
         <Link
           href={`/research/paper-graph/${leftMacro?.slug}`}
           className="text-[10px] px-1.5 py-0.5 border border-transparent"
-          style={{ color: leftColor }}
+          style={{ color: leftColor, textShadow: "0 0 8px rgba(0,0,0,0.9)" }}
         >
           {leftMacro?.name || "Left"}
         </Link>
-        <span className="text-amber-500/40">×</span>
+        <span className="text-amber-400/45">×</span>
         <Link
           href={`/research/paper-graph/${rightMacro?.slug}`}
           className="text-[10px] px-1.5 py-0.5 border border-transparent"
-          style={{ color: rightColor }}
+          style={{ color: rightColor, textShadow: "0 0 8px rgba(0,0,0,0.9)" }}
         >
           {rightMacro?.name || "Right"}
         </Link>
@@ -337,40 +350,40 @@ export default function IntersectionGraphClient({
 
       {/* Side labels */}
       <div
-        className="pointer-events-none absolute left-4 top-1/2 z-30 -translate-y-1/2 font-mono text-[9px] tracking-[0.45em]"
-        style={{ color: leftColor, writingMode: "vertical-rl", textOrientation: "mixed" }}
+        className="pointer-events-none absolute left-4 top-1/2 z-30 -translate-y-1/2 rounded-full border px-2 py-3 font-mono text-[9px] tracking-[0.34em]"
+        style={{ color: leftColor, background: "rgba(4,10,20,0.38)", borderColor: "rgba(255,180,0,0.14)", writingMode: "vertical-rl", textOrientation: "mixed", textShadow: "0 0 12px rgba(0,0,0,0.9)" }}
       >
         {leftMacro?.name || "LEFT MACRO"}
       </div>
       <div
-        className="pointer-events-none absolute right-4 top-1/2 z-30 -translate-y-1/2 font-mono text-[9px] tracking-[0.45em] text-right"
-        style={{ color: rightColor, writingMode: "vertical-rl", textOrientation: "mixed" }}
+        className="pointer-events-none absolute right-4 top-1/2 z-30 -translate-y-1/2 rounded-full border px-2 py-3 font-mono text-[9px] tracking-[0.34em] text-right"
+        style={{ color: rightColor, background: "rgba(4,10,20,0.38)", borderColor: "rgba(255,180,0,0.14)", writingMode: "vertical-rl", textOrientation: "mixed", textShadow: "0 0 12px rgba(0,0,0,0.9)" }}
       >
         {rightMacro?.name || "RIGHT MACRO"}
       </div>
 
       {/* Top-left HUD */}
-      <div className="pointer-events-none absolute top-12 left-5 z-30 font-mono">
-        <div className="text-amber-400/50 text-[10px] tracking-widest">
+      <div className="pointer-events-none absolute top-14 left-5 z-30 rounded-2xl border px-3 py-2 font-mono" style={{ background: "rgba(4,10,20,0.54)", borderColor: "rgba(255,180,0,0.12)", backdropFilter: "blur(8px)", boxShadow: "0 8px 30px rgba(0,0,0,0.24)" }}>
+        <div className="text-amber-300/65 text-[10px] tracking-widest">
           {publications.length} PAPERS &nbsp;·&nbsp; {visibleLinks.length} LINKS
         </div>
-        <div className="mt-1 text-[9px] tracking-[0.22em]" style={{ color: leftColor }}>
+        <div className="mt-1 text-[9px] tracking-[0.22em]" style={{ color: leftColor, textShadow: "0 0 10px rgba(0,0,0,0.95)" }}>
           LEFT SIDE ▸ {leftMacro?.name || ""}
         </div>
-        <div className="mt-0.5 text-[9px] tracking-[0.22em]" style={{ color: rightColor }}>
+        <div className="mt-0.5 text-[9px] tracking-[0.22em]" style={{ color: rightColor, textShadow: "0 0 10px rgba(0,0,0,0.95)" }}>
           RIGHT SIDE ▸ {rightMacro?.name || ""}
         </div>
       </div>
 
       {/* Top-right HUD */}
-      <div className="pointer-events-none absolute top-4 right-5 z-30 font-mono text-right">
-        <div className="text-amber-400/50 text-[10px] tracking-widest">AI RESEARCH INSTITUTE</div>
-        <div className="text-amber-500/25 text-[9px] tracking-widest mt-0.5">DEMOCRACY SCIENCE DIVISION</div>
+      <div className="pointer-events-none absolute top-4 right-5 z-30 rounded-2xl border px-3 py-2 font-mono text-right" style={{ background: "rgba(4,10,20,0.5)", borderColor: "rgba(255,180,0,0.12)", backdropFilter: "blur(8px)" }}>
+        <div className="text-amber-300/65 text-[10px] tracking-widest">AI RESEARCH INSTITUTE</div>
+        <div className="text-amber-200/45 text-[9px] tracking-widest mt-0.5">DEMOCRACY SCIENCE DIVISION</div>
       </div>
 
       {/* Legend */}
-      <div className="pointer-events-none absolute bottom-6 left-5 z-30 font-mono text-[10px]">
-        <div className="text-amber-500/50 tracking-widest mb-2">LINK STRENGTH</div>
+      <div className="pointer-events-none absolute bottom-6 left-5 z-30 rounded-2xl border px-3 py-2 font-mono text-[10px]" style={{ background: "rgba(4,10,20,0.54)", borderColor: "rgba(255,180,0,0.12)", backdropFilter: "blur(8px)" }}>
+        <div className="text-amber-300/65 tracking-widest mb-2">LINK STRENGTH</div>
         {[
           { color: "#4d7fff", label: "WEAK   0.50–0.65", w: 1 },
           { color: "#ff8c00", label: "MODERATE  0.65–0.80", w: 2 },
@@ -380,7 +393,7 @@ export default function IntersectionGraphClient({
             <svg width="24" height={w + 4}>
               <line
                 x1="0" y1={(w + 4) / 2} x2="24" y2={(w + 4) / 2}
-                stroke={color} strokeWidth={w}
+                stroke={color} strokeWidth={w} strokeLinecap="round"
               />
             </svg>
             <span style={{ color }}>{label}</span>
@@ -389,7 +402,7 @@ export default function IntersectionGraphClient({
       </div>
 
       {/* Controls hint */}
-      <div className="pointer-events-none absolute bottom-6 right-5 z-30 font-mono text-[9px] text-amber-500/30 text-right tracking-widest">
+      <div className="pointer-events-none absolute bottom-6 right-5 z-30 rounded-2xl border px-3 py-2 font-mono text-[9px] text-right tracking-widest" style={{ background: "rgba(4,10,20,0.5)", borderColor: "rgba(255,180,0,0.12)", backdropFilter: "blur(8px)" }}>
         <div>SCROLL TO ZOOM</div>
         <div>DRAG TO PAN</div>
         <div>CLICK NODE TO OPEN PAGE</div>
@@ -398,15 +411,15 @@ export default function IntersectionGraphClient({
 
       {/* Filter controls */}
       <div
-        className="absolute bottom-20 right-5 z-40 font-mono text-[9px]"
+        className="absolute bottom-20 right-5 z-40 rounded-2xl border px-3 py-2 font-mono text-[9px]"
         style={{
-          background: "rgba(3,7,15,0.92)",
-          border: "1px solid rgba(255,180,0,0.25)",
-          padding: "10px 14px",
+          background: "rgba(4,10,20,0.78)",
+          border: "1px solid rgba(255,180,0,0.18)",
+          boxShadow: "0 8px 30px rgba(0,0,0,0.32)",
         }}
       >
-        <div className="text-amber-500/60 tracking-widest mb-2">FILTERS</div>
-        <label className="flex items-center gap-2 text-amber-400/70">
+        <div className="text-amber-300/65 tracking-widest mb-2">FILTERS</div>
+        <label className="flex items-center gap-2 text-amber-200/75">
           <span className="w-20">MIN SCORE</span>
           <input
             type="range" min="0.3" max="0.9" step="0.05"
@@ -414,7 +427,7 @@ export default function IntersectionGraphClient({
             onChange={(e) => setMinScore(parseFloat(e.target.value))}
             className="w-20 accent-amber-500"
           />
-          <span className="text-amber-300 w-8 text-right">{minScore.toFixed(2)}</span>
+          <span className="text-amber-100 w-8 text-right">{minScore.toFixed(2)}</span>
         </label>
       </div>
 
@@ -478,11 +491,11 @@ export default function IntersectionGraphClient({
 
         {GRID_COLS.map((x) => (
           <line key={`gc${x}`} x1={x} y1={0} x2={x} y2={MAP_H}
-            stroke="rgba(80,160,255,0.035)" strokeWidth="1" />
+            stroke="rgba(118,169,255,0.05)" strokeWidth="1" />
         ))}
         {GRID_ROWS.map((y) => (
           <line key={`gr${y}`} x1={0} y1={y} x2={MAP_W} y2={y}
-            stroke="rgba(80,160,255,0.035)" strokeWidth="1" />
+            stroke="rgba(118,169,255,0.05)" strokeWidth="1" />
         ))}
 
         <line
@@ -490,7 +503,7 @@ export default function IntersectionGraphClient({
           y1={80}
           x2={MAP_W / 2}
           y2={MAP_H - 80}
-          stroke="rgba(255,200,120,0.08)"
+          stroke="rgba(255,200,120,0.11)"
           strokeDasharray="8 10"
         />
 
@@ -510,6 +523,7 @@ export default function IntersectionGraphClient({
               strokeWidth={isActive ? width * 3 : width}
               strokeDasharray={dash}
               opacity={isDim ? 0.04 : isActive ? 1 : opacity}
+              strokeLinecap="round"
               style={{ transition: "opacity 0.18s, stroke-width 0.18s" }}
             />
           );
@@ -556,13 +570,13 @@ export default function IntersectionGraphClient({
                 stroke={sideColor}
                 strokeWidth={isHot ? 1.6 : 1.1}
                 strokeDasharray={isHot ? "none" : "5 4"}
-                opacity={isDim ? 0.08 : isHot ? 0.8 : isNear ? 0.55 : 0.25}
+                opacity={isDim ? 0.08 : isHot ? 0.9 : isNear ? 0.66 : 0.34}
                 style={{ transition: "all 0.2s" }}
               />
               <circle
                 r={r}
-                fill={isHot ? "#152540" : "#0a1a30"}
-                stroke={isHot ? "#ffe066" : isNear ? "#ff8c00" : "#1e4d80"}
+                fill={isHot ? "#162948" : "#0b1c34"}
+                stroke={isHot ? "#ffe066" : isNear ? "#ff9d2f" : "#244f85"}
                 strokeWidth={isHot ? 2.5 : 1.5}
                 opacity={isDim ? 0.15 : 1}
                 filter={isHot ? "url(#glow-hot)" : isNear ? "url(#glow)" : undefined}
@@ -573,8 +587,13 @@ export default function IntersectionGraphClient({
                 dominantBaseline="middle"
                 fontSize={9}
                 fontFamily="monospace"
-                fill={withAlpha(sideColor, isDim ? 0.2 : isHot ? 1 : 0.7)}
-                style={{ transition: "all 0.2s", userSelect: "none", pointerEvents: "none" }}
+                fill={isHot ? "#fff7cf" : isNear ? "#eef4ff" : withAlpha(sideColor, isDim ? 0.24 : 0.92)}
+                style={{
+                  ...textHaloStyle("rgba(3,7,15,0.95)", isHot ? 2.6 : 2.2),
+                  transition: "all 0.2s",
+                  userSelect: "none",
+                  pointerEvents: "none",
+                }}
               >
                 {paper.year ?? "?"}
               </text>
@@ -582,10 +601,15 @@ export default function IntersectionGraphClient({
                 <text
                   y={r + 13}
                   textAnchor="middle"
-                  fontSize={7}
+                  fontSize={7.25}
                   fontFamily="monospace"
-                  fill={withAlpha(sideColor, isDim ? 0.18 : isHot ? 0.85 : 0.55)}
-                  style={{ transition: "all 0.2s", userSelect: "none", pointerEvents: "none" }}
+                  fill={isHot ? "#fff3c2" : isNear ? "#eff5ff" : withAlpha(sideColor, isDim ? 0.22 : 0.78)}
+                  style={{
+                    ...textHaloStyle("rgba(3,7,15,0.95)", isHot ? 2.2 : 1.8),
+                    transition: "all 0.2s",
+                    userSelect: "none",
+                    pointerEvents: "none",
+                  }}
                 >
                   {(paper.title ?? "").slice(0, 24)}
                   {(paper.title ?? "").length > 24 ? "…" : ""}
@@ -632,18 +656,18 @@ function IntelPanel({ paper, links, paperById, sx, sy, scale }) {
   return (
     <div className="pointer-events-none absolute z-40 font-mono" style={{ left, top, width: panelW }}>
       <div className="flex items-center gap-1 mb-0.5 px-1">
-        <div className="h-px flex-1 bg-amber-500/40" />
-        <span className="text-amber-500/50 text-[8px] tracking-[0.3em]">INTEL</span>
-        <div className="h-px flex-1 bg-amber-500/40" />
+        <div className="h-px flex-1 bg-amber-400/45" />
+        <span className="text-amber-300/65 text-[8px] tracking-[0.3em]">INTEL</span>
+        <div className="h-px flex-1 bg-amber-400/45" />
       </div>
       <div style={{
-        background: "rgba(3,7,15,0.96)",
-        border: "1px solid rgba(255,180,0,0.35)",
-        boxShadow: "0 0 24px rgba(255,140,0,0.18), inset 0 0 18px rgba(255,140,0,0.04)",
+        background: "rgba(4,10,20,0.96)",
+        border: "1px solid rgba(255,180,0,0.28)",
+        boxShadow: "0 0 24px rgba(255,140,0,0.14), inset 0 0 18px rgba(255,140,0,0.04)",
         padding: "14px 16px",
       }}>
-        <div className="text-amber-300 text-[11px] font-bold leading-snug mb-2">{paper.title}</div>
-        <div className="flex gap-4 text-[10px] text-amber-500/60 tracking-wider mb-2">
+        <div className="text-amber-100 text-[11px] font-bold leading-snug mb-2" style={textHaloStyle("rgba(3,7,15,0.95)", 1.4)}>{paper.title}</div>
+        <div className="flex gap-4 text-[10px] text-amber-200/70 tracking-wider mb-2">
           {paper.year && <span>◈ {paper.year}</span>}
           {paper.cited_by != null && <span>⬡ {paper.cited_by} citations</span>}
           <span>⇌ {links.length} links</span>
@@ -651,7 +675,7 @@ function IntelPanel({ paper, links, paperById, sx, sy, scale }) {
         {paper.topics?.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
             {paper.topics.map((t, idx) => (
-              <span key={`${t}-${idx}`} className="text-amber-400/70 border border-amber-500/30 px-1.5 py-0.5"
+              <span key={`${t}-${idx}`} className="text-amber-200/80 border border-amber-500/28 px-1.5 py-0.5"
                 style={{ fontSize: 8, letterSpacing: "0.06em" }}>
                 {t}
               </span>
@@ -659,25 +683,25 @@ function IntelPanel({ paper, links, paperById, sx, sy, scale }) {
           </div>
         )}
         {paper.abstract && (
-          <div className="text-blue-200/50 leading-relaxed border-t border-amber-500/20 pt-2 mt-1"
+          <div className="text-slate-100/85 leading-relaxed border-t border-amber-500/18 pt-2 mt-1"
             style={{ fontSize: 9 }}>
             {paper.abstract.slice(0, 220)}…
           </div>
         )}
         {links.length > 0 && (
           <div className="flex gap-3 mt-2 pt-2 border-t border-amber-500/15" style={{ fontSize: 9 }}>
-            {strong > 0 && <span style={{ color: "#ffe066" }}>◆ {strong} strong</span>}
-            {moderate > 0 && <span style={{ color: "#ff8c00" }}>◆ {moderate} moderate</span>}
-            {weak > 0 && <span style={{ color: "#4d7fff" }}>◆ {weak} weak</span>}
+            {strong > 0 && <span style={{ color: "#ffe88a" }}>◆ {strong} strong</span>}
+            {moderate > 0 && <span style={{ color: "#ff9d2f" }}>◆ {moderate} moderate</span>}
+            {weak > 0 && <span style={{ color: "#6f8eff" }}>◆ {weak} weak</span>}
           </div>
         )}
       </div>
       <div className="flex items-center gap-1 mt-0.5 px-1">
-        <div className="h-px flex-1 bg-amber-500/25" />
-        <span className="text-amber-500/25 text-[7px] tracking-[0.3em]">
+        <div className="h-px flex-1 bg-amber-400/22" />
+        <span className="text-amber-200/30 text-[7px] tracking-[0.3em]">
           {paper.openAlexId?.split("/").at(-1) ?? ""}
         </span>
-        <div className="h-px flex-1 bg-amber-500/25" />
+        <div className="h-px flex-1 bg-amber-400/22" />
       </div>
     </div>
   );

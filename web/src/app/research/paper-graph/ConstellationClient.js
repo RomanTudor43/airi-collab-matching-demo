@@ -72,6 +72,18 @@ function layoutTopics(topics, w, h) {
   return positions;
 }
 
+function drawTextWithHalo(ctx, text, x, y, font, fill, stroke = "rgba(3,7,15,0.95)", lineWidth = 4) {
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = font;
+  ctx.lineWidth = lineWidth;
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = stroke;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = fill;
+  ctx.fillText(text, x, y);
+}
+
 export default function ConstellationClient({
   topics,
   mesoLinks = [],
@@ -245,7 +257,11 @@ export default function ConstellationClient({
       });
       const hasHighlight = highlightLinks.size > 0 || highlightNodes.size > 0;
 
-      ctx.fillStyle = "#03070f";
+      const bg = ctx.createLinearGradient(0, 0, 0, h);
+      bg.addColorStop(0, "#050915");
+      bg.addColorStop(0.52, "#03070f");
+      bg.addColorStop(1, "#02050b");
+      ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
 
       // Stars
@@ -260,7 +276,7 @@ export default function ConstellationClient({
       ctx.globalAlpha = 1;
 
       // Grid
-      ctx.strokeStyle = `${color}06`;
+      ctx.strokeStyle = `${color}0a`;
       ctx.lineWidth = 0.5;
       for (let x = 0; x < w; x += 180) {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
@@ -360,19 +376,31 @@ export default function ConstellationClient({
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
-        ctx.font = `${isH ? "bold 11px" : "10px"} monospace`;
-        ctx.fillStyle = color + (dimmed ? "55" : isH ? "ee" : isLinked ? "bb" : "90");
         const label = topic.label.length > 30 ? topic.label.slice(0, 30) + "…" : topic.label;
-        ctx.fillText(label, pos.x, pos.y - r - 10);
+        drawTextWithHalo(
+          ctx,
+          label,
+          pos.x,
+          pos.y - r - 10,
+          `${isH ? "bold 11px" : "10px"} monospace`,
+          color + (dimmed ? "70" : isH ? "ff" : isLinked ? "d8" : "b0"),
+          "rgba(3,7,15,0.96)",
+          isH ? 4 : 3
+        );
 
-        ctx.font = "8px monospace";
-        ctx.fillStyle = color + (dimmed ? "33" : "50");
-        ctx.fillText(`${topic.paperCount} papers`, pos.x, pos.y + r + 12);
+        drawTextWithHalo(
+          ctx,
+          `${topic.paperCount} papers`,
+          pos.x,
+          pos.y + r + 12,
+          "8px monospace",
+          color + (dimmed ? "55" : "88"),
+          "rgba(3,7,15,0.96)",
+          2.2
+        );
 
         if (isH && topic.yearRange) {
-          ctx.font = "8px monospace";
-          ctx.fillStyle = color + "70";
-          ctx.fillText(topic.yearRange, pos.x, pos.y + r + 24);
+          drawTextWithHalo(ctx, topic.yearRange, pos.x, pos.y + r + 24, "8px monospace", color + "aa", "rgba(3,7,15,0.96)", 2);
         }
       });
 
@@ -408,8 +436,8 @@ export default function ConstellationClient({
         className="pointer-events-none absolute inset-0 z-10"
         style={{
           backgroundImage:
-            "repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px)",
-          mixBlendMode: "multiply",
+            "repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 6px)",
+          mixBlendMode: "soft-light",
         }}
       />
 
@@ -420,28 +448,28 @@ export default function ConstellationClient({
         "bottom-3 left-3 border-b-2 border-l-2",
         "bottom-3 right-3 border-b-2 border-r-2",
       ].map((cls) => (
-        <div key={cls} aria-hidden className={`pointer-events-none absolute ${cls} w-8 h-8 z-20`} style={{ borderColor: color + "40" }} />
+        <div key={cls} aria-hidden className={`pointer-events-none absolute ${cls} w-8 h-8 z-20`} style={{ borderColor: color + "55" }} />
       ))}
 
       {/* Top-left HUD */}
-      <div className="pointer-events-none absolute top-5 left-6 z-20 font-mono">
+      <div className="pointer-events-none absolute top-5 left-6 z-20 rounded-2xl border px-3 py-2 font-mono" style={{ background: "rgba(4,10,20,0.5)", borderColor: `${color}22`, backdropFilter: "blur(8px)" }}>
         <a
           href="/research/paper-graph"
-          className="pointer-events-auto text-[10px] tracking-widest mb-2 inline-block transition-opacity opacity-50 hover:opacity-100"
-          style={{ color }}
+          className="pointer-events-auto text-[10px] tracking-widest mb-2 inline-block transition-opacity opacity-75 hover:opacity-100"
+          style={{ color, textShadow: "0 0 10px rgba(0,0,0,0.9)" }}
         >
           ◂ ALL MACROS
         </a>
-        <div className="text-xs tracking-[0.25em] font-bold" style={{ color }}>
+        <div className="text-xs tracking-[0.25em] font-bold" style={{ color, textShadow: "0 0 10px rgba(0,0,0,0.9)" }}>
           ◈ {communityLabel.toUpperCase()}
         </div>
-        <div className="text-[10px] tracking-widest mt-0.5" style={{ color: color + "50" }}>
+        <div className="text-[10px] tracking-widest mt-0.5" style={{ color: color + "85", textShadow: "0 0 10px rgba(0,0,0,0.85)" }}>
           CONSTELLATION &nbsp;·&nbsp; {topics.length} TOPICS &nbsp;·&nbsp; {totalPapers} PAPERS
         </div>
       </div>
 
       {/* Bottom-right hint */}
-      <div className="pointer-events-none absolute bottom-6 right-5 z-20 font-mono text-[9px] text-right tracking-widest" style={{ color: color + "35" }}>
+      <div className="pointer-events-none absolute bottom-6 right-5 z-20 rounded-2xl border px-3 py-2 font-mono text-[9px] text-right tracking-widest" style={{ color: color + "90", background: "rgba(4,10,20,0.4)", borderColor: `${color}1f`, backdropFilter: "blur(8px)" }}>
         <div>CLICK NODE TO VIEW GRAPH</div>
         <div>HOVER FOR DETAILS</div>
       </div>

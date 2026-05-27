@@ -85,6 +85,19 @@ function drawTextWithHalo(ctx, text, x, y, font, fill, stroke = "rgba(3,7,15,0.9
   ctx.fillText(text, x, y);
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function getVisibleGraphRect(tx, ty, scale, viewportW, viewportH) {
+  return {
+    left: clamp((-tx) / scale, 0, MAP_W),
+    top: clamp((-ty) / scale, 0, MAP_H),
+    right: clamp((viewportW - tx) / scale, 0, MAP_W),
+    bottom: clamp((viewportH - ty) / scale, 0, MAP_H),
+  };
+}
+
 // ─── Grid lines ──────────────────────────────────────────────────────────────
 const GRID_COLS = Array.from({ length: Math.ceil(MAP_W / 220) + 1 }, (_, i) => i * 220);
 const GRID_ROWS = Array.from({ length: Math.ceil(MAP_H / 220) + 1 }, (_, i) => i * 220);
@@ -176,7 +189,7 @@ export default function PaperGraphClient({
     const el = containerRef.current;
     if (!el) return;
     const { width: cw, height: ch } = el.getBoundingClientRect();
-    const s = Math.min(cw / MAP_W, ch / MAP_H) * 0.92;
+    const s = Math.min(cw / MAP_W, ch / MAP_H) * 1.14;
     setScale(s);
     setTx((cw - MAP_W * s) / 2);
     setTy((ch - MAP_H * s) / 2);
@@ -227,6 +240,32 @@ export default function PaperGraphClient({
     router.push(publication.publicationHref);
   }, [router]);
 
+  const onMinimapPointerDown = useCallback((e) => {
+    e.preventDefault();
+    const el = containerRef.current;
+    const mini = e.currentTarget;
+    if (!el || !mini) return;
+
+    const viewport = el.getBoundingClientRect();
+    const miniRect = mini.getBoundingClientRect();
+    const miniInner = {
+      left: 10,
+      top: 22,
+      width: miniRect.width - 20,
+      height: miniRect.height - 30,
+    };
+    const miniScale = Math.min(miniInner.width / MAP_W, miniInner.height / MAP_H);
+    const miniOffsetX = miniInner.left + (miniInner.width - MAP_W * miniScale) / 2;
+    const miniOffsetY = miniInner.top + (miniInner.height - MAP_H * miniScale) / 2;
+    const clickX = clamp(e.clientX - miniRect.left, miniOffsetX, miniOffsetX + MAP_W * miniScale);
+    const clickY = clamp(e.clientY - miniRect.top, miniOffsetY, miniOffsetY + MAP_H * miniScale);
+    const targetX = (clickX - miniOffsetX) / miniScale;
+    const targetY = (clickY - miniOffsetY) / miniScale;
+
+    setTx(viewport.width / 2 - targetX * scale);
+    setTy(viewport.height / 2 - targetY * scale);
+  }, [scale]);
+
   // ── Zoom on wheel ─────────────────────────────────────────────────────────
   useEffect(() => {
     const el = containerRef.current;
@@ -263,11 +302,32 @@ export default function PaperGraphClient({
 
   const hovLinks = tooltipData ? (linksByPaper[tooltipData.paper.id] ?? []) : [];
   const macroTheme = tooltipData?.paper?.graphMacroPrimary?.name || tooltipData?.paper?.graphMacroPrimary?.slug || '';
+  const viewportBox = containerRef.current?.getBoundingClientRect();
+  const visibleGraphRect = viewportBox
+    ? getVisibleGraphRect(tx, ty, scale, viewportBox.width, viewportBox.height)
+    : { left: 0, top: 0, right: MAP_W, bottom: MAP_H };
+  const minimapW = 188;
+  const minimapH = 118;
+  const minimapInner = {
+    left: 10,
+    top: 22,
+    width: minimapW - 20,
+    height: minimapH - 30,
+  };
+  const minimapScale = Math.min(minimapInner.width / MAP_W, minimapInner.height / MAP_H);
+  const minimapOffsetX = minimapInner.left + (minimapInner.width - MAP_W * minimapScale) / 2;
+  const minimapOffsetY = minimapInner.top + (minimapInner.height - MAP_H * minimapScale) / 2;
+  const minimapVisible = {
+    x: minimapOffsetX + visibleGraphRect.left * minimapScale,
+    y: minimapOffsetY + visibleGraphRect.top * minimapScale,
+    width: Math.max(2, (visibleGraphRect.right - visibleGraphRect.left) * minimapScale),
+    height: Math.max(2, (visibleGraphRect.bottom - visibleGraphRect.top) * minimapScale),
+  };
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden select-none"
+      className="relative w-full overflow-hidden select-none overscroll-none"
       style={{
         height: "100vh",
         background: "linear-gradient(180deg, #050915 0%, #03070f 52%, #02050b 100%)",
@@ -286,6 +346,15 @@ export default function PaperGraphClient({
           backgroundImage:
             "repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 6px)",
           mixBlendMode: "soft-light",
+        }}
+      />
+
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-10"
+        style={{
+          background:
+            "radial-gradient(circle at 50% 42%, rgba(255,255,255,0.02), rgba(255,255,255,0) 28%), radial-gradient(circle at 50% 50%, rgba(2,5,11,0) 48%, rgba(2,5,11,0.25) 74%, rgba(2,5,11,0.78) 100%)",
         }}
       />
 
@@ -333,6 +402,58 @@ export default function PaperGraphClient({
         <div className="text-amber-200/45 text-[9px] tracking-widest mt-0.5">DEMOCRACY SCIENCE DIVISION</div>
       </div>
 
+      {/* Minimap */}
+      <div
+        className="absolute top-24 right-5 z-30 w-[188px] rounded-2xl border px-2 py-2 font-mono"
+        style={{ background: "rgba(4,10,20,0.66)", borderColor: "rgba(255,180,0,0.14)", backdropFilter: "blur(10px)", boxShadow: "0 12px 30px rgba(0,0,0,0.3)" }}
+        onPointerDown={onMinimapPointerDown}
+      >
+        <div className="px-1 pb-1 text-[8px] tracking-[0.32em] text-amber-300/60">OVERVIEW</div>
+        <svg width={minimapW} height={minimapH} viewBox={`0 0 ${minimapW} ${minimapH}`} className="block overflow-visible">
+          <defs>
+            <linearGradient id="minimap-bg" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#07101d" />
+              <stop offset="100%" stopColor="#03070f" />
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width={minimapW} height={minimapH} rx="14" fill="url(#minimap-bg)" stroke="rgba(255,180,0,0.1)" />
+          <rect x={minimapInner.left} y={minimapInner.top} width={minimapInner.width} height={minimapInner.height} rx="10" fill="rgba(255,255,255,0.015)" stroke="rgba(118,169,255,0.08)" />
+          <line
+            x1={minimapOffsetX + (MAP_W / 2) * minimapScale}
+            y1={minimapOffsetY}
+            x2={minimapOffsetX + (MAP_W / 2) * minimapScale}
+            y2={minimapOffsetY + MAP_H * minimapScale}
+            stroke="rgba(255,200,120,0.18)"
+            strokeDasharray="4 5"
+          />
+          {papers.map((paper) => {
+            const pos = paperPositions[paper.id];
+            if (!pos) return null;
+            return (
+              <circle
+                key={`mini-${paper.id}`}
+                cx={minimapOffsetX + pos.x * minimapScale}
+                cy={minimapOffsetY + pos.y * minimapScale}
+                r={Math.max(0.8, Math.min(2.1, nodeRadius(paper) * 0.1))}
+                fill={accentColor}
+                fillOpacity="0.72"
+              />
+            );
+          })}
+          <rect
+            x={minimapVisible.x}
+            y={minimapVisible.y}
+            width={minimapVisible.width}
+            height={minimapVisible.height}
+            rx="4"
+            fill="rgba(255,227,153,0.08)"
+            stroke="rgba(255,227,153,0.9)"
+            strokeWidth="1.2"
+          />
+        </svg>
+        <div className="mt-1 px-1 text-[7px] tracking-[0.22em] text-amber-200/35">CLICK TO RECENTER</div>
+      </div>
+
       {/* Legend */}
       <div className="pointer-events-none absolute bottom-6 left-5 z-30 rounded-2xl border px-3 py-2 font-mono text-[10px]" style={{ background: "rgba(4,10,20,0.46)", borderColor: "rgba(255,180,0,0.14)", backdropFilter: "blur(8px)" }}>
         <div className="text-amber-300/65 tracking-widest mb-2">LINK STRENGTH</div>
@@ -365,11 +486,15 @@ export default function PaperGraphClient({
 
       {/* Filter controls */}
       <div
-        className="absolute bottom-20 right-5 z-40 rounded-2xl border px-3 py-2 font-mono text-[9px]"
+        className="absolute bottom-28 right-5 z-40 rounded-2xl border px-3 py-2 font-mono text-[9px]"
         style={{
           background: "rgba(4,10,20,0.78)",
           border: "1px solid rgba(255,180,0,0.18)",
           boxShadow: "0 8px 30px rgba(0,0,0,0.32)",
+        }}
+        onWheelCapture={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
         }}
       >
         <div className="text-amber-300/65 tracking-widest mb-2">FILTERS</div>
@@ -532,13 +657,13 @@ export default function PaperGraphClient({
               <text
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize={9}
+                fontSize={10.8}
                 fontFamily="monospace"
                 fill={isDim ? "#ffffff1a" : isHot ? "#fff2b8" : "#8ab4ea"}
                 style={{
                   paintOrder: "stroke fill",
                   stroke: "rgba(3,7,15,0.95)",
-                  strokeWidth: isHot ? 2.6 : 2.2,
+                  strokeWidth: isHot ? 2.8 : 2.4,
                   strokeLinejoin: "round",
                   transition: "all 0.2s",
                   userSelect: "none",
@@ -549,15 +674,15 @@ export default function PaperGraphClient({
               </text>
               {showLabel && (
                 <text
-                  y={r + 13}
+                  y={r + 15}
                   textAnchor="middle"
-                  fontSize={7.15}
+                  fontSize={8.9}
                   fontFamily="monospace"
                   fill={isDim ? "#ffffff12" : isHot ? "#fff3c4" : "#c3d4ef"}
                   style={{
                     paintOrder: "stroke fill",
                     stroke: "rgba(3,7,15,0.95)",
-                    strokeWidth: isHot ? 2.2 : 1.8,
+                    strokeWidth: isHot ? 2.4 : 2.05,
                     strokeLinejoin: "round",
                     transition: "all 0.2s",
                     userSelect: "none",

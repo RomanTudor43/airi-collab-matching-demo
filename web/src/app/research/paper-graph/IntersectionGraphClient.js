@@ -150,6 +150,9 @@ export default function IntersectionGraphClient({
   const [panning, setPanning] = useState(false);
   const panOrigin = useRef(null);
   const [hovered, setHovered] = useState(null);
+  const txRef = useRef(0);
+  const tyRef = useRef(0);
+  const scaleRef = useRef(1);
 
   const sideById = useMemo(() => {
     const map = {};
@@ -206,29 +209,43 @@ export default function IntersectionGraphClient({
     return s;
   }, [hovered, linksByPaper]);
 
+  const setCamera = useCallback((nextTx, nextTy, nextScale) => {
+    txRef.current = nextTx;
+    tyRef.current = nextTy;
+    scaleRef.current = nextScale;
+    setTx(nextTx);
+    setTy(nextTy);
+    setScale(nextScale);
+  }, []);
+
+  useEffect(() => { txRef.current = tx; }, [tx]);
+  useEffect(() => { tyRef.current = ty; }, [ty]);
+  useEffect(() => { scaleRef.current = scale; }, [scale]);
+
   const fitToScreen = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
     const { width: cw, height: ch } = el.getBoundingClientRect();
     const s = Math.min(cw / MAP_W, ch / MAP_H) * 1.08;
-    setScale(s);
-    setTx((cw - MAP_W * s) / 2);
-    setTy((ch - MAP_H * s) / 2);
-  }, []);
+    setCamera((cw - MAP_W * s) / 2, (ch - MAP_H * s) / 2, s);
+  }, [setCamera]);
   useEffect(() => { fitToScreen(); }, [fitToScreen]);
 
   const onMouseDown = useCallback((e) => {
     if (e.button !== 0) return;
     if (e.target.closest("[data-node]")) return;
     setPanning(true);
-    panOrigin.current = { mx: e.clientX, my: e.clientY, tx, ty };
-  }, [tx, ty]);
+    panOrigin.current = { mx: e.clientX, my: e.clientY, tx: txRef.current, ty: tyRef.current };
+  }, []);
 
   const onMouseMove = useCallback((e) => {
     if (!panning || !panOrigin.current) return;
-    setTx(panOrigin.current.tx + e.clientX - panOrigin.current.mx);
-    setTy(panOrigin.current.ty + e.clientY - panOrigin.current.my);
-  }, [panning]);
+    setCamera(
+      panOrigin.current.tx + e.clientX - panOrigin.current.mx,
+      panOrigin.current.ty + e.clientY - panOrigin.current.my,
+      scaleRef.current
+    );
+  }, [panning, setCamera]);
 
   const onMouseUp = useCallback(() => {
     setPanning(false);
@@ -282,9 +299,9 @@ export default function IntersectionGraphClient({
     const targetX = (clickX - miniOffsetX) / miniScale;
     const targetY = (clickY - miniOffsetY) / miniScale;
 
-    setTx(viewport.width / 2 - targetX * scale);
-    setTy(viewport.height / 2 - targetY * scale);
-  }, [scale]);
+    const currentScale = scaleRef.current;
+    setCamera(viewport.width / 2 - targetX * currentScale, viewport.height / 2 - targetY * currentScale, currentScale);
+  }, [setCamera]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -295,12 +312,11 @@ export default function IntersectionGraphClient({
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
       const factor = e.deltaY < 0 ? 1.12 : 0.89;
-      setScale((s) => {
-        const next = Math.max(0.2, Math.min(4, s * factor));
-        setTx((t) => mx - (mx - t) * (next / s));
-        setTy((t) => my - (my - t) * (next / s));
-        return next;
-      });
+      const currentScale = scaleRef.current;
+      const nextScale = Math.max(0.2, Math.min(4, currentScale * factor));
+      const nextTx = mx - (mx - txRef.current) * (nextScale / currentScale);
+      const nextTy = my - (my - tyRef.current) * (nextScale / currentScale);
+      setCamera(nextTx, nextTy, nextScale);
     };
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);

@@ -27,9 +27,10 @@ const sortMacros = (a, b) => {
 };
 
 export default async function PaperGraphPage() {
-  const [macrosRaw, publicationsRaw] = await Promise.all([
+  const [macrosRaw, publicationsRaw, linksRaw] = await Promise.all([
     getGraphMacros(),
     getGraphPublications(),
+    getGraphLinks(),
   ]);
   const macros = transformGraphMacroData(macrosRaw).filter((macro) => macro.isActive !== false);
   const publications = transformGraphPublicationData(publicationsRaw);
@@ -74,16 +75,15 @@ export default async function PaperGraphPage() {
     if (p.openAlexId) oaToIdMap[p.openAlexId] = p.id;
     publicationById[p.id] = p;
   });
-  
-  const linksRaw = await getGraphLinks();
+
   const links = transformGraphLinkData(linksRaw, oaToIdMap);
-  
+
   const publicationMacro = {};
   publications.forEach((p) => {
     const macroSlug = p.graphMacroPrimary?.slug;
     if (macroSlug) publicationMacro[p.id] = macroSlug;
   });
-  
+
   // Build inter-macro link summary (macro-to-macro counts)
   const bridgeMap = {};
   links.forEach((l) => {

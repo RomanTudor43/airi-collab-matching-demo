@@ -167,10 +167,15 @@ const appendFilters = (params, value, prefix = 'filters') => {
     if (val === undefined || val === null || val === '') return;
     const nextPrefix = `${prefix}[${key}]`;
     if (Array.isArray(val)) {
-      val.forEach((entry) => {
-        if (entry !== undefined && entry !== null && entry !== '') {
-          params.append(nextPrefix, entry);
+      val.forEach((entry, index) => {
+        if (entry === undefined || entry === null || entry === '') return;
+
+        if (typeof entry === 'object') {
+          appendFilters(params, entry, `${nextPrefix}[${index}]`);
+          return;
         }
+
+        params.append(nextPrefix, entry);
       });
       return;
     }

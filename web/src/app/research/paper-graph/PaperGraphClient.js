@@ -269,7 +269,7 @@ export default function PaperGraphClient({
       ref={containerRef}
       className="relative w-full overflow-hidden select-none"
       style={{
-        height: "calc(100vh - 4rem)",
+        height: "100vh",
         background: "linear-gradient(180deg, #050915 0%, #03070f 52%, #02050b 100%)",
         cursor: panning ? "grabbing" : "grab",
       }}

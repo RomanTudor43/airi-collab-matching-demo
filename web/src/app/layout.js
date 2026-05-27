@@ -1,10 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import DarkModeBubble from "@/components/DarkModeBubble";
 import ThemeProvider from "@/components/ThemeProvider";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
+import RouteShell from "@/components/RouteShell";
 import { JsonLd, organizationJsonLd, websiteJsonLd } from "@/lib/jsonld";
 
 // 1. Import next-intl requirements
@@ -98,12 +95,7 @@ export default async function RootLayout({ children }) {
         {/* 5. Wrap the app with NextIntlClientProvider from localization branch */}
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider>
-            <Navbar />
-            <main className="flex-grow">
-              {children}
-            </main>
-            <DarkModeBubble />
-            <Footer />
+            <RouteShell>{children}</RouteShell>
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>

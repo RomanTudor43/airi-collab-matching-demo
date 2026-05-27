@@ -130,7 +130,7 @@ export default async function PaperGraphPage() {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ background: "#03070f" }}>
         <div className="font-mono text-amber-500/40 text-sm">
-          No macro data yet. Run the paper-sync script to assign macro tags.
+          Graph not initialized yet. Please check back later. Greatness awaits...
         </div>
       </main>
     );

@@ -412,7 +412,7 @@ export default function PaperGraphClient({
       {/* Top-right HUD */}
       <div className="pointer-events-none absolute top-4 right-5 z-30 rounded-2xl border px-3 py-2 font-mono text-right" style={{ background: "rgba(4,10,20,0.46)", borderColor: "rgba(255,180,0,0.12)", backdropFilter: "blur(8px)" }}>
         <div className="text-amber-300/65 text-[10px] tracking-widest">AI RESEARCH INSTITUTE</div>
-        <div className="text-amber-200/45 text-[9px] tracking-widest mt-0.5">DEMOCRACY SCIENCE DIVISION</div>
+        <div className="text-amber-200/45 text-[9px] tracking-widest mt-0.5">SCIENCE DIVISION</div>
       </div>
 
       {/* Minimap */}

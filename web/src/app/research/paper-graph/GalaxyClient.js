@@ -562,7 +562,7 @@ export default function GalaxyClient({ macros, interLinks, crossClusterLinks = [
       {/* Top-right HUD */}
       <div className="pointer-events-none absolute top-5 right-6 z-20 rounded-2xl border px-3 py-2 font-mono text-right" style={{ background: "rgba(4,10,20,0.46)", borderColor: "rgba(255,180,0,0.14)", backdropFilter: "blur(8px)" }}>
         <div className="text-amber-300/70 text-[10px] tracking-widest">AI RESEARCH INSTITUTE</div>
-        <div className="text-amber-200/45 text-[9px] tracking-widest mt-0.5">DEMOCRACY SCIENCE DIVISION</div>
+        <div className="text-amber-200/45 text-[9px] tracking-widest mt-0.5">EXPERIMENTAL</div>
       </div>
 
       {/* Bottom-right hint */}

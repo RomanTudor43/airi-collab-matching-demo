@@ -458,7 +458,7 @@ class StrapiClient:
         for person in people: 
             attributes = person.get("attributes", person)
             import_eligible = attributes.get("importEligible")
-            if import_eligible == False:
+            if import_eligible is not True:
                 continue
 
             document_id = person.get("documentId") or person.get("id")

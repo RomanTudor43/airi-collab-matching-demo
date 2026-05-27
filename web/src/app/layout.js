@@ -1,11 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import DarkModeBubble from "@/components/DarkModeBubble";
 import ThemeProvider from "@/components/ThemeProvider";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
-import Script from "next/script";
+import RouteShell from "@/components/RouteShell";
 import { JsonLd, organizationJsonLd, websiteJsonLd } from "@/lib/jsonld";
 
 // 1. Import next-intl requirements
@@ -77,17 +73,20 @@ export default async function RootLayout({ children }) {
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <body className="antialiased min-h-screen flex flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-        <Script id="theme-init" strategy="beforeInteractive">
-          {`
-            try {
-              const stored = localStorage.getItem('theme');
-              const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-              const isDark = stored ? stored === 'dark' : prefersDark;
-              document.documentElement.classList.toggle('dark', isDark);
-              document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
-            } catch (e) {}
-          `}
-        </Script>
+        <script
+          id="theme-init"
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const stored = localStorage.getItem('theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const isDark = stored ? stored === 'dark' : prefersDark;
+                document.documentElement.classList.toggle('dark', isDark);
+                document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+              } catch (e) {}
+            `,
+          }}
+        />
 
         {/* Structured Data for SEO from master branch */}
         <JsonLd data={organizationJsonLd()} />
@@ -96,12 +95,7 @@ export default async function RootLayout({ children }) {
         {/* 5. Wrap the app with NextIntlClientProvider from localization branch */}
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider>
-            <Navbar />
-            <main className="flex-grow">
-              {children}
-            </main>
-            <DarkModeBubble />
-            <Footer />
+            <RouteShell>{children}</RouteShell>
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>

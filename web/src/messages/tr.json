@@ -30,7 +30,8 @@
       "projects": "Projeler",
       "publications": "Yayınlar",
       "thesis": "Tezler",
-      "resources": "Kaynaklar"
+      "resources": "Kaynaklar",
+      "paperGraph": "Paper Graph"
     },
     "newsMenu": {
       "news": "Haberler",
@@ -982,6 +983,7 @@
       "phases": {
         "ongoing": "Devam Ediyor",
         "planned": "Planlanan",
+        "ended": "Sona erdi",
         "completed": "Tamamlandı",
         "archived": "Arşivlendi"
       },

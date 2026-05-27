@@ -30,7 +30,8 @@
       "projects": "Proiecte",
       "publications": "Publicații",
       "thesis": "Teze",
-      "resources": "Resurse"
+      "resources": "Resurse",
+      "paperGraph": "Paper Graph"
     },
     "newsMenu": {
       "news": "Știri",
@@ -994,6 +995,7 @@
       "phases": {
         "ongoing": "În desfășurare",
         "planned": "Planificat",
+        "ended": "Încheiat",
         "completed": "Finalizat",
         "archived": "Arhivat"
       },

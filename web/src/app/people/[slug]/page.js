@@ -20,6 +20,8 @@ import {
   transformStaffData,
   transformPublicationData,
 } from "@/lib/strapi";
+import { normalizePublicationSourceKind } from "@/lib/publication";
+import { getProjectPhase } from "@/lib/projectPhase";
 import StaffDetailClient from "./StaffDetailClient";
 import { JsonLd, personJsonLd } from "@/lib/jsonld";
 
@@ -108,7 +110,12 @@ export default async function PersonDetailPage({ params }) {
     const projects = Array.isArray(t.projects?.data ?? t.projects)
       ? (t.projects?.data ?? t.projects).map((proj) => {
           const pAttr = proj?.attributes ?? proj ?? {};
-          return { slug: pAttr.slug || '', title: pAttr.title || '', phase: pAttr.phase || '' };
+          const phase = getProjectPhase(pAttr.startDate, pAttr.endDate).status;
+          return {
+            slug: pAttr.slug || '',
+            title: pAttr.title || '',
+            phase: phase === 'unknown' ? '' : phase,
+          };
         })
       : [];
     return {
@@ -128,6 +135,9 @@ export default async function PersonDetailPage({ params }) {
     slug: pub.slug || "",
     title: pub.title || "",
     year: pub.year ?? null,
+    sourceKind: normalizePublicationSourceKind(pub.sourceKind, pub.openAlexId),
+    openAlexId: pub.openAlexId || "",
+    doi: pub.doi || "",
     domain: pub.domain || "",
     kind: pub.kind || "",
     description: pub.description || "",

@@ -20,11 +20,67 @@
       "type": "uid",
       "targetField": "title"
     },
+    "openAlexId": {
+      "type": "string",
+      "unique": true
+    },
+    "sourceKind": {
+      "type": "enumeration",
+      "default": "manual",
+      "enum": [
+        "manual",
+        "openAlexAutomated"
+      ]
+    },
+    "graphEligible": {
+      "type": "boolean",
+      "default": false
+    },
+    "doi": {
+      "type": "string"
+    },
     "year": {
       "type": "integer"
     },
     "kind": {
       "type": "string"
+    },
+    "cited_by": {
+      "type": "integer",
+      "default": 0
+    },
+    "abstract": {
+      "type": "text"
+    },
+    "topics": {
+      "type": "json"
+    },
+    "community": {
+      "type": "integer"
+    },
+    "communityLabel": {
+      "type": "string"
+    },
+    "secondaryClusters": {
+      "type": "json"
+    },
+    "lastImportedAt": {
+      "type": "datetime"
+    },
+    "lastGraphIndexedAt": {
+      "type": "datetime"
+    },
+    "embeddingModel": {
+      "type": "string"
+    },
+    "embeddingUpdatedAt": {
+      "type": "datetime"
+    },
+    "embeddingSourceHash": {
+      "type": "string"
+    },
+    "embedding": {
+      "type": "json"
     },
     "description": {
       "type": "richtext"
@@ -59,6 +115,9 @@
     "metadata": {
       "type": "json"
     },
+    "rawImportMetadata": {
+      "type": "json"
+    },
     "domain": {
       "type": "relation",
       "relation": "manyToOne",
@@ -87,6 +146,42 @@
       "type": "relation",
       "relation": "manyToMany",
       "target": "api::resource.resource"
+    },
+    "outgoingGraphLinks": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::graph-link.graph-link",
+      "mappedBy": "source"
+    },
+    "incomingGraphLinks": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::graph-link.graph-link",
+      "mappedBy": "target"
+    },
+    "graphMacroPrimary": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::graph-macro.graph-macro",
+      "inversedBy": "publicationsPrimary"
+    },
+    "graphMacroTags": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::graph-macro.graph-macro",
+      "mappedBy": "publicationsTagged"
+    },
+    "graphMesoPrimary": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::graph-meso.graph-meso",
+      "inversedBy": "publicationsPrimary"
+    },
+    "graphMesoTags": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::graph-meso.graph-meso",
+      "mappedBy": "publications"
     }
   }
 }

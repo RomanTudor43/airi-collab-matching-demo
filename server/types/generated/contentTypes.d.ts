@@ -26,11 +26,6 @@ export interface AdminApiToken extends Struct.CollectionTypeSchema {
       Schema.Attribute.SetMinMaxLength<{
         minLength: 1;
       }>;
-    adminPermissions: Schema.Attribute.Relation<
-      'oneToMany',
-      'admin::permission'
-    >;
-    adminUserOwner: Schema.Attribute.Relation<'manyToOne', 'admin::user'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -44,9 +39,6 @@ export interface AdminApiToken extends Struct.CollectionTypeSchema {
         minLength: 1;
       }>;
     expiresAt: Schema.Attribute.DateTime;
-    kind: Schema.Attribute.Enumeration<['content-api', 'admin']> &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'content-api'>;
     lastUsedAt: Schema.Attribute.DateTime;
     lifespan: Schema.Attribute.BigInteger;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
@@ -64,6 +56,7 @@ export interface AdminApiToken extends Struct.CollectionTypeSchema {
     >;
     publishedAt: Schema.Attribute.DateTime;
     type: Schema.Attribute.Enumeration<['read-only', 'full-access', 'custom']> &
+      Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'read-only'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -141,7 +134,6 @@ export interface AdminPermission extends Struct.CollectionTypeSchema {
         minLength: 1;
       }>;
     actionParameters: Schema.Attribute.JSON & Schema.Attribute.DefaultTo<{}>;
-    apiToken: Schema.Attribute.Relation<'manyToOne', 'admin::api-token'>;
     conditions: Schema.Attribute.JSON & Schema.Attribute.DefaultTo<[]>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -393,8 +385,6 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
     };
   };
   attributes: {
-    apiTokens: Schema.Attribute.Relation<'oneToMany', 'admin::api-token'> &
-      Schema.Attribute.Private;
     blocked: Schema.Attribute.Boolean &
       Schema.Attribute.Private &
       Schema.Attribute.DefaultTo<false>;
@@ -605,6 +595,135 @@ export interface ApiGlobalGlobal extends Struct.SingleTypeSchema {
   };
 }
 
+export interface ApiGraphLinkGraphLink extends Struct.CollectionTypeSchema {
+  collectionName: 'graph_links';
+  info: {
+    displayName: 'GraphLink';
+    pluralName: 'graph-links';
+    singularName: 'graph-link';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    isCrossCluster: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::graph-link.graph-link'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    score: Schema.Attribute.Decimal;
+    source: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::publication.publication'
+    >;
+    target: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::publication.publication'
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiGraphMacroGraphMacro extends Struct.CollectionTypeSchema {
+  collectionName: 'graph_macros';
+  info: {
+    displayName: 'GraphMacro';
+    pluralName: 'graph-macros';
+    singularName: 'graph-macro';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Blocks;
+    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    keywords: Schema.Attribute.Text & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::graph-macro.graph-macro'
+    > &
+      Schema.Attribute.Private;
+    mesos: Schema.Attribute.Relation<'oneToMany', 'api::graph-meso.graph-meso'>;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    publicationsPrimary: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::publication.publication'
+    >;
+    publicationsTagged: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::publication.publication'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    sortOrder: Schema.Attribute.Integer;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiGraphMesoGraphMeso extends Struct.CollectionTypeSchema {
+  collectionName: 'graph_mesos';
+  info: {
+    displayName: 'GraphMeso';
+    pluralName: 'graph-mesos';
+    singularName: 'graph-meso';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Blocks;
+    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    keywords: Schema.Attribute.Text;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::graph-meso.graph-meso'
+    > &
+      Schema.Attribute.Private;
+    macro: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::graph-macro.graph-macro'
+    >;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    publications: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::publication.publication'
+    >;
+    publicationsPrimary: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::publication.publication'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    sortOrder: Schema.Attribute.Integer;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiNewsArticleNewsArticle extends Struct.CollectionTypeSchema {
   collectionName: 'news_articles';
   info: {
@@ -748,6 +867,8 @@ export interface ApiPersonPerson extends Struct.CollectionTypeSchema {
         minLength: 2;
       }>;
     fullName: Schema.Attribute.String & Schema.Attribute.Unique;
+    importEligible: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
     lastName: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMaxLength<{
@@ -888,21 +1009,53 @@ export interface ApiPublicationPublication extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    abstract: Schema.Attribute.Text;
     attachments: Schema.Attribute.Media<
       'files' | 'images' | 'videos' | 'audios',
       true
     >;
     authors: Schema.Attribute.Relation<'manyToMany', 'api::person.person'>;
     bibFile: Schema.Attribute.Media<'files'>;
+    cited_by: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    community: Schema.Attribute.Integer;
+    communityLabel: Schema.Attribute.String;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     description: Schema.Attribute.RichText;
+    doi: Schema.Attribute.String;
     domain: Schema.Attribute.Relation<
       'manyToOne',
       'api::department.department'
     >;
+    embedding: Schema.Attribute.JSON;
+    embeddingModel: Schema.Attribute.String;
+    embeddingSourceHash: Schema.Attribute.String;
+    embeddingUpdatedAt: Schema.Attribute.DateTime;
+    graphEligible: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    graphMacroPrimary: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::graph-macro.graph-macro'
+    >;
+    graphMacroTags: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::graph-macro.graph-macro'
+    >;
+    graphMesoPrimary: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::graph-meso.graph-meso'
+    >;
+    graphMesoTags: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::graph-meso.graph-meso'
+    >;
+    incomingGraphLinks: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::graph-link.graph-link'
+    >;
     kind: Schema.Attribute.String;
+    lastGraphIndexedAt: Schema.Attribute.DateTime;
+    lastImportedAt: Schema.Attribute.DateTime;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -910,14 +1063,23 @@ export interface ApiPublicationPublication extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     metadata: Schema.Attribute.JSON;
+    openAlexId: Schema.Attribute.String & Schema.Attribute.Unique;
+    outgoingGraphLinks: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::graph-link.graph-link'
+    >;
     pdfFile: Schema.Attribute.Media<'files'>;
     projects: Schema.Attribute.Relation<'manyToMany', 'api::project.project'>;
     publishedAt: Schema.Attribute.DateTime;
+    rawImportMetadata: Schema.Attribute.JSON;
     resources: Schema.Attribute.Relation<
       'manyToMany',
       'api::resource.resource'
     >;
+    secondaryClusters: Schema.Attribute.JSON;
     slug: Schema.Attribute.UID<'title'>;
+    sourceKind: Schema.Attribute.Enumeration<['manual', 'openAlexAutomated']> &
+      Schema.Attribute.DefaultTo<'manual'>;
     themes: Schema.Attribute.Relation<
       'manyToMany',
       'api::research-theme.research-theme'
@@ -925,6 +1087,7 @@ export interface ApiPublicationPublication extends Struct.CollectionTypeSchema {
     title: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
+    topics: Schema.Attribute.JSON;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1673,6 +1836,9 @@ declare module '@strapi/strapi' {
       'api::department.department': ApiDepartmentDepartment;
       'api::event.event': ApiEventEvent;
       'api::global.global': ApiGlobalGlobal;
+      'api::graph-link.graph-link': ApiGraphLinkGraphLink;
+      'api::graph-macro.graph-macro': ApiGraphMacroGraphMacro;
+      'api::graph-meso.graph-meso': ApiGraphMesoGraphMeso;
       'api::news-article.news-article': ApiNewsArticleNewsArticle;
       'api::partner.partner': ApiPartnerPartner;
       'api::person.person': ApiPersonPerson;

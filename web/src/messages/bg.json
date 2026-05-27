@@ -30,7 +30,8 @@
       "projects": "Проекти",
       "publications": "Публикации",
       "thesis": "Дисертации",
-      "resources": "Ресурси"
+      "resources": "Ресурси",
+      "paperGraph": "Paper Graph"
     },
     "newsMenu": {
       "news": "Новини",
@@ -983,6 +984,7 @@
       "phases": {
         "ongoing": "В ход",
         "planned": "Планиран",
+        "ended": "Приключен",
         "completed": "Завършен",
         "archived": "Архивиран"
       },

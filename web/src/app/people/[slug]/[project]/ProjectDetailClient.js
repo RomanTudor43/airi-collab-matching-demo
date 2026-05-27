@@ -6,6 +6,7 @@ import { toPublicationSlug } from "@/lib/slug";
 import { useTranslations } from "next-intl";
 import BodyContentImage from "@/components/shared/BodyContentImage";
 import RichMarkdown from "@/components/shared/RichMarkdown";
+import { getPhaseColorClasses, getProjectPhase } from "@/lib/projectPhase";
 
 const FALLBACK_AVATAR = "/people/Basic_avatar_image.png";
 
@@ -42,6 +43,12 @@ export default function ProjectDetailClient({
     [project?.resources]
   );
 
+  const phase = useMemo(
+    () => getProjectPhase(project?.startDate, project?.endDate),
+    [project?.startDate, project?.endDate]
+  );
+  const phaseValue = phase.status === "unknown" ? "" : phase.status;
+
   const teamMembersSorted = useMemo(() => {
     if (!Array.isArray(teamMembers)) return [];
     return [...teamMembers].sort((a, b) =>
@@ -52,19 +59,29 @@ export default function ProjectDetailClient({
     );
   }, [teamMembers]);
 
-  // Lead resolution
-  const leadName = project?.leadName || project?.lead || project?.leadDetails?.name || "";
-  const leadSlug = project?.leadSlug || project?.leadDetails?.slug || "";
-  const leadImage = project?.leadDetails?.image || null;
+  const leadMember = teamMembersSorted.find((member) => member?.isLead) || null;
+  const leadMemberSlug = leadMember?.slug || "";
 
-  const leadMember = teamMembersSorted.find(m => m.slug === leadSlug) || (leadName ? {
-     name: leadName,
-     slug: leadSlug,
-     image: leadImage,
-     title: project?.leadDetails?.title
-  } : null);
+  const otherMembers = teamMembersSorted.filter((member) => {
+    if (!leadMember) return true;
+    if (leadMemberSlug && member?.slug) return member.slug !== leadMemberSlug;
+    return member !== leadMember;
+  });
 
-  const otherMembers = teamMembersSorted.filter(m => m.slug !== leadSlug);
+  const resourceLinks = useMemo(
+    () => resourcesList.filter((resource) => typeof resource?.url === "string" && resource.url.trim()),
+    [resourcesList]
+  );
+
+  const officialWebsiteUrl =
+    resourceLinks.find((resource) => resource?.icon === "link" && resource?.category !== "documentation")?.url ||
+    resourceLinks.find((resource) => resource?.category && resource.category !== "documentation")?.url ||
+    "";
+
+  const documentationUrlRaw =
+    resourceLinks.find((resource) => resource?.category === "documentation")?.url ||
+    "";
+  const documentationUrl = documentationUrlRaw && documentationUrlRaw !== officialWebsiteUrl ? documentationUrlRaw : "";
 
   const bodyBlocks = Array.isArray(project?.body) ? project.body : [];
   const timeline = Array.isArray(project?.timeline) ? project.timeline : [];
@@ -158,7 +175,7 @@ export default function ProjectDetailClient({
             href={`/people/${staffSlug}`}
             className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
           >
-            {staffSlug === leadSlug ? t("backToProfile") : t("backToStaffProfile")}
+            {t("backToProfile")}
           </Link>
         </div>
       </div>
@@ -169,13 +186,9 @@ export default function ProjectDetailClient({
           <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
             <div className={`lg:col-span-2 space-y-6 ${!hasHero ? 'lg:col-span-3' : ''}`}>
               <div className="flex flex-wrap gap-2 text-sm">
-                {project?.phase && (
-                  <span className={`px-2.5 py-0.5 rounded-full font-medium uppercase text-xs tracking-wider border
-                    ${project.phase === 'completed' ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800' : 
-                      project.phase === 'planned' ? 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800' :
-                      'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
-                    }`}>
-                    {getTranslatedPhase(project.phase)}
+                {phaseValue && (
+                  <span className={`px-2.5 py-0.5 rounded-full font-medium uppercase text-xs tracking-wider border ${getPhaseColorClasses(phaseValue)}`}>
+                    {getTranslatedPhase(phaseValue)}
                   </span>
                 )}
                 {project?.region && (
@@ -198,14 +211,14 @@ export default function ProjectDetailClient({
 
               {/* Action Buttons (Mobile only, desktop in sidebar) */}
               <div className="flex flex-wrap gap-3 lg:hidden pt-2">
-                {project?.officialUrl && (
-                  <a href={project.officialUrl} target="_blank" rel="noopener noreferrer" 
+                {officialWebsiteUrl && (
+                  <a href={officialWebsiteUrl} target="_blank" rel="noopener noreferrer" 
                      className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm">
                     {t("visitWebsite")}
                   </a>
                 )}
-                {project?.docUrl && (
-                  <a href={project.docUrl} target="_blank" rel="noopener noreferrer"
+                {documentationUrl && (
+                  <a href={documentationUrl} target="_blank" rel="noopener noreferrer"
                      className="px-4 py-2 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
                     {t("documentation")}
                   </a>
@@ -357,17 +370,17 @@ export default function ProjectDetailClient({
           <aside className="lg:col-span-4 space-y-8">
             
             {/* Quick Actions (Desktop) */}
-            {(project?.officialUrl || project?.docUrl) && (
+            {(officialWebsiteUrl || documentationUrl) && (
               <div className="hidden lg:grid grid-cols-1 gap-3">
-                {project.officialUrl && (
-                  <a href={project.officialUrl} target="_blank" rel="noopener noreferrer" 
+                {officialWebsiteUrl && (
+                  <a href={officialWebsiteUrl} target="_blank" rel="noopener noreferrer" 
                      className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md transform hover:-translate-y-0.5">
                     {t("visitProjectWebsite")}
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                   </a>
                 )}
-                {project.docUrl && (
-                  <a href={project.docUrl} target="_blank" rel="noopener noreferrer"
+                {documentationUrl && (
+                  <a href={documentationUrl} target="_blank" rel="noopener noreferrer"
                      className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
                     {t("viewDocumentation")}
                   </a>

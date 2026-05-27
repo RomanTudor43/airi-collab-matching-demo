@@ -30,7 +30,8 @@
       "projects": "Projects",
       "publications": "Publications",
       "thesis": "Thesis",
-      "resources": "Resources"
+      "resources": "Resources",
+      "paperGraph": "Paper Graph"
     },
     "newsMenu": {
       "news": "News",
@@ -919,6 +920,7 @@
           "completed": "Completed",
           "planned": "Planned",
           "ongoing": "Ongoing",
+          "ended": "Ended",
           "archived": "Archived"
         }
       }

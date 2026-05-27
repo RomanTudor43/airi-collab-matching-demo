@@ -1,6 +1,7 @@
 import { getDepartments, getDepartmentTeams, getProjects, getPublications, getStaff, transformDepartmentData, transformProjectData, transformPublicationData, transformStaffData } from "@/lib/strapi";
 import DepartmentDetailClient from "./DepartmentDetailClient";
 import { notFound } from "next/navigation";
+import { getProjectPhase } from "@/lib/projectPhase";
 
 // Generate static paths for all departments
 export async function generateStaticParams() {
@@ -73,7 +74,11 @@ export default async function DepartmentPage({ params }) {
       }),
       projects: toArr(t.projects?.data ?? t.projects).map((proj) => {
         const pr = proj.attributes ?? proj;
-        return { title: pr.title || '', phase: pr.phase || '' };
+        const phase = getProjectPhase(pr.startDate, pr.endDate).status;
+        return {
+          title: pr.title || '',
+          phase: phase === 'unknown' ? '' : phase,
+        };
       }),
     };
   });

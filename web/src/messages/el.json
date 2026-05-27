@@ -30,7 +30,8 @@
       "projects": "Έργα",
       "publications": "Δημοσιεύσεις",
       "thesis": "Διατριβές",
-      "resources": "Πόροι"
+      "resources": "Πόροι",
+      "paperGraph": "Paper Graph"
     },
     "newsMenu": {
       "news": "Νέα",
@@ -982,6 +983,7 @@
       "phases": {
         "ongoing": "Σε εξέλιξη",
         "planned": "Προγραμματισμένο",
+        "ended": "Ολοκληρωμένο",
         "completed": "Ολοκληρωμένο",
         "archived": "Αρχειοθετημένο"
       },

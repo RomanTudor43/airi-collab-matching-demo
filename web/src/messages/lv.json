@@ -30,7 +30,8 @@
       "projects": "Projekti",
       "publications": "Publikācijas",
       "thesis": "Disertācijas",
-      "resources": "Resursi"
+      "resources": "Resursi",
+      "paperGraph": "Paper Graph"
     },
     "newsMenu": {
       "news": "Jaunumi",
@@ -982,6 +983,7 @@
       "phases": {
         "ongoing": "Aktīvs",
         "planned": "Plānots",
+        "ended": "Noslēdzies",
         "completed": "Pabeigts",
         "archived": "Arhivēts"
       },

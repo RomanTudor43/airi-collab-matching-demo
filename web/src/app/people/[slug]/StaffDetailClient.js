@@ -13,6 +13,7 @@ import {
   FaExternalLinkAlt,
   FaFileAlt,
   FaGlobe,
+  FaDatabase,
   FaStar,
   FaProjectDiagram,
   FaBuilding,
@@ -20,6 +21,7 @@ import {
   FaUser
 } from 'react-icons/fa';
 import { toPublicationSlug } from '@/lib/slug';
+import { getPublicationSourceLabel, normalizePublicationSourceKind } from '@/lib/publication';
 import { containerVariants, itemVariants } from '@/lib/animations';
 import { useTranslations } from 'next-intl';
 import RichMarkdown from '@/components/shared/RichMarkdown';
@@ -75,6 +77,7 @@ function FilterDropdown({ value, onChange, options, placeholder, icon: Icon }) {
 // Publication Card Component
 function PublicationCard({ publication, t }) {
   const publicationSlug = toPublicationSlug(publication);
+  const publicationSource = getPublicationSourceLabel(publication.sourceKind, publication.openAlexId);
   
   return (
     <motion.div
@@ -93,6 +96,11 @@ function PublicationCard({ publication, t }) {
             {publication.kind && (
               <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
                 {publication.kind}
+              </span>
+            )}
+            {publication.sourceKind && (
+              <span className="text-xs px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full">
+                {publicationSource}
               </span>
             )}
           </div>
@@ -155,7 +163,7 @@ function PublicationCard({ publication, t }) {
 const PHASE_STYLES = {
   ongoing:   'bg-green-100  dark:bg-green-900/30  text-green-700  dark:text-green-300',
   planned:   'bg-blue-100   dark:bg-blue-900/30   text-blue-700   dark:text-blue-300',
-  completed: 'bg-gray-100   dark:bg-gray-700      text-gray-600   dark:text-gray-300',
+  ended:     'bg-gray-100   dark:bg-gray-700      text-gray-600   dark:text-gray-300',
   archived:  'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
 };
 
@@ -288,13 +296,17 @@ export default function StaffDetailClient({ person, publications, teams, slug })
   const [yearFilter, setYearFilter] = useState('');
   const [kindFilter, setKindFilter] = useState('');
   const [domainFilter, setDomainFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
 
   // Publications processing
-  const { yearOptions, kindOptions, pubDomainOptions } = useMemo(() => {
+  const { yearOptions, kindOptions, pubDomainOptions, sourceOptions } = useMemo(() => {
     const years = [...new Set(publications.map((p) => p.year).filter((y) => y !== null))].sort((a, b) => b - a);
     const kinds = [...new Set(publications.map((p) => p.kind).filter(Boolean))];
     const domains = [...new Set(publications.map((p) => p.domain).filter(Boolean))];
-    return { yearOptions: years, kindOptions: kinds, pubDomainOptions: domains };
+    const sources = [...new Set(
+      publications.map((p) => getPublicationSourceLabel(p.sourceKind, p.openAlexId))
+    )];
+    return { yearOptions: years, kindOptions: kinds, pubDomainOptions: domains, sourceOptions: sources };
   }, [publications]);
 
   const filteredPubs = useMemo(() => {
@@ -305,18 +317,21 @@ export default function StaffDetailClient({ person, publications, teams, slug })
       const matchesYear = !yearFilter || String(p.year) === String(yearFilter);
       const matchesKind = !kindFilter || p.kind === kindFilter;
       const matchesDomain = !domainFilter || p.domain === domainFilter;
-      return matchesSearch && matchesYear && matchesKind && matchesDomain;
+      const pSourceLabel = getPublicationSourceLabel(p.sourceKind, p.openAlexId);
+      const matchesSource = !sourceFilter || pSourceLabel === sourceFilter;
+      return matchesSearch && matchesYear && matchesKind && matchesDomain && matchesSource;
     });
-  }, [publications, pubQuery, yearFilter, kindFilter, domainFilter]);
+  }, [publications, pubQuery, yearFilter, kindFilter, domainFilter, sourceFilter]);
 
   // Projects processing
-  const hasActiveFilters = pubQuery || yearFilter || kindFilter || domainFilter;
+  const hasActiveFilters = pubQuery || yearFilter || kindFilter || domainFilter || sourceFilter;
 
   const clearFilters = () => {
     setPubQuery('');
     setYearFilter('');
     setKindFilter('');
     setDomainFilter('');
+    setSourceFilter('');
   };
 
   return (
@@ -390,6 +405,13 @@ export default function StaffDetailClient({ person, publications, teams, slug })
               options={pubDomainOptions}
               placeholder={t('allDomains')}
               icon={FaGlobe}
+            />
+            <FilterDropdown
+              value={sourceFilter}
+              onChange={setSourceFilter}
+              options={sourceOptions}
+              placeholder="All Sources"
+              icon={FaDatabase}
             />
             {hasActiveFilters && (
               <button

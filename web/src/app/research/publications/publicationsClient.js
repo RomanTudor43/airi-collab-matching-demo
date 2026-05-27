@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { slugify, toPublicationSlug } from "@/lib/slug";
+import { getPublicationSourceLabel, normalizePublicationSourceKind } from "@/lib/publication";
 import { FaSearch, FaTimes, FaFilter, FaChevronDown, FaExternalLinkAlt } from "react-icons/fa";
 import { containerVariants, itemVariants } from "@/lib/animations";
 import { useTranslations } from "next-intl";
@@ -66,6 +67,7 @@ const normalizePublication = (p, bySlugMap) => {
     slug,
     title: p.title || "",
     year: typeof p.year === "number" || typeof p.year === "string" ? String(p.year) : "",
+    sourceKind: normalizePublicationSourceKind(p.sourceKind, p.openAlexId),
     domain: p.domain || "",
     kind: p.kind || "",
     description: p.description || "",
@@ -95,6 +97,7 @@ export default function PublicationsClient({ publications: pubData, staff: staff
   const [authorFilter, setAuthorFilter] = useState("");
   const [domainFilter, setDomainFilter] = useState("");
   const [kindFilter, setKindFilter] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
   const [themeFilter, setThemeFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -107,22 +110,25 @@ export default function PublicationsClient({ publications: pubData, staff: staff
     }
   }, [searchParams]);
 
-  const { yearOptions, authorOptions, domainOptions, kindOptions } = useMemo(() => {
+  const { yearOptions, authorOptions, domainOptions, kindOptions, sourceOptions } = useMemo(() => {
     const years = new Set();
     const authors = new Set();
     const domains = new Set();
     const kinds = new Set();
+    const sources = new Set();
     for (const p of pubs) {
       if (p.year) years.add(p.year);
       if (Array.isArray(p.authors)) p.authors.forEach((a) => a && authors.add(a));
       if (p.domain) domains.add(p.domain);
       if (p.kind) kinds.add(p.kind);
+      if (p.sourceKind) sources.add(p.sourceKind);
     }
     return {
       yearOptions: Array.from(years).sort((a, b) => Number(b) - Number(a)),
       authorOptions: Array.from(authors).sort((a, b) => a.localeCompare(b)),
       domainOptions: Array.from(domains).sort((a, b) => a.localeCompare(b)),
       kindOptions: Array.from(kinds).sort((a, b) => a.localeCompare(b)),
+      sourceOptions: Array.from(sources),
     };
   }, [pubs]);
 
@@ -142,17 +148,18 @@ export default function PublicationsClient({ publications: pubData, staff: staff
       const inAuthor = !authorFilter || (p.authors || []).includes(authorFilter);
       const inDomain = !domainFilter || p.domain === domainFilter;
       const inKind = !kindFilter || p.kind === kindFilter;
+      const inSource = !sourceFilter || p.sourceKind === sourceFilter;
       // Theme filter - simple text match on title/domain for now
       const inTheme =
         !normalizedThemeFilter ||
         p.themes?.some((t) => t.toLowerCase().includes(normalizedThemeFilter)) ||
         p.themeSlugs?.some((s) => s.toLowerCase() === normalizedThemeFilter);
 
-      return inSearch && inYear && inAuthor && inDomain && inKind && inTheme;
+      return inSearch && inYear && inAuthor && inDomain && inKind && inSource && inTheme;
     });
-  }, [pubs, q, yearFilter, authorFilter, domainFilter, kindFilter, themeFilter]);
+  }, [pubs, q, yearFilter, authorFilter, domainFilter, kindFilter, sourceFilter, themeFilter]);
 
-  const hasActiveFilters = q || yearFilter || authorFilter || domainFilter || kindFilter || themeFilter;
+  const hasActiveFilters = q || yearFilter || authorFilter || domainFilter || kindFilter || sourceFilter || themeFilter;
 
   const clearFilters = () => {
     setQ("");
@@ -160,6 +167,7 @@ export default function PublicationsClient({ publications: pubData, staff: staff
     setAuthorFilter("");
     setDomainFilter("");
     setKindFilter("");
+    setSourceFilter("");
     setThemeFilter("");
   };
 
@@ -213,7 +221,7 @@ export default function PublicationsClient({ publications: pubData, staff: staff
               {t("filters")}
               {hasActiveFilters && (
                 <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary-600 text-white">
-                  {[yearFilter, authorFilter, domainFilter, kindFilter, themeFilter].filter(Boolean).length}
+                  {[yearFilter, authorFilter, domainFilter, kindFilter, sourceFilter, themeFilter].filter(Boolean).length}
                 </span>
               )}
               <FaChevronDown className={`text-xs transition-transform ${showFilters ? "rotate-180" : ""}`} />
@@ -231,7 +239,7 @@ export default function PublicationsClient({ publications: pubData, staff: staff
                 className="overflow-hidden mb-8"
               >
                 <div className="card p-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                     <div>
                       <label className="label">{t("year")}</label>
                       <select
@@ -289,7 +297,23 @@ export default function PublicationsClient({ publications: pubData, staff: staff
                     </div>
 
                     <div>
-                      <label className="label">{t("theme")}</label>
+                      <label className="label">Source</label>
+                      <select
+                        value={sourceFilter}
+                        onChange={(e) => setSourceFilter(e.target.value)}
+                        className="select"
+                      >
+                        <option value="">All sources</option>
+                        {sourceOptions
+                          .sort((a, b) => getPublicationSourceLabel(a).localeCompare(getPublicationSourceLabel(b)))
+                          .map((source) => (
+                            <option key={source} value={source}>{getPublicationSourceLabel(source)}</option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="label">Theme</label>
                       <input
                         value={themeFilter}
                         onChange={(e) => setThemeFilter(e.target.value)}
@@ -353,6 +377,9 @@ export default function PublicationsClient({ publications: pubData, staff: staff
                           )}
                           {p.kind && (
                             <span className="badge-gray">{p.kind}</span>
+                          )}
+                          {p.sourceKind && (
+                            <span className="badge-gray">{getPublicationSourceLabel(p.sourceKind, p.openAlexId)}</span>
                           )}
                           {p.domain && (
                             <span className="badge-gray">{p.domain}</span>

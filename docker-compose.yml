@@ -72,8 +72,36 @@ services:
       # Server-to-server base URL inside the Docker network.
       # Example: http://strapi:1337
       STRAPI_INTERNAL_URL: ${STRAPI_INTERNAL_URL:-http://strapi:1337}
+      GRAPH_MESO_MIN_NODE_PAPERS: ${GRAPH_MESO_MIN_NODE_PAPERS:-3}
+      GRAPH_MESO_MAX_NODES: ${GRAPH_MESO_MAX_NODES:-20}
+      GRAPH_MESO_MIN_NODES: ${GRAPH_MESO_MIN_NODES:-8}
     ports:
       - "3000:3000"
+    depends_on:
+      strapi:
+        condition: service_healthy
+
+  # Paper sync service — run manually or on a cron schedule.
+  # Usage: docker compose run --rm paper-sync --institution "..."
+  paper-sync:
+    build: ./research-paper-graph
+    profiles: ["tools"]
+    environment:
+      STRAPI_URL: http://strapi:1337
+      STRAPI_API_TOKEN: ${STRAPI_API_TOKEN}
+      PAPER_SYNC_CRON: ${PAPER_SYNC_CRON:-0 0 * * 6}
+      TZ: ${PAPER_SYNC_TZ:-UTC}
+      GRAPH_SIMILARITY_THRESHOLD: ${GRAPH_SIMILARITY_THRESHOLD:-0.6}
+      GRAPH_DUPLICATE_THRESHOLD: ${GRAPH_DUPLICATE_THRESHOLD:-0.92}
+      GRAPH_AI_MODEL: ${GRAPH_AI_MODEL:-all-MiniLM-L6-v2}
+      GRAPH_HDBSCAN_MIN_CLUSTER_SIZE: ${GRAPH_HDBSCAN_MIN_CLUSTER_SIZE:-12}
+      GRAPH_HDBSCAN_MIN_SAMPLES: ${GRAPH_HDBSCAN_MIN_SAMPLES:-3}
+      GRAPH_SECONDARY_CLUSTER_DISTANCE_THRESHOLD: ${GRAPH_SECONDARY_CLUSTER_DISTANCE_THRESHOLD:-0.7}
+      GRAPH_TOPIC_HDBSCAN_MIN_CLUSTER_SIZE: ${GRAPH_TOPIC_HDBSCAN_MIN_CLUSTER_SIZE:-3}
+      GRAPH_TOPIC_HDBSCAN_MIN_SAMPLES: ${GRAPH_TOPIC_HDBSCAN_MIN_SAMPLES:-2}
+      GRAPH_TOP_K: ${GRAPH_TOP_K:-20}
+    volumes:
+      - ./research-paper-graph/outputs:/app/outputs
     depends_on:
       strapi:
         condition: service_healthy

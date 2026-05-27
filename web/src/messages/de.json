@@ -30,7 +30,8 @@
       "projects": "Projekte",
       "publications": "Publikationen",
       "thesis": "Abschlussarbeiten",
-      "resources": "Ressourcen"
+      "resources": "Ressourcen",
+      "paperGraph": "Paper Graph"
     },
     "newsMenu": {
       "news": "Neuigkeiten",
@@ -982,6 +983,7 @@
       "phases": {
         "ongoing": "Laufend",
         "planned": "Geplant",
+        "ended": "Beendet",
         "completed": "Abgeschlossen",
         "archived": "Archiviert"
       },

@@ -1,4 +1,5 @@
 import { getEnv, normalizeBaseUrl, requireEnv } from './env';
+import { normalizePublicationSourceKind } from './publication';
 import { toPublicationSlug } from './slug';
 
 const isServer = typeof window === 'undefined';
@@ -166,10 +167,15 @@ const appendFilters = (params, value, prefix = 'filters') => {
     if (val === undefined || val === null || val === '') return;
     const nextPrefix = `${prefix}[${key}]`;
     if (Array.isArray(val)) {
-      val.forEach((entry) => {
-        if (entry !== undefined && entry !== null && entry !== '') {
-          params.append(nextPrefix, entry);
+      val.forEach((entry, index) => {
+        if (entry === undefined || entry === null || entry === '') return;
+
+        if (typeof entry === 'object') {
+          appendFilters(params, entry, `${nextPrefix}[${index}]`);
+          return;
         }
+
+        params.append(nextPrefix, entry);
       });
       return;
     }
@@ -352,6 +358,9 @@ export async function fetchAPI(endpoint, options = {}) {
 }
 
 async function fetchAllEntries(endpoint, baseOptions = {}, pageSize = 100) {
+  // Strapi enforces a server-side max page size (100 in this project).
+  // Requesting larger values causes page index/offset mismatches and silent data loss.
+  const safePageSize = Math.max(1, Math.min(Number(pageSize) || 100, 100));
   const results = [];
   let page = 1;
   let pageCount = 1;
@@ -359,7 +368,7 @@ async function fetchAllEntries(endpoint, baseOptions = {}, pageSize = 100) {
   while (page <= pageCount) {
     const params = createParams({
       ...baseOptions,
-      pagination: { page, pageSize },
+      pagination: { page, pageSize: safePageSize },
     });
 
     const data = await fetchAPI(`${endpoint}?${params.toString()}`);
@@ -441,7 +450,13 @@ export async function getStaffMember(slug) {
         socialLinks: {
           fields: ['label', 'url', 'icon'],
         },
-        publications: { fields: ['title', 'slug', 'year'] },
+        publications: {
+          fields: ['title', 'slug', 'year', 'sourceKind', 'openAlexId', 'doi', 'kind'],
+          populate: {
+            domain: DEPARTMENT_POPULATE,
+            pdfFile: { fields: ['name', 'url', 'mime', 'ext', 'size'] },
+          },
+        },
       },
     });
 
@@ -622,7 +637,7 @@ export async function getProjectBySlug(slug) {
     const pubParams = createParams({
       filters: { projects: { slug: { $eq: slug } } },
       sort: 'year:desc',
-      fields: ['title', 'slug', 'year', 'kind', 'description'],
+      fields: ['title', 'slug', 'year', 'kind', 'description', 'abstract', 'sourceKind', 'openAlexId', 'doi'],
       populate: {
         authors: PERSON_FLAT_POPULATE,
         pdfFile: { fields: ['name', 'url', 'mime', 'ext', 'size'] },
@@ -744,16 +759,358 @@ export async function getPartnerBySlug(slug) {
 }
 
 /**
+ * Get graph-eligible publications for the paper graph views.
+ * @param {Object} options
+ * @param {number} options.community - Optional community id filter
+ * @param {string} options.macroSlug - Optional macro slug filter
+ * @returns {Promise<Array>}
+ */
+export async function getGraphPublications(options = {}) {
+  try {
+    const { community, macroSlug } = options;
+    const filters = {
+      graphEligible: { $eq: true },
+      $or: [
+        { sourceKind: { $ne: 'manual' } },
+        {
+          $and: [
+            { sourceKind: { $eq: 'manual' } },
+            { graphMacroPrimary: { id: { $notNull: true } } },
+            { graphMesoPrimary: { id: { $notNull: true } } },
+          ],
+        },
+      ],
+    };
+
+    if (typeof macroSlug === 'string' && macroSlug.trim()) {
+      filters.graphMacroPrimary = { slug: { $eq: macroSlug.trim() } };
+    } else if (typeof community === 'number' && Number.isFinite(community)) {
+      filters.community = { $eq: community };
+    }
+
+    const baseOptions = {
+      sort: ['cited_by:desc', 'year:desc'],
+      filters,
+      fields: [
+        'slug',
+        'openAlexId',
+        'title',
+        'doi',
+        'year',
+        'cited_by',
+        'abstract',
+        'description',
+        'topics',
+        'community',
+        'communityLabel',
+        'secondaryClusters',
+        'metadata',
+      ],
+      populate: {
+        authors: PERSON_FLAT_POPULATE,
+        pdfFile: { fields: ['url'] },
+        graphMacroPrimary: { fields: ['name', 'slug', 'sortOrder', 'isActive'] },
+        graphMacroTags: { fields: ['name', 'slug'] },
+        graphMesoPrimary: { fields: ['name', 'slug'] },
+        graphMesoTags: { fields: ['name', 'slug'] },
+      },
+    };
+
+    return await fetchAllEntries('/publications', baseOptions, 100);
+  } catch (error) {
+    console.error('Failed to fetch graph publications:', error);
+    return [];
+  }
+}
+
+/**
+ * Get graph-eligible publications scoped to one community.
+ * @param {number} communityId
+ * @returns {Promise<Array>}
+ */
+export async function getGraphPublicationsByCommunity(communityId) {
+  if (typeof communityId !== 'number' || !Number.isFinite(communityId)) return [];
+  return getGraphPublications({ community: communityId });
+}
+
+/**
+ * Get graph-eligible publications scoped to one macro slug.
+ * @param {string} macroSlug
+ * @returns {Promise<Array>}
+ */
+export async function getGraphPublicationsByMacroSlug(macroSlug) {
+  if (typeof macroSlug !== 'string' || !macroSlug.trim()) return [];
+  return getGraphPublications({ macroSlug });
+}
+
+/**
+ * Get graph macros for the paper graph views.
+ * @returns {Promise<Array>}
+ */
+export async function getGraphMacros() {
+  try {
+    const baseOptions = {
+      sort: ['sortOrder:asc', 'name:asc'],
+      fields: ['name', 'slug', 'sortOrder', 'isActive'],
+    };
+    return await fetchAllEntries('/graph-macros', baseOptions, 100);
+  } catch (error) {
+    console.error('Failed to fetch graph macros:', error);
+    return [];
+  }
+}
+
+/**
+ * Transform graph macro records into a frontend-friendly shape.
+ * @param {Array|Object} strapiMacros
+ * @returns {Array}
+ */
+export function transformGraphMacroData(strapiMacros) {
+  const list = Array.isArray(strapiMacros) ? strapiMacros : strapiMacros ? [strapiMacros] : [];
+
+  return list
+    .map((macro) => {
+      const attributes = macro?.attributes ?? macro ?? {};
+      return {
+        id: macro?.documentId ?? macro?.id ?? null,
+        name: attributes.name || '',
+        slug: attributes.slug || '',
+        sortOrder: typeof attributes.sortOrder === 'number' ? attributes.sortOrder : null,
+        isActive: attributes.isActive !== false,
+      };
+    })
+    .filter((macro) => macro.id !== null && macro.slug && macro.name);
+}
+
+/**
+ * Get relation edges between publications used by the paper graph.
+ * @returns {Promise<Array>}
+ */
+export async function getGraphLinks() {
+  try {
+    const baseOptions = {
+      fields: ['isCrossCluster', 'score'],
+      populate: {
+        source: { fields: ['openAlexId', 'documentId'] },
+        target: { fields: ['openAlexId', 'documentId'] },
+      },
+    };
+
+    return await fetchAllEntries('/graph-links', baseOptions, 100);
+  } catch (error) {
+    console.error('Failed to fetch graph links:', error);
+    return [];
+  }
+}
+
+/**
+ * Transform graph publication records into a frontend-friendly shape.
+ * @param {Array|Object} strapiPublications
+ * @returns {Array}
+ */
+export function transformGraphPublicationData(strapiPublications) {
+  const list = Array.isArray(strapiPublications)
+    ? strapiPublications
+    : strapiPublications
+      ? [strapiPublications]
+      : [];
+
+  return list
+    .map((publication) => {
+      const attributes = publication?.attributes ?? publication ?? {};
+      const abstractText = stripHtml(attributes.description || attributes.abstract || '');
+
+      const topics = Array.isArray(attributes.topics)
+        ? attributes.topics.filter(Boolean).map((value) => String(value))
+        : [];
+
+      const authorEntries = toArray(attributes.authors?.data ?? attributes.authors);
+      const authors = authorEntries
+        .map((author) => {
+          const authorData = author?.attributes ?? author ?? {};
+          return authorData.fullName || authorData.name || '';
+        })
+        .filter(Boolean);
+
+      const pdfUrl = resolveMediaUrl(attributes.pdfFile) || normalizeExternalUrl(attributes.pdf_url);
+
+      // Secondary clusters: array of { clusterId, clusterLabel, distance }
+      const secondaryClusters = Array.isArray(attributes.secondaryClusters)
+        ? attributes.secondaryClusters
+        : [];
+
+      const graphMetadata =
+        attributes.metadata && typeof attributes.metadata === 'object'
+          ? attributes.metadata.graph
+          : null;
+      const rawTopicSuperclusters =
+        graphMetadata && typeof graphMetadata === 'object'
+          ? graphMetadata.topicSuperclusters
+          : null;
+      const topicSuperclusters =
+        rawTopicSuperclusters && typeof rawTopicSuperclusters === 'object'
+          ? {
+              ids: Array.isArray(rawTopicSuperclusters.ids)
+                ? rawTopicSuperclusters.ids.filter((value) => Number.isInteger(value))
+                : [],
+              labels: Array.isArray(rawTopicSuperclusters.labels)
+                ? rawTopicSuperclusters.labels.filter(Boolean).map((value) => String(value))
+                : [],
+              primaryId: Number.isInteger(rawTopicSuperclusters.primaryId)
+                ? rawTopicSuperclusters.primaryId
+                : null,
+              primaryLabel:
+                typeof rawTopicSuperclusters.primaryLabel === 'string'
+                  ? rawTopicSuperclusters.primaryLabel
+                  : null,
+            }
+          : null;
+
+      const slug = attributes.slug || toPublicationSlug({
+        slug: attributes.slug,
+        title: attributes.title,
+        year: attributes.year,
+      });
+      const publicationHref = slug ? `/research/publications/${encodeURIComponent(slug)}` : null;
+
+      const macroPrimaryEntry = attributes.graphMacroPrimary?.data ?? attributes.graphMacroPrimary;
+      const macroPrimaryAttributes = macroPrimaryEntry?.attributes ?? macroPrimaryEntry ?? {};
+      const graphMacroPrimary = macroPrimaryEntry
+        ? {
+            id: macroPrimaryEntry?.documentId ?? macroPrimaryEntry?.id ?? null,
+            slug: macroPrimaryAttributes.slug || '',
+            name: macroPrimaryAttributes.name || '',
+            sortOrder:
+              typeof macroPrimaryAttributes.sortOrder === 'number'
+                ? macroPrimaryAttributes.sortOrder
+                : null,
+            isActive: macroPrimaryAttributes.isActive !== false,
+          }
+        : null;
+
+      const graphMacroTags = toArray(attributes.graphMacroTags?.data ?? attributes.graphMacroTags)
+        .map((entry) => {
+          const entryAttributes = entry?.attributes ?? entry ?? {};
+          return {
+            id: entry?.documentId ?? entry?.id ?? null,
+            slug: entryAttributes.slug || '',
+            name: entryAttributes.name || '',
+          };
+        })
+        .filter((entry) => entry.id !== null || entry.slug || entry.name);
+
+      const graphMesoTags = toArray(attributes.graphMesoTags?.data ?? attributes.graphMesoTags)
+        .map((entry) => {
+          const entryAttributes = entry?.attributes ?? entry ?? {};
+          return {
+            id: entry?.documentId ?? entry?.id ?? null,
+            slug: entryAttributes.slug || '',
+            name: entryAttributes.name || '',
+          };
+        })
+        .filter((entry) => entry.id !== null || entry.slug || entry.name);
+
+      const mesoPrimaryEntry = attributes.graphMesoPrimary?.data ?? attributes.graphMesoPrimary;
+      const mesoPrimaryAttributes = mesoPrimaryEntry?.attributes ?? mesoPrimaryEntry ?? {};
+      const graphMesoPrimary = mesoPrimaryEntry
+        ? {
+            id: mesoPrimaryEntry?.documentId ?? mesoPrimaryEntry?.id ?? null,
+            slug: mesoPrimaryAttributes.slug || '',
+            name: mesoPrimaryAttributes.name || '',
+          }
+        : null;
+
+      return {
+        id: publication?.documentId ?? publication?.id ?? null,
+        slug,
+        publicationHref,
+        openAlexId: attributes.openAlexId || '',
+        title: attributes.title || '',
+        doi: attributes.doi || '',
+        year: typeof attributes.year === 'number' ? attributes.year : null,
+        cited_by: typeof attributes.cited_by === 'number' ? attributes.cited_by : 0,
+        abstract: abstractText,
+        topics,
+        authors,
+        pdf_url: pdfUrl,
+        community: typeof attributes.community === 'number' ? attributes.community : null,
+        communityLabel: attributes.communityLabel || '',
+        secondaryClusters,
+        topicSuperclusters,
+        graphMacroPrimary,
+        graphMacroTags,
+        graphMesoPrimary,
+        graphMesoTags,
+        _strapi: publication,
+      };
+    })
+    .filter((publication) => publication.id !== null && publication.title);
+}
+
+/**
+ * Transform graph links into source/target publication ids.
+ * @param {Array|Object} strapiLinks
+ * @param {Object} oaToIdMap - Mapping of OpenAlex ids to visible publication ids
+ * @returns {Array}
+ */
+export function transformGraphLinkData(strapiLinks, oaToIdMap = {}) {
+  const list = Array.isArray(strapiLinks) ? strapiLinks : strapiLinks ? [strapiLinks] : [];
+
+  return list
+    .map((link) => {
+      const attributes = link?.attributes ?? link ?? {};
+      const sourceEntry = attributes.source?.data ?? attributes.source;
+      const targetEntry = attributes.target?.data ?? attributes.target;
+
+      const sourceData = sourceEntry?.attributes ?? sourceEntry ?? {};
+      const targetData = targetEntry?.attributes ?? targetEntry ?? {};
+
+      const sourceOpenAlexId = sourceData.openAlexId || '';
+      const targetOpenAlexId = targetData.openAlexId || '';
+
+      const sourceId = sourceEntry?.documentId ?? sourceEntry?.id ?? oaToIdMap[sourceOpenAlexId] ?? null;
+      const targetId = targetEntry?.documentId ?? targetEntry?.id ?? oaToIdMap[targetOpenAlexId] ?? null;
+
+      const scoreValue = Number(attributes.score);
+      const score = Number.isFinite(scoreValue) ? scoreValue : 0;
+
+      return {
+        id: link?.id ?? `${sourceOpenAlexId}->${targetOpenAlexId}`,
+        sourceId,
+        targetId,
+        sourceOpenAlexId,
+        targetOpenAlexId,
+        isCrossCluster: !!attributes.isCrossCluster,
+        score,
+      };
+    })
+    .filter((link) => link.sourceId !== null && link.targetId !== null && link.sourceId !== link.targetId);
+}
+
+/**
  * Get all publications from Strapi
  * @returns {Promise<Array>} Array of publications
  */
 export async function getPublications(options = {}) {
   try {
-    const { domainSlug, includeUnlisted = false, graphEligibleOnly = false } = options;
+    const {
+      domainSlug,
+      includeUnlisted = false,
+      graphEligibleOnly = false,
+      sourceKind,
+    } = options;
     const filters = {};
 
     if (domainSlug) {
       filters.domain = { slug: { $eq: domainSlug } };
+    }
+
+    if (graphEligibleOnly) {
+      filters.graphEligible = { $eq: true };
+    }
+
+    if (sourceKind) {
+      filters.sourceKind = { $eq: sourceKind };
     }
     const params = createParams({
       sort: 'year:desc',
@@ -762,7 +1119,6 @@ export async function getPublications(options = {}) {
 
     // Kept for API compatibility with existing callers.
     void includeUnlisted;
-    void graphEligibleOnly;
 
     setPopulate(params, 'populate[authors]', PERSON_FLAT_POPULATE);
     setPopulate(params, 'populate[projects]', { fields: ['title', 'slug'] });
@@ -976,6 +1332,7 @@ export async function getPublicationsByAuthor(authorSlug) {
     setPopulate(params, 'populate[projects]', { fields: ['title', 'slug'] });
     setPopulate(params, 'populate[domain]', DEPARTMENT_POPULATE);
     setPopulate(params, 'populate[themes]', { fields: ['name', 'slug'] });
+    setPopulate(params, 'populate[pdfFile]', { fields: ['name', 'url', 'mime', 'ext', 'size'] });
     const data = await fetchAPI(`/publications?${params.toString()}`);
     return data.data || [];
   } catch (error) {
@@ -998,7 +1355,13 @@ export async function getProjectsByMember(memberSlug) {
     params.set('filters[teams][members][person][slug][$eq]', memberSlug);
     setPopulate(params, 'populate[domains]', DEPARTMENT_POPULATE);
     setPopulate(params, 'populate[teams]', { fields: ['name', 'slug'] });
-    setPopulate(params, 'populate[publications]', { fields: ['title', 'slug', 'year', 'kind'] });
+    setPopulate(params, 'populate[publications]', {
+      fields: ['title', 'slug', 'year', 'kind', 'sourceKind', 'openAlexId', 'doi'],
+      populate: {
+        domain: DEPARTMENT_POPULATE,
+        pdfFile: { fields: ['name', 'url', 'mime', 'ext', 'size'] },
+      },
+    });
     const data = await fetchAPI(`/projects?${params.toString()}`);
     return data.data || [];
   } catch (error) {
@@ -1360,10 +1723,14 @@ export function transformPublicationData(strapiPubs) {
       id: pub?.id ?? null,
       slug: attributes.slug || toPublicationSlug({ title: attributes.title, year: attributes.year }),
       title: attributes.title || '',
+      sourceKind: normalizePublicationSourceKind(attributes.sourceKind, attributes.openAlexId),
+      openAlexId: attributes.openAlexId || '',
+      doi: attributes.doi || '',
       year: attributes.year ?? null,
       domain,
       kind: attributes.kind || '',
-      description: stripHtml(attributes.description) || '',
+      description: stripHtml(attributes.description || attributes.abstract || ''),
+      abstract: stripHtml(attributes.abstract || ''),
       authors,
       pdfFile,
       bibFile,
@@ -1781,8 +2148,11 @@ export function transformProjectData(strapiProjects) {
         slug: pubData.slug || '',
         title: pubData.title || '',
         year: pubData.year ?? null,
+        sourceKind: normalizePublicationSourceKind(pubData.sourceKind, pubData.openAlexId),
+        openAlexId: pubData.openAlexId || '',
+        doi: pubData.doi || '',
         kind: pubData.kind || '',
-        description: stripHtml(pubData.description || ''),
+        description: stripHtml(pubData.description || pubData.abstract || ''),
         authors: pubAuthors,
         domain: pubDomain,
         pdfFile: pubData.pdfFile

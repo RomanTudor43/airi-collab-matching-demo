@@ -30,7 +30,8 @@
       "projects": "Progetti",
       "publications": "Pubblicazioni",
       "thesis": "Tesi",
-      "resources": "Risorse"
+      "resources": "Risorse",
+      "paperGraph": "Paper Graph"
     },
     "newsMenu": {
       "news": "Notizie",
@@ -983,6 +984,7 @@
       "phases": {
         "ongoing": "In corso",
         "planned": "Pianificato",
+        "ended": "Terminato",
         "completed": "Completato",
         "archived": "Archiviato"
       },

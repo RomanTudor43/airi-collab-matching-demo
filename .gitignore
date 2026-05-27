@@ -51,5 +51,4 @@ web/src/app/people/staff/\[slug]/page.js.backup
 
 # Sync log files
 log-*.txt
-research-paper-graph/
-docs/paper-graph-validation-2026-04-09.md
+docs/paper-graph-validation-*.md

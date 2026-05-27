@@ -17,9 +17,9 @@ export default function RouteShell({ children }) {
       <div className="relative min-h-screen w-full overflow-hidden bg-[#02050b] text-white">
         <Link
           href="/"
-          className="fixed left-4 top-20 z-50 rounded-full border border-amber-400/25 bg-slate-950/70 px-3 py-2 font-mono text-[10px] tracking-[0.25em] text-amber-100 shadow-lg shadow-black/30 backdrop-blur-md transition hover:border-amber-300/40 hover:bg-slate-900/80 hover:text-amber-50"
+          className="fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-full border border-amber-400/25 bg-slate-950/70 px-4 py-2 font-mono text-[10px] tracking-[0.28em] text-amber-100 shadow-lg shadow-black/30 backdrop-blur-md transition hover:border-amber-300/40 hover:bg-slate-900/80 hover:text-amber-50"
         >
-          HOME
+          RETURN HOME
         </Link>
         <div className="h-screen w-full">{children}</div>
       </div>

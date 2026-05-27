@@ -105,6 +105,8 @@ def build_graph_artifacts(
     communities = {}
     community_labels = {}
     secondary_clusters = {}
+    output_dir = "outputs"
+    os.makedirs(output_dir, exist_ok=True)
 
     if len(filtered_papers) > 2:
         clean_links = [link for link in all_links if not link["is_duplicate"]]
@@ -124,7 +126,7 @@ def build_graph_artifacts(
         paper_topic_superclusters = gg.build_paper_topic_superclusters(filtered_papers, topic_hierarchy)
         
         # Save topic hierarchy to JSON
-        topic_path = os.path.join("outputs", f"topic_hierarchy_{label}.json")
+        topic_path = os.path.join(output_dir, f"topic_hierarchy_{label}.json")
         # Convert numpy array to list for JSON serialization
         serializable_hierarchy = {
             "topics": topic_hierarchy.get("topics", []),
@@ -146,7 +148,7 @@ def build_graph_artifacts(
         all_links=all_links,
         duplicate_ids=duplicate_ids,
     )
-    quality_path = os.path.join("outputs", f"quality_{label}.json")
+    quality_path = os.path.join(output_dir, f"quality_{label}.json")
     with open(quality_path, "w", encoding="utf-8") as handle:
         json.dump(quality_metrics, handle, indent=2)
     log.info(f"Saved quality metrics to {quality_path}")

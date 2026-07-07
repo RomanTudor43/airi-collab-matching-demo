@@ -106,6 +106,7 @@ ai-institute-site/
 
 - [Development Setup](./SETUP.md) - Detailed setup and troubleshooting
 - [Contributing Guide](./CONTRIBUTING.md) - How to contribute to the project
+- [Collaboration Matching](./docs/collaborate-matching.md) - How the `/collaborate` page matches students to researchers and projects
 - [Strapi Documentation](https://docs.strapi.io/) - Official CMS docs
 
 ## Support

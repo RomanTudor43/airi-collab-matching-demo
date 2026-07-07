@@ -1,0 +1,2050 @@
+diff --git a/README.md b/README.md
+index 2b4d356..83e119e 100644
+--- a/README.md
++++ b/README.md
+@@ -106,6 +106,7 @@ ai-institute-site/
+ 
+ - [Development Setup](./SETUP.md) - Detailed setup and troubleshooting
+ - [Contributing Guide](./CONTRIBUTING.md) - How to contribute to the project
++- [Collaboration Matching](./docs/collaborate-matching.md) - How the `/collaborate` page matches students to researchers and projects
+ - [Strapi Documentation](https://docs.strapi.io/) - Official CMS docs
+ 
+ ## Support
+diff --git a/docker-compose.use-prod-data.yml b/docker-compose.use-prod-data.yml
+new file mode 100644
+index 0000000..cdcd27b
+--- /dev/null
++++ b/docker-compose.use-prod-data.yml
+@@ -0,0 +1,23 @@
++# OPTIONAL, reversible override — points the LOCAL Next.js site at PRODUCTION's
++# public (read-only) API, so the whole site shows real content instead of empty
++# / "uninitialised" pages (your local Strapi has almost no data because the seed
++# migration crashed).
++#
++# Add it to the -f chain to enable:
++#   docker compose -f docker-compose.yml -f docker-compose.use-prod-data.yml up -d --build nextjs
++#
++# To go back to LOCAL data, simply omit this file from the -f chain.
++#
++# Caveat: production grants public read to most content types, but NOT `team`
++# or the graph-* types (and we have no prod token), so a few pages (the
++# paper-graph map, team listings) may error. The main pages — people, projects,
++# publications, news, events, departments, themes — will work.
++
++services:
++  nextjs:
++    environment:
++      STRAPI_INTERNAL_URL: https://airi.utcluj.ro/strapi    # server-side data fetch → prod
++      STRAPI_URL: https://airi.utcluj.ro/strapi
++      PUBLIC_STRAPI_URL: https://airi.utcluj.ro/strapi       # media / image URLs → prod
++      NEXT_PUBLIC_STRAPI_URL: https://airi.utcluj.ro/strapi
++      STRAPI_API_TOKEN: ""                                   # use prod's public (anonymous) read
+diff --git a/docs/collaborate-matching.md b/docs/collaborate-matching.md
+new file mode 100644
+index 0000000..d0d092f
+--- /dev/null
++++ b/docs/collaborate-matching.md
+@@ -0,0 +1,80 @@
++# Collaboration matching (`/collaborate`)
++
++A student types free-text research interests on the `/collaborate` page and gets a
++ranked list of AIRi researchers and projects to contact, each with a one-line reason
++and a public contact. Matching runs entirely inside the Next.js app — there is no
++separate service, container, or ML model.
++
++## How it works
++
++The page POSTs `{ interests: string[], top?: number }` to
++[`/api/collaborate`](../web/src/app/api/collaborate/route.js), which uses three small
++libs in `web/src/lib/`:
++
++- [`collab-index.js`](../web/src/lib/collab-index.js) — loads the corpus from Strapi
++  (graph-eligible publications with authors, people with public contact fields, team
++  leads, projects) via the site's existing `fetchAPI` helper. All requests are GETs and
++  cached with a 300-second revalidate, matching the search-index route's approach.
++- [`collab-match.js`](../web/src/lib/collab-match.js) — pure scoring functions.
++- [`collab-contacts.js`](../web/src/lib/collab-contacts.js) — contact resolution.
++
++## Scoring
++
++The query is tokenized (lowercase alphanumeric tokens, length > 2, minus a small
++stopword list). A publication's score is the number of query tokens that appear in its
++title + abstract + OpenAlex topics. From there:
++
++- **Researchers** are ranked by the *mean of their top-5* publication scores (mean, not
++  sum, so prolific authors don't win on volume alone). Only publications with at least
++  one shared term count, so an unrelated query genuinely returns nobody.
++- **Projects** take the stronger of two signals: token overlap on their own
++  abstract + themes, or the score of their best linked publication ("propagation").
++
++**Why keyword-only, no embeddings:** an earlier prototype used the paper-graph
++embedding model (`all-MiniLM-L6-v2`) in a separate Python microservice. An architecture
++review found that at the current corpus size the embedding path added infrastructure (a
++torch container, a second HTTP hop, a stale-forever cache) without measurable quality
++gain — the same persona queries resolve correctly with token overlap, because OpenAlex
++topics and project abstracts already contain the phrases students search for. The
++Python package survives as a CLI-only dev tool
++([`research-paper-graph-recommender/`](../research-paper-graph-recommender/README.md)).
++
++## Weak-match handling
++
++A result is **weak** when its best publication (or project) shares fewer than
++`min(2, query token count)` terms with the query. Weak results are never mixed into the
++main list: the page shows however many results genuinely clear the floor (possibly
++zero), then a visually muted "low confidence" section for the closest weak ones. This
++exists because padding to a fixed top-5 with confident-looking scores misled users when
++few strong matches existed.
++
++## Contact resolution and privacy
++
++Only contact info **already public in Strapi** is ever surfaced:
++
++- **Person:** own email → own public social link → their team's coordinator (the
++  member with `isLead`) → institute fallback.
++- **Project:** project contact entry (email preferred) → a contributor's public
++  email → institute fallback.
++- Institute fallback: `airi@campus.utcluj.ro`.
++
++The `team` content type is not publicly readable in production (403 without a token);
++`fetchAPI` degrades that to an empty result, so the coordinator step is silently
++skipped and resolution falls through to the institute address.
++
++## Known limitation
++
++Result diversity is bounded by data coverage, not code: only authors whose publications
++were marked `importEligible` and synced from OpenAlex have indexed publications, so
++results concentrate on them. Broadening results means flagging more researchers and
++re-running the existing paper sync — no code change.
++
++## Re-introducing embeddings later
++
++If author coverage grows and vocabulary-gap queries ("make robots see" vs. "computer
++vision") start failing, the upgrade path is contained: publications already store
++`embedding` / `embeddingModel` fields written by the paper-graph pipeline, and they are
++publicly readable. Add a Node-side encoder for the same model (e.g.
++`@huggingface/transformers` running `all-MiniLM-L6-v2` as ONNX), fetch the stored
++vectors in `collab-index.js`, and add a cosine scorer beside the keyword one in
++`collab-match.js` — the aggregation, contacts, route, and page all stay as they are.
+diff --git a/research-paper-graph-recommender/README.md b/research-paper-graph-recommender/README.md
+new file mode 100644
+index 0000000..42c14e2
+--- /dev/null
++++ b/research-paper-graph-recommender/README.md
+@@ -0,0 +1,150 @@
++# Collaboration-Matching Recommender (CLI dev tool, read-only)
++
++Given a student's free-text research interests, this CLI prints a ranked list
++of AIRi researchers and projects to contact, each with a one-sentence reason for
++the match.
++
++**This package is a standalone dev tool for local experimentation only.** It is
++not wired into the running site and nothing in `web/` or the Docker stack
++depends on it. The live `/collaborate` page uses a keyword-matching
++implementation inside the Next.js app instead — see
++[`docs/collaborate-matching.md`](../docs/collaborate-matching.md) for that
++feature and for why embeddings were deferred (at current author coverage the
++embedding path added infrastructure without measurable quality gain; this CLI
++remains the place to experiment with the embedding approach until the data
++justifies moving it into the site).
++
++It is a **non-invasive, read-only sibling** of [`research-paper-graph`](../research-paper-graph).
++It reuses that package as a library (the same `all-MiniLM-L6-v2` embedding model,
++the same Strapi GET utilities, the same `.env`) and **never writes to Strapi and
++never edits the existing package**. Every run prints
++`DRY RUN — no Strapi writes performed`.
++
++## Setup
++
++This package has its own virtual environment, independent of the existing one.
++
++1. Create a virtual environment.
++
++```bash
++python3 -m venv venv
++```
++
++2. Activate it.
++
++```bash
++source venv/bin/activate
++```
++
++3. Install dependencies.
++
++```bash
++pip install -r requirements.txt
++```
++
++If `requirements.txt` fails in a fresh environment (typically the `torch` wheel),
++install the CPU-only build first, exactly as the existing package recommends:
++
++```bash
++pip install torch --index-url https://download.pytorch.org/whl/cpu
++pip install sentence-transformers requests numpy scikit-learn python-dotenv
++```
++
++4. Configure credentials. This tool reads the **same repository `.env`** the
++   `research-paper-graph` package uses — it does **not** add any new variables
++   and does **not** modify the file. It needs:
++
++   - `STRAPI_API_TOKEN` — a valid Strapi API token (read access is enough); if
++     empty, the tool uses Strapi's public (anonymous) read access.
++   - `STRAPI_URL` — the Strapi base URL. **Note the gotcha:** the Python
++     packages read `STRAPI_URL` (default `http://localhost:1337`), whereas the
++     frontend/`.env.example` uses `PUBLIC_STRAPI_URL`. If you point the tool at a
++     non-local Strapi, set `STRAPI_URL` in `.env` accordingly.
++
++## Run
++
++Show usage:
++
++```bash
++python recommend.py --help
++```
++
++Examples (the four test personas):
++
++```bash
++python recommend.py --interests "integrated circuits design and pre-silicon verification" --top 5
++python recommend.py --interests "biomedical imaging and deep learning" --top 5
++python recommend.py --interests "energy systems forecasting and smart grids" --top 5
++python recommend.py --interests "robotics and autonomous systems" --top 5
++```
++
++Useful flags:
++
++- `--top N` — how many researchers and projects to return (default 5).
++- `--top-k N` — per person, how many of their best-matching publications to
++  average into their score (mean of top-K; default 5).
++- `--min-sim F` — cosine threshold for counting a publication as a "match" in
++  the reason text and the weak-match note (default 0.30). Does not gate results.
++- `--verbose` — print coverage stats (total graph-eligible publications, how
++  many have a usable embedding, how many have ≥1 linked author) and per-entity
++  scores.
++- `--no-embeddings` — force the keyword-overlap fallback (for testing).
++
++## How it works
++
++1. Embed the interests string with the **same** sentence-transformers model
++   paper-graph uses (`research_paper_graph.graph.build_text_embeddings`), so the
++   query lives in the same vector space as the stored publication embeddings.
++2. Cosine-similarity the query against each graph-eligible publication's stored
++   `embedding` (read from Strapi; already L2-normalized).
++3. Resolve top publications to their authors via the `authors` relation and rank
++   people by the **mean of their top-k** publication similarities (`matched` =
++   count above `--min-sim`).
++4. **Projects** take the stronger of two signals: cosine of their own `abstract`
++   vs the query, or the score of their best linked publication (propagation).
++5. Every recommendation comes with a short reason and a contact, using only
++   already-public Strapi data (see Privacy).
++
++### Fallback
++
++If the embedding model can't be loaded or the query can't be encoded at runtime
++(e.g., the model weights can't be downloaded offline), or if `--no-embeddings` is
++passed, the tool falls back to keyword overlap between the interests and each
++publication's OpenAlex `topics` / title, then aggregates the same way. (Note:
++the deps in `requirements.txt` — including sentence-transformers — must be
++installed either way, because importing the reused package pulls them in.)
++
++### Privacy
++
++Only contact info already public in Strapi is surfaced, in this order:
++
++- **Person:** own `email` → own public `socialLinks` → their team's coordinator
++  (the `members` entry with `isLead = true`) → institute address.
++- **Project:** project `contactInfo` entries → a contributor's public email →
++  institute address.
++
++The institute last-resort address is hardcoded to `airi@campus.utcluj.ro`
++(the public contact on the GitHub org and the site footer). If a definitive
++Strapi field is identified later, swap it in `contacts.py`.
++
++## Known limitations
++
++- **Author coverage is partial by design.** A publication only has linked authors
++  if an `importEligible` person's name matched at import time, so people-matching
++  depends on that coverage. `--verbose` reports how many publications have ≥1
++  linked author.
++
++## Notes
++
++- The existing [`research-paper-graph/README.md`](../research-paper-graph/README.md)
++  links to `docs/paper-graph-generation.md` and `docs/paper-sync-cli-guide.md`
++  via a stale absolute path (`/home/shumy/...`); **those files do not exist in
++  this repo.** The accurate references are
++  [`paper-graph-user-manual.md`](../paper-graph-user-manual.md) and
++  [`docs/publications-graph-rollout-plan.md`](../docs/publications-graph-rollout-plan.md).
++  (This note is here rather than in the existing README, which is left untouched.)
++
++## Uninstall
++
++Delete this folder (`research-paper-graph-recommender/`). The site's
++`/collaborate` feature is independent of it and keeps working.
+diff --git a/research-paper-graph-recommender/__pycache__/recommend.cpython-312.pyc b/research-paper-graph-recommender/__pycache__/recommend.cpython-312.pyc
+new file mode 100644
+index 0000000..e487fc1
+Binary files /dev/null and b/research-paper-graph-recommender/__pycache__/recommend.cpython-312.pyc differ
+diff --git a/research-paper-graph-recommender/__pycache__/recommend.cpython-314.pyc b/research-paper-graph-recommender/__pycache__/recommend.cpython-314.pyc
+new file mode 100644
+index 0000000..a37af08
+Binary files /dev/null and b/research-paper-graph-recommender/__pycache__/recommend.cpython-314.pyc differ
+diff --git a/research-paper-graph-recommender/__pycache__/serve.cpython-312.pyc b/research-paper-graph-recommender/__pycache__/serve.cpython-312.pyc
+new file mode 100644
+index 0000000..954fbe1
+Binary files /dev/null and b/research-paper-graph-recommender/__pycache__/serve.cpython-312.pyc differ
+diff --git a/research-paper-graph-recommender/__pycache__/serve.cpython-314.pyc b/research-paper-graph-recommender/__pycache__/serve.cpython-314.pyc
+new file mode 100644
+index 0000000..a6ad5cc
+Binary files /dev/null and b/research-paper-graph-recommender/__pycache__/serve.cpython-314.pyc differ
+diff --git a/research-paper-graph-recommender/recommend.py b/research-paper-graph-recommender/recommend.py
+new file mode 100644
+index 0000000..e3ed3c8
+--- /dev/null
++++ b/research-paper-graph-recommender/recommend.py
+@@ -0,0 +1,10 @@
++#!/usr/bin/env python3
++"""Entry point — mirrors research-paper-graph/main.py.
++
++Run:  python recommend.py --interests "integrated circuits, ML, energy" --top 5
++"""
++from research_paper_graph_recommender.cli import main
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/research-paper-graph-recommender/requirements.txt b/research-paper-graph-recommender/requirements.txt
+new file mode 100644
+index 0000000..88dcaaa
+--- /dev/null
++++ b/research-paper-graph-recommender/requirements.txt
+@@ -0,0 +1,19 @@
++# Recommender dependencies.
++#
++# This tool imports the sibling `research-paper-graph` package as a library and
++# reuses its embedding model. These are the same core packages that package
++# depends on (a subset — the clustering libraries are not needed here because
++# the recommender only reads stored embeddings and encodes the query).
++#
++# torch is installed separately with the CPU-only index (see README).
++
++# Core
++requests>=2.31
++python-dotenv>=1.0
++numpy>=1.24
++
++# ML – embeddings (same model as paper-graph: all-MiniLM-L6-v2)
++sentence-transformers>=2.2
++
++# Used internally by sentence-transformers
++scikit-learn>=1.3
+diff --git a/research-paper-graph-recommender/research_paper_graph_recommender/__init__.py b/research-paper-graph-recommender/research_paper_graph_recommender/__init__.py
+new file mode 100644
+index 0000000..88a321a
+--- /dev/null
++++ b/research-paper-graph-recommender/research_paper_graph_recommender/__init__.py
+@@ -0,0 +1,16 @@
++"""Read-only collaboration-matching recommender for the AIRi@UTCN site.
++
++This package is a *non-invasive* sibling of ``research-paper-graph``. It reuses
++that package as a library (embedding model, Strapi GET utilities, config) and
++never modifies it, the ``web/`` app, or any Strapi data. It performs GET
++requests only.
++
++Importing this package wires the sibling ``research-paper-graph`` folder onto
++``sys.path`` so that ``research_paper_graph`` becomes importable.
++"""
++
++from ._bootstrap import ensure_research_paper_graph_importable
++
++# Make the existing package importable as soon as this package is imported,
++# so submodules can freely ``from research_paper_graph import ...``.
++ensure_research_paper_graph_importable()
+diff --git a/research-paper-graph-recommender/research_paper_graph_recommender/_bootstrap.py b/research-paper-graph-recommender/research_paper_graph_recommender/_bootstrap.py
+new file mode 100644
+index 0000000..700d306
+--- /dev/null
++++ b/research-paper-graph-recommender/research_paper_graph_recommender/_bootstrap.py
+@@ -0,0 +1,51 @@
++"""Locate and expose the sibling ``research-paper-graph`` package.
++
++The existing package is not pip-installable (it is run via ``python main.py``
++from inside its own folder), so we add its root directory to ``sys.path`` at
++runtime instead of vendoring or forking any of its files.
++"""
++
++import sys
++from pathlib import Path
++
++# The folder name of the existing package (sibling to this one).
++_SIBLING_DIR_NAME = "research-paper-graph"
++# The importable package inside that folder.
++_INNER_PACKAGE = "research_paper_graph"
++
++
++def find_research_paper_graph_root():
++    """Return the path to the ``research-paper-graph`` folder, or None."""
++    here = Path(__file__).resolve()
++    # Walk upward from this file; at each ancestor look for the sibling folder.
++    for parent in here.parents:
++        candidate = parent / _SIBLING_DIR_NAME
++        if (candidate / _INNER_PACKAGE / "__init__.py").exists():
++            return candidate
++    return None
++
++
++def ensure_research_paper_graph_importable():
++    """Insert the existing package's root onto sys.path (idempotent).
++
++    If ``research_paper_graph`` is already importable (e.g. running inside the
++    paper-sync Docker image, where it lives on PYTHONPATH at /app), this is a
++    no-op — we don't require the sibling-folder layout in that case.
++    """
++    import importlib.util
++
++    if importlib.util.find_spec("research_paper_graph") is not None:
++        return None
++
++    root = find_research_paper_graph_root()
++    if root is None:
++        raise ImportError(
++            "Could not locate the 'research-paper-graph' package to import. "
++            f"Expected a sibling folder named '{_SIBLING_DIR_NAME}/' containing "
++            f"'{_INNER_PACKAGE}/__init__.py'. This recommender reuses that package "
++            "as a library and does not vendor its files."
++        )
++    path_str = str(root)
++    if path_str not in sys.path:
++        sys.path.insert(0, path_str)
++    return root
+diff --git a/research-paper-graph-recommender/research_paper_graph_recommender/cli.py b/research-paper-graph-recommender/research_paper_graph_recommender/cli.py
+new file mode 100644
+index 0000000..9804f19
+--- /dev/null
++++ b/research-paper-graph-recommender/research_paper_graph_recommender/cli.py
+@@ -0,0 +1,146 @@
++"""Command-line entrypoint for the read-only collaboration recommender.
++
++Mirrors the style of ``research_paper_graph/cli.py`` (argparse + run + main),
++reuses that package's settings loader and embedding model, and performs Strapi
++GET requests only.
++"""
++
++import argparse
++import logging
++import os
++
++# Quiet HuggingFace download chatter before the model libraries are imported.
++os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
++os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
++
++# research_paper_graph is made importable by this package's __init__.
++from research_paper_graph.config import load_runtime_settings
++
++from . import core
++from .data import ReadOnlyStrapiClient
++
++DRY_RUN_BANNER = "DRY RUN — no Strapi writes performed"
++
++log = logging.getLogger("recommend")
++
++# Load .env from the same place the existing package does (repo root), without
++# introducing any new variables.
++SETTINGS = load_runtime_settings(__file__)
++
++
++def build_parser():
++    p = argparse.ArgumentParser(
++        prog="recommend",
++        description="Recommend AIRi researchers and projects to contact for a "
++                    "student's research interests (read-only; no Strapi writes).",
++    )
++    p.add_argument(
++        "--interests", nargs="+", required=True,
++        help='Free-text research interests, e.g. --interests "integrated circuits, ML, energy"',
++    )
++    p.add_argument("--top", type=int, default=5,
++                   help="How many researchers and projects to return (default: 5).")
++    p.add_argument("--top-k", type=int, default=5,
++                   help="How many of a person's best-matching publications to average "
++                        "into their score (mean of top-K; default: 5).")
++    p.add_argument("--min-sim", type=float, default=0.30,
++                   help="Relevance floor (cosine) used only for wording and the "
++                        "weak-match note (default: 0.30). Does NOT gate results.")
++    p.add_argument("--no-embeddings", action="store_true",
++                   help="Force the keyword-overlap fallback (skip the embedding model).")
++    p.add_argument("--verbose", action="store_true",
++                   help="Print coverage stats and intermediate per-entity scores.")
++    return p
++
++
++def run(args):
++    print(f"\n{DRY_RUN_BANNER}\n")
++
++    interests_text = ", ".join(args.interests).strip()
++    if not SETTINGS.strapi_token:
++        log.info("No STRAPI_API_TOKEN set — using Strapi's public (anonymous) read access.")
++
++    strapi = ReadOnlyStrapiClient(SETTINGS.strapi_api_url, SETTINGS.strapi_token)
++    corpus = core.load_corpus(strapi)
++    result = core.recommend(
++        corpus, interests_text, SETTINGS.graph_ai_model,
++        top=args.top, top_k=args.top_k, min_sim=args.min_sim,
++        no_embeddings=args.no_embeddings,
++    )
++    if result["mode"] == "keyword" and not args.no_embeddings:
++        log.warning("Falling back to keyword-overlap matching.")
++
++    _print_result(result, args.top_k, args.verbose)
++    print(f"\n{DRY_RUN_BANNER}.\n")
++
++
++def _print_result(result, top_k, verbose):
++    mode = result["mode"]
++    floor = result["relevanceFloor"]
++    query = result["query"]
++
++    if verbose:
++        c = result["coverage"]
++        print("── Coverage (verbose) ───────────────────────────────────────────")
++        print(f"  matching mode               : {c['mode']}")
++        print(f"  model                       : {c['model']}")
++        print(f"  graph-eligible publications : {c['graphEligiblePublications']}")
++        print(f"  …with a stored embedding    : {c['withEmbedding']}")
++        print(f"  …embedding usable for model : {c['withUsableEmbedding']}")
++        print(f"  …with >=1 linked author     : {c['withLinkedAuthor']}")
++        print(f"  publications actually scored: {c['scored']}")
++        print(f"  people loaded               : {c['people']}")
++        print(f"  projects loaded             : {c['projects']} "
++              f"({c['projectsWithAbstract']} have an abstract)")
++        print("─────────────────────────────────────────────────────────────────\n")
++
++    researchers = result["researchers"]
++    print(f'Top {len(researchers)} researchers for: "{query}"\n')
++    if not researchers:
++        print("  (no researchers with scored publications)\n")
++    for r in researchers:
++        display = f"{r['name']} ({r['title']})" if r.get("title") else r["name"]
++        print(f" {r['rank']}. {display}")
++        print(f"     why    : {r['reason']}")
++        print(f"     contact: {r['contact']}  [{r['contactSource']}]")
++        if verbose:
++            print(f"     score  : {r['score']:.3f}  (mean of top {top_k}; top sim {r['topSim']:.2f})")
++        print()
++
++    if mode == "embedding" and researchers and researchers[0]["weak"]:
++        print(f"  ⚠ Best similarity is low (top {researchers[0]['topSim']:.2f} < {floor:.2f}). "
++              "The institute's indexed\n    publications may not cover this topic well — closest "
++              "available, not strong matches.\n")
++
++    projects = result["projects"]
++    print(f'Top {len(projects)} projects for: "{query}"\n')
++    if not projects:
++        print("  (no matching projects found)\n")
++    for r in projects:
++        print(f" {r['rank']}. {r['title']}")
++        print(f"     why    : {r['reason']}")
++        print(f"     contact: {r['contact']}  [{r['contactSource']}]")
++        if verbose:
++            themes = ", ".join(r.get("themes") or []) or "—"
++            print(f"     score  : {r['score']:.3f}; via: {r.get('via')}; themes: {themes}")
++        print()
++
++
++def main(argv=None):
++    parser = build_parser()
++    args = parser.parse_args(argv)
++
++    logging.basicConfig(
++        level=logging.INFO,
++        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
++        datefmt="%H:%M:%S",
++    )
++    for noisy in ("httpx", "sentence_transformers", "urllib3", "filelock", "transformers"):
++        logging.getLogger(noisy).setLevel(logging.WARNING)
++    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
++
++    run(args)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/research-paper-graph-recommender/research_paper_graph_recommender/contacts.py b/research-paper-graph-recommender/research_paper_graph_recommender/contacts.py
+new file mode 100644
+index 0000000..5a7d228
+--- /dev/null
++++ b/research-paper-graph-recommender/research_paper_graph_recommender/contacts.py
+@@ -0,0 +1,73 @@
++"""Contact resolution with a privacy-respecting fallback chain.
++
++We only ever surface contact information that already exists publicly in
++Strapi. If a person has no public contact, we fall back to their team
++coordinator, then to a project's own contact info, and finally to the
++institute's public address.
++"""
++
++# Public institute contact (GitHub org + site footer). Hardcoded by request;
++# swap for a Strapi field later if a definitive one is identified.
++INSTITUTE_FALLBACK_EMAIL = "airi@campus.utcluj.ro"
++
++
++def resolve_person_contact(person, lead_by_member):
++    """Return ``(contact_string, source)`` for a person.
++
++    Order: own email -> own public social link -> team coordinator -> institute.
++    """
++    email = (person.get("email") or "").strip()
++    if email:
++        return email, "own email"
++
++    social_links = person.get("socialLinks") or []
++    if social_links:
++        link = social_links[0]
++        label = link.get("label") or "profile"
++        return f"{label}: {link['url']}", "own public link"
++
++    key = (person.get("fullName") or "").lower().strip()
++    lead = lead_by_member.get(key)
++    if lead:
++        if lead.get("email"):
++            return (
++                f"team coordinator {lead['fullName']} <{lead['email']}>",
++                "team coordinator",
++            )
++        # Coordinator known but no public email for them either -> institute.
++        return (
++            f"team coordinator {lead['fullName']} (via {INSTITUTE_FALLBACK_EMAIL})",
++            "team coordinator (no public email)",
++        )
++
++    return INSTITUTE_FALLBACK_EMAIL, "institute (no public contact found)"
++
++
++def resolve_project_contact(project):
++    """Return ``(contact_string, source)`` for a project.
++
++    Order: project contact entry (prefer email) -> a contributor's public
++    email -> institute.
++    """
++    contact_info = project.get("contactInfo") or {}
++    entries = contact_info.get("entries") or []
++
++    # Prefer an explicit email entry, then any entry.
++    email_entries = [e for e in entries if (e.get("type") or "").lower() == "email"]
++    chosen = (email_entries or entries)
++    if chosen:
++        entry = chosen[0]
++        value = entry["value"]
++        label = entry.get("label") or entry.get("type") or "contact"
++        # Avoid "email: email" when the label just duplicates the value.
++        formatted = value if label.strip().lower() == value.strip().lower() else f"{label}: {value}"
++        return formatted, "project contact info"
++
++    for contributor in project.get("contributors") or []:
++        if contributor.get("email"):
++            return (
++                f"contributor {contributor['fullName']} <{contributor['email']}>",
++                "project contributor email",
++            )
++
++    return INSTITUTE_FALLBACK_EMAIL, "institute (no public contact found)"
+diff --git a/research-paper-graph-recommender/research_paper_graph_recommender/core.py b/research-paper-graph-recommender/research_paper_graph_recommender/core.py
+new file mode 100644
+index 0000000..9d0c84e
+--- /dev/null
++++ b/research-paper-graph-recommender/research_paper_graph_recommender/core.py
+@@ -0,0 +1,120 @@
++"""Recommendation pipeline behind the CLI.
++
++``load_corpus`` does the read-only Strapi GETs once; ``recommend`` scores a
++single free-text query against an already-loaded corpus and returns a
++JSON-serializable result.
++"""
++
++import logging
++
++from . import matching
++from .contacts import resolve_person_contact, resolve_project_contact
++
++log = logging.getLogger("recommend")
++
++
++def load_corpus(strapi):
++    """Read everything the matcher needs (GET only). Returns a plain dict so it
++    can be cached and reused across many queries by the HTTP service."""
++    pubs, _pub_map = strapi.load_graph_eligible_publications()
++    people, people_by_key = strapi.load_people_contacts()
++    _teams, lead_by_member = strapi.load_teams_with_leads()
++    projects = strapi.load_projects_for_matching()
++    return {
++        "pubs": pubs,
++        "people": people,
++        "people_by_key": people_by_key,
++        "lead_by_member": lead_by_member,
++        "projects": projects,
++    }
++
++
++def _coverage(corpus, scored_pubs, model_name, mode):
++    pubs = corpus["pubs"]
++    projects = corpus["projects"]
++    return {
++        "mode": mode,
++        "model": model_name,
++        "graphEligiblePublications": len(pubs),
++        "withEmbedding": sum(1 for p in pubs if p.get("embedding")),
++        "withUsableEmbedding": sum(
++            1 for p in pubs
++            if p.get("embedding") and (not p.get("embeddingModel") or p.get("embeddingModel") == model_name)
++        ),
++        "withLinkedAuthor": sum(1 for p in pubs if p.get("authors")),
++        "scored": len(scored_pubs),
++        "people": len(corpus["people"]),
++        "projects": len(projects),
++        "projectsWithAbstract": sum(1 for p in projects if p.get("abstract")),
++    }
++
++
++def recommend(corpus, interests_text, model_name, *, top=5, top_k=5,
++              min_sim=0.30, no_embeddings=False):
++    """Score one query against a loaded corpus. Returns a JSON-serializable dict."""
++    query_tokens = matching.tokenize(interests_text)
++    query_vec = None if no_embeddings else matching.embed_query(interests_text, model_name)
++
++    if query_vec is not None:
++        mode = "embedding"
++        score_by_docid, scored_pubs = matching.score_publications_by_embedding(
++            corpus["pubs"], query_vec, model_name
++        )
++        floor = min_sim
++    else:
++        mode = "keyword"
++        score_by_docid, scored_pubs = matching.score_publications_by_keywords(
++            corpus["pubs"], query_tokens
++        )
++        floor = 1.0
++
++    people_results = matching.aggregate_people(
++        scored_pubs, corpus["people_by_key"], top_k, floor
++    )
++    project_results = matching.score_projects(
++        corpus["projects"], query_vec, model_name, score_by_docid,
++        top_k, floor, mode, query_tokens,
++    )
++
++    researchers = []
++    for rank, r in enumerate(people_results[:top], start=1):
++        person = r["person"]
++        contact, source = resolve_person_contact(person, corpus["lead_by_member"])
++        researchers.append({
++            "rank": rank,
++            "name": person.get("fullName", "Unknown"),
++            "title": person.get("title"),
++            "slug": person.get("slug"),
++            "score": round(r["score"], 4),
++            "topSim": round(r["bestScore"], 4),
++            "matched": r["matched"],
++            "weak": bool(mode == "embedding" and r["bestScore"] < floor),
++            "reason": matching.person_reason(r, mode, floor),
++            "contact": contact,
++            "contactSource": source,
++        })
++
++    projects_out = []
++    for rank, r in enumerate(project_results[:top], start=1):
++        project = r["project"]
++        contact, source = resolve_project_contact(project)
++        projects_out.append({
++            "rank": rank,
++            "title": project.get("title", "Untitled"),
++            "slug": project.get("slug"),
++            "score": round(r["score"], 4),
++            "via": r.get("via"),
++            "reason": matching.project_reason(r, mode),
++            "contact": contact,
++            "contactSource": source,
++            "themes": project.get("themes") or [],
++        })
++
++    return {
++        "query": interests_text,
++        "mode": mode,
++        "relevanceFloor": floor,
++        "coverage": _coverage(corpus, scored_pubs, model_name, mode),
++        "researchers": researchers,
++        "projects": projects_out,
++    }
+diff --git a/research-paper-graph-recommender/research_paper_graph_recommender/data.py b/research-paper-graph-recommender/research_paper_graph_recommender/data.py
+new file mode 100644
+index 0000000..150a98e
+--- /dev/null
++++ b/research-paper-graph-recommender/research_paper_graph_recommender/data.py
+@@ -0,0 +1,293 @@
++"""Read-only Strapi access for the recommender.
++
++We subclass the existing ``StrapiClient`` so we can reuse its battle-tested GET
++utilities (``_fetch_all_pages``, ``_extract_relation_items``) and its existing
++read loaders (``load_graph_eligible_publications``, ``load_graph_macros``)
++*without* editing the original file.
++
++Every mutating method of the parent is overridden to raise, so this client is
++structurally incapable of writing to Strapi — a hard guarantee on top of the
++discipline of only calling GET paths.
++"""
++
++import logging
++
++# research_paper_graph is made importable by this package's __init__.
++from research_paper_graph.strapi import StrapiClient
++
++log = logging.getLogger("recommend")
++
++
++class ReadOnlyViolation(RuntimeError):
++    """Raised if anything attempts a Strapi write through this client."""
++
++
++class ReadOnlyStrapiClient(StrapiClient):
++    """A StrapiClient that can only read. Adds recommender-specific loaders."""
++
++    def __init__(self, base_url, token):
++        super().__init__(base_url, token)
++        # With no token, rely on Strapi's public (anonymous) role. Sending an
++        # empty "Bearer " header gets rejected with 401, so omit it entirely —
++        # this mirrors how the site's own frontend fetches when no token is set.
++        if not token:
++            self.headers.pop("Authorization", None)
++            self.upload_headers.pop("Authorization", None)
++
++    # --- Structural write blocking -----------------------------------------
++    def _blocked_write(self, *args, **kwargs):  # noqa: D401 - simple guard
++        raise ReadOnlyViolation(
++            "The recommender is read-only: Strapi writes are disabled. "
++            "This call was blocked as a safety guarantee."
++        )
++
++    # Override every parent method that performs POST/PUT/DELETE/upload.
++    create_publication = _blocked_write
++    update_publication = _blocked_write
++    create_graph_link = _blocked_write
++    clear_graph_links = _blocked_write
++    create_graph_meso = _blocked_write
++    update_graph_meso = _blocked_write
++    upload_pdf_from_openalex = _blocked_write
++    ensure_publication_pdf = _blocked_write
++
++    # --- Recommender read loaders ------------------------------------------
++    def load_people_contacts(self):
++        """Load all people with the public contact fields we may surface.
++
++        Returns a dict keyed by normalized full name plus a ``by_key`` index,
++        so authors (populated as full-name strings on publications) can be
++        joined back to a person's contact details.
++        """
++        log.info("Loading people (contacts) from Strapi...")
++        rows = self._fetch_all_pages(
++            "people",
++            {
++                "fields[0]": "fullName",
++                "fields[1]": "slug",
++                "fields[2]": "email",
++                "fields[3]": "type",
++                "fields[4]": "title",
++                "fields[5]": "firstName",
++                "fields[6]": "lastName",
++                "populate[socialLinks][fields][0]": "label",
++                "populate[socialLinks][fields][1]": "url",
++                "populate[socialLinks][fields][2]": "icon",
++            },
++        )
++
++        people = []
++        for row in rows:
++            attrs = row.get("attributes", row)
++            document_id = row.get("documentId") or row.get("id")
++            full_name = (attrs.get("fullName") or "").strip()
++            if not full_name:
++                first = (attrs.get("firstName") or "").strip()
++                last = (attrs.get("lastName") or "").strip()
++                full_name = f"{first} {last}".strip()
++            if not full_name:
++                continue
++
++            social_links = []
++            for link in self._extract_relation_items(attrs.get("socialLinks")):
++                link_attrs = link.get("attributes", link)
++                url = (link_attrs.get("url") or "").strip()
++                if url:
++                    social_links.append(
++                        {
++                            "label": (link_attrs.get("label") or "").strip(),
++                            "url": url,
++                            "icon": link_attrs.get("icon"),
++                        }
++                    )
++
++            people.append(
++                {
++                    "documentId": document_id,
++                    "fullName": full_name,
++                    "slug": attrs.get("slug"),
++                    "email": (attrs.get("email") or "").strip(),
++                    "type": attrs.get("type"),
++                    "title": attrs.get("title"),
++                    "socialLinks": social_links,
++                }
++            )
++
++        by_key = {p["fullName"].lower().strip(): p for p in people}
++        log.info("  Loaded %d people (%d with a public email)", len(people),
++                 sum(1 for p in people if p["email"]))
++        return people, by_key
++
++    def load_teams_with_leads(self):
++        """Load teams and their members so we can find each team's coordinator.
++
++        A team's coordinator is the membership entry with ``isLead = true``.
++        Returns a list of teams (with resolved lead) and an index mapping a
++        member's normalized full name -> the lead contact for their team.
++        """
++        log.info("Loading teams (members + leads) from Strapi...")
++        try:
++            rows = self._fetch_all_pages(
++                "teams",
++                {
++                    "fields[0]": "name",
++                    "fields[1]": "slug",
++                    "populate[members][fields][0]": "role",
++                    "populate[members][fields][1]": "isLead",
++                    "populate[members][populate][person][fields][0]": "fullName",
++                    "populate[members][populate][person][fields][1]": "slug",
++                    "populate[members][populate][person][fields][2]": "email",
++                },
++            )
++        except Exception as exc:
++            # `team` is not in the site's public permission set, so reading
++            # production anonymously returns 403 here. Degrade gracefully: with
++            # no team data the person-contact chain simply skips the
++            # team-coordinator step and falls through to the institute address.
++            log.warning("Could not load teams (%s); team-coordinator fallback disabled.", exc)
++            return [], {}
++
++        teams = []
++        lead_by_member = {}
++        for row in rows:
++            attrs = row.get("attributes", row)
++            team_name = (attrs.get("name") or "").strip()
++            members = self._extract_relation_items(attrs.get("members"))
++
++            member_names = []
++            lead = None
++            for member in members:
++                member_attrs = member.get("attributes", member)
++                person_items = self._extract_relation_items(member_attrs.get("person"))
++                if not person_items:
++                    continue
++                person_attrs = person_items[0].get("attributes", person_items[0])
++                person_name = (person_attrs.get("fullName") or "").strip()
++                if not person_name:
++                    continue
++                member_names.append(person_name)
++                if member_attrs.get("isLead") and lead is None:
++                    lead = {
++                        "fullName": person_name,
++                        "email": (person_attrs.get("email") or "").strip(),
++                        "role": member_attrs.get("role"),
++                    }
++
++            team = {"name": team_name, "slug": attrs.get("slug"), "lead": lead}
++            teams.append(team)
++
++            if lead:
++                for name in member_names:
++                    # Don't point a person at themselves as their own coordinator.
++                    if name.lower().strip() == lead["fullName"].lower().strip():
++                        continue
++                    lead_by_member.setdefault(
++                        name.lower().strip(),
++                        {"teamName": team_name, **lead},
++                    )
++
++        log.info("  Loaded %d teams (%d with a designated lead)", len(teams),
++                 sum(1 for t in teams if t["lead"]))
++        return teams, lead_by_member
++
++    def load_projects_for_matching(self):
++        """Load projects with the fields needed for publication-propagation
++        scoring, contact resolution, and the keyword fallback.
++        """
++        log.info("Loading projects from Strapi...")
++        rows = self._fetch_all_pages(
++            "projects",
++            {
++                "fields[0]": "title",
++                "fields[1]": "slug",
++                "fields[2]": "abstract",
++                "populate[publications][fields][0]": "title",
++                "populate[contributors][fields][0]": "fullName",
++                "populate[contributors][fields][1]": "email",
++                "populate[contributors][fields][2]": "slug",
++                "populate[themes][fields][0]": "name",
++                "populate[contactInfo][populate][contactEntries][fields][0]": "type",
++                "populate[contactInfo][populate][contactEntries][fields][1]": "value",
++                "populate[contactInfo][populate][contactEntries][fields][2]": "label",
++            },
++        )
++
++        projects = []
++        for row in rows:
++            attrs = row.get("attributes", row)
++            document_id = row.get("documentId") or row.get("id")
++
++            publication_doc_ids = []
++            publication_titles = {}
++            for pub in self._extract_relation_items(attrs.get("publications")):
++                pub_id = pub.get("documentId") or pub.get("id")
++                if not pub_id:
++                    continue
++                publication_doc_ids.append(pub_id)
++                pub_attrs = pub.get("attributes", pub)
++                publication_titles[pub_id] = pub_attrs.get("title")
++
++            contributors = []
++            for person in self._extract_relation_items(attrs.get("contributors")):
++                person_attrs = person.get("attributes", person)
++                name = (person_attrs.get("fullName") or "").strip()
++                if name:
++                    contributors.append(
++                        {"fullName": name, "email": (person_attrs.get("email") or "").strip()}
++                    )
++
++            themes = []
++            for theme in self._extract_relation_items(attrs.get("themes")):
++                theme_attrs = theme.get("attributes", theme)
++                name = (theme_attrs.get("name") or "").strip()
++                if name:
++                    themes.append(name)
++
++            projects.append(
++                {
++                    "documentId": document_id,
++                    "title": (attrs.get("title") or "").strip(),
++                    "slug": attrs.get("slug"),
++                    "abstract": (attrs.get("abstract") or "").strip(),
++                    "publicationDocIds": publication_doc_ids,
++                    "publicationTitles": publication_titles,
++                    "contributors": contributors,
++                    "themes": themes,
++                    "contactInfo": _parse_contact_info(attrs.get("contactInfo")),
++                }
++            )
++
++        log.info("  Loaded %d projects (%d with an abstract, %d with linked publications)",
++                 len(projects),
++                 sum(1 for p in projects if p["abstract"]),
++                 sum(1 for p in projects if p["publicationDocIds"]))
++        return projects
++
++
++def _parse_contact_info(contact_info):
++    """Normalize a project ``contactInfo`` component into plain entries."""
++    if not isinstance(contact_info, dict):
++        # Some Strapi shapes wrap single components under "data".
++        data = contact_info.get("data") if isinstance(contact_info, dict) else None
++        contact_info = data if isinstance(data, dict) else None
++    if not isinstance(contact_info, dict):
++        return {"entries": [], "generalInfo": None}
++
++    attrs = contact_info.get("attributes", contact_info)
++    entries = []
++    raw_entries = attrs.get("contactEntries")
++    if isinstance(raw_entries, dict):
++        raw_entries = raw_entries.get("data") or []
++    for entry in raw_entries or []:
++        entry_attrs = entry.get("attributes", entry)
++        value = (entry_attrs.get("value") or "").strip()
++        if not value:
++            continue
++        entries.append(
++            {
++                "type": entry_attrs.get("type"),
++                "value": value,
++                "label": (entry_attrs.get("label") or "").strip(),
++            }
++        )
++    return {"entries": entries, "generalInfo": attrs.get("generalInfo")}
+diff --git a/research-paper-graph-recommender/research_paper_graph_recommender/matching.py b/research-paper-graph-recommender/research_paper_graph_recommender/matching.py
+new file mode 100644
+index 0000000..97c3c5d
+--- /dev/null
++++ b/research-paper-graph-recommender/research_paper_graph_recommender/matching.py
+@@ -0,0 +1,285 @@
++"""Matching engine: embed interests, score publications, aggregate to people
++and projects, with a keyword-overlap fallback.
++
++The primary path reuses the exact embedding model and normalization from
++``research_paper_graph`` so query vectors live in the same space as the stored
++publication embeddings. The fallback path itself uses only numpy + the standard
++library, so it still runs when the embedding model cannot be loaded or the query
++cannot be encoded at runtime (e.g., the weights can't be downloaded offline), or
++when ``--no-embeddings`` is passed.
++"""
++
++import logging
++import re
++from collections import defaultdict
++
++import numpy as np
++
++log = logging.getLogger("recommend")
++
++# Minimal stopword set for the fallback tokenizer (kept local so the fallback
++# has no heavy dependencies).
++_STOPWORDS = {
++    "a", "an", "and", "are", "as", "at", "by", "for", "from", "in", "into",
++    "of", "on", "or", "the", "to", "with", "via", "using", "is", "be", "we",
++    "this", "that", "it", "its", "their", "our", "based", "approach", "study",
++}
++
++
++def tokenize(text):
++    """Lowercase alphanumeric tokens, length > 2, minus stopwords."""
++    if not text:
++        return set()
++    tokens = re.findall(r"[a-z0-9]+", str(text).lower())
++    return {t for t in tokens if len(t) > 2 and t not in _STOPWORDS}
++
++
++# ── Embedding path ──────────────────────────────────────────────────────────
++
++def embed_query(interests_text, model_name):
++    """Embed the interests string into a normalized vector using the SAME model
++    as paper-graph. Returns a 1-D numpy array, or ``None`` if embeddings are
++    unavailable (which triggers the keyword fallback).
++    """
++    try:
++        from research_paper_graph import graph as gg
++    except Exception as exc:  # pragma: no cover - environment dependent
++        log.warning("Embedding module unavailable (%s); using keyword fallback.", exc)
++        return None
++
++    try:
++        vectors = gg.build_text_embeddings([interests_text], model_name)
++    except Exception as exc:  # pragma: no cover - environment dependent
++        log.warning("Failed to embed interests (%s); using keyword fallback.", exc)
++        return None
++
++    if vectors is None or len(vectors) == 0:
++        return None
++    return np.asarray(vectors[0], dtype=np.float32)
++
++
++def _unit(vec):
++    """Return the L2-normalized vector (safe for zero vectors)."""
++    v = np.asarray(vec, dtype=np.float32)
++    norm = np.linalg.norm(v)
++    return v / norm if norm else v
++
++
++def score_publications_by_embedding(pubs, query_vec, model_name):
++    """Cosine similarity of each usable publication embedding vs the query.
++
++    Stored embeddings are already L2-normalized by the pipeline; we renormalize
++    defensively. Returns ``{documentId: score}`` and a parallel list of
++    ``(pub, score)`` for publications that had a usable embedding.
++    """
++    usable_pubs = []
++    rows = []
++    for pub in pubs:
++        embedding = pub.get("embedding")
++        if not embedding:
++            continue
++        # Only trust embeddings produced by the same model we queried with.
++        if pub.get("embeddingModel") and pub.get("embeddingModel") != model_name:
++            continue
++        try:
++            vec = np.asarray(embedding, dtype=np.float32)
++        except (TypeError, ValueError):
++            continue
++        if vec.ndim != 1 or vec.size == 0 or vec.size != query_vec.size:
++            continue
++        usable_pubs.append(pub)
++        rows.append(vec)
++
++    if not rows:
++        return {}, []
++
++    matrix = np.vstack(rows)
++    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
++    norms[norms == 0] = 1.0
++    matrix = matrix / norms
++
++    q = _unit(query_vec)
++    if not np.any(q):
++        return {}, []
++
++    sims = matrix @ q
++    scored = [(pub, float(score)) for pub, score in zip(usable_pubs, sims)]
++    score_by_docid = {pub["documentId"]: score for pub, score in scored}
++    return score_by_docid, scored
++
++
++# ── Fallback path ─────────────────────────────────────────────────────────--
++
++def score_publications_by_keywords(pubs, query_tokens):
++    """Token-overlap score: how many query tokens appear in a publication's
++    OpenAlex topics (and title). Returns ``{documentId: score}`` and a list of
++    ``(pub, score)`` for publications with any overlap.
++    """
++    scored = []
++    score_by_docid = {}
++    for pub in pubs:
++        pub_tokens = set()
++        for topic in pub.get("topics") or []:
++            pub_tokens |= tokenize(topic)
++        pub_tokens |= tokenize(pub.get("title"))
++        overlap = len(query_tokens & pub_tokens)
++        if overlap > 0:
++            scored.append((pub, float(overlap)))
++            score_by_docid[pub["documentId"]] = float(overlap)
++    return score_by_docid, scored
++
++
++# ── Aggregation ────────────────────────────────────────────────────────────-
++
++def aggregate_people(scored_pubs, people_by_key, top_k, relevance_floor):
++    """Rank people by the MEAN of their top-k publication scores.
++
++    Using the mean (not the sum) keeps prolific authors from dominating purely
++    on volume — what matters is how strongly their *best* few papers match.
++    Everyone with >=1 scored publication is ranked; ``relevance_floor`` only
++    affects the "matched on N" wording, not whether a person is included.
++    """
++    hits_by_person = defaultdict(list)  # key -> list of (score, pub)
++    for pub, score in scored_pubs:
++        for author_name in pub.get("authors") or []:
++            hits_by_person[author_name.lower().strip()].append((score, pub))
++
++    results = []
++    for key, hits in hits_by_person.items():
++        hits.sort(key=lambda item: item[0], reverse=True)
++        top = hits[:top_k]
++        if not top:
++            continue
++        score = sum(s for s, _ in top) / len(top)
++        matched = sum(1 for s, _ in hits if s >= relevance_floor)
++        best_score, best_pub = hits[0]
++        person = people_by_key.get(key, {"fullName": _titlecase(key)})
++        results.append(
++            {
++                "person": person,
++                "score": score,
++                "matched": matched,
++                "bestPub": best_pub,
++                "bestScore": best_score,
++                "totalPubs": len(hits),
++            }
++        )
++
++    results.sort(key=lambda r: r["score"], reverse=True)
++    return results
++
++
++def score_projects(projects, query_vec, model_name, pub_score_by_docid,
++                   top_k, relevance_floor, mode, query_tokens=None):
++    """Score projects with two signals and keep the stronger one:
++
++    1. cosine of the project's *abstract* vs the query (most projects have one);
++    2. *publication propagation* — the score of its best linked publication.
++
++    In keyword-fallback mode this uses token overlap on abstract+themes (plus
++    propagation). Returns ranked result dicts.
++    """
++    abstract_score = {}
++    if mode == "embedding" and query_vec is not None:
++        idx, texts = [], []
++        for i, project in enumerate(projects):
++            if project.get("abstract"):
++                idx.append(i)
++                texts.append(project["abstract"])
++        if texts:
++            try:
++                from research_paper_graph import graph as gg
++                vecs = gg.build_text_embeddings(texts, model_name)
++                q = _unit(query_vec)
++                for j, i in enumerate(idx):
++                    abstract_score[i] = float(_unit(vecs[j]) @ q)
++            except Exception as exc:  # pragma: no cover
++                log.warning("Project abstract embedding failed (%s).", exc)
++
++    results = []
++    for i, project in enumerate(projects):
++        prop = sorted(
++            (
++                (pub_score_by_docid[d], project.get("publicationTitles", {}).get(d))
++                for d in project.get("publicationDocIds", [])
++                if d in pub_score_by_docid
++            ),
++            key=lambda t: t[0],
++            reverse=True,
++        )
++        best_prop = prop[0][0] if prop else None
++        best_prop_title = prop[0][1] if prop else None
++
++        if mode == "embedding":
++            abs_s = abstract_score.get(i)
++            candidates = [
++                (c, kind, t)
++                for c, kind, t in (
++                    (abs_s, "abstract", None),
++                    (best_prop, "publications", best_prop_title),
++                )
++                if c is not None
++            ]
++            if not candidates:
++                continue
++            score, via, prop_title = max(candidates, key=lambda c: c[0])
++            matched = sum(1 for s, _ in prop if s >= relevance_floor)
++        else:
++            text_tokens = tokenize(
++                (project.get("abstract") or "") + " " + " ".join(project.get("themes") or [])
++            )
++            overlap = len((query_tokens or set()) & text_tokens)
++            prop_overlap = int(best_prop) if best_prop else 0
++            if overlap == 0 and prop_overlap == 0:
++                continue
++            if overlap >= prop_overlap:
++                score, via, prop_title = overlap, "abstract", None
++            else:
++                score, via, prop_title = prop_overlap, "publications", best_prop_title
++            matched = sum(1 for s, _ in prop if s >= 1)
++
++        results.append(
++            {
++                "project": project,
++                "score": score,
++                "via": via,
++                "matched": matched,
++                "bestPropTitle": prop_title,
++                "bestScore": score,
++            }
++        )
++
++    results.sort(key=lambda r: r["score"], reverse=True)
++    return results
++
++
++def _titlecase(key):
++    return " ".join(word.capitalize() for word in key.split())
++
++
++# ── Reason strings ────────────────────────────────────────────────────────--
++
++def person_reason(result, mode, relevance_floor):
++    """One-sentence, human-readable reason for a person recommendation."""
++    best_pub = result["bestPub"]
++    title = (best_pub.get("title") or "untitled").strip()
++    title = (title[:70] + "…") if len(title) > 71 else title
++
++    if mode == "embedding" and result["bestScore"] < relevance_floor:
++        return f'weak match — closest paper: "{title}"'
++
++    matched = result["matched"]
++    plural = "s" if matched != 1 else ""
++    topic_hint = ""
++    topics = best_pub.get("topics") or []
++    if topics:
++        topic_hint = f", about {topics[0]}"
++    return f'matched on {matched} publication{plural}{topic_hint}; top: "{title}"'
++
++
++def project_reason(result, mode):
++    if result.get("via") == "abstract":
++        return "project abstract matches your interests"
++    title = (result.get("bestPropTitle") or "a linked publication").strip()
++    title = (title[:70] + "…") if len(title) > 71 else title
++    return f'matched via linked publication "{title}"'
+diff --git a/web/src/app/api/collaborate/route.js b/web/src/app/api/collaborate/route.js
+new file mode 100644
+index 0000000..6694de5
+--- /dev/null
++++ b/web/src/app/api/collaborate/route.js
+@@ -0,0 +1,93 @@
++import { loadCollabCorpus } from '@/lib/collab-index';
++import {
++  aggregatePeople,
++  personReason,
++  projectReason,
++  relevanceFloor,
++  scoreProjects,
++  scorePublications,
++  titleCaseName,
++  tokenize,
++} from '@/lib/collab-match';
++import { resolvePersonContact, resolveProjectContact } from '@/lib/collab-contacts';
++
++export const dynamic = 'force-dynamic';
++
++const TOP_K = 5;
++
++export async function POST(request) {
++  let body;
++  try {
++    body = await request.json();
++  } catch {
++    return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
++  }
++
++  const raw = body?.interests;
++  const interests = (Array.isArray(raw) ? raw : raw ? [raw] : [])
++    .map((s) => String(s).trim())
++    .filter(Boolean);
++  if (!interests.length) {
++    return Response.json({ error: "'interests' is required" }, { status: 400 });
++  }
++  const top = Number.isFinite(body?.top) ? Math.max(1, Math.min(Math.trunc(body.top), 25)) : 5;
++
++  const query = interests.join(', ');
++  const queryTokens = tokenize(query);
++  const floor = relevanceFloor(queryTokens);
++
++  const corpus = await loadCollabCorpus();
++  const { scored, scoreByDocId } = scorePublications(corpus.publications, queryTokens);
++
++  const researchers = aggregatePeople(scored, TOP_K)
++    .slice(0, top)
++    .map((r, i) => {
++      const person = corpus.peopleByName.get(r.key) || { fullName: titleCaseName(r.key) };
++      const [contact, contactSource] = resolvePersonContact(person, corpus.leadByMember);
++      return {
++        rank: i + 1,
++        name: person.fullName,
++        title: person.title || null,
++        slug: person.slug || null,
++        score: Math.round(r.score * 10) / 10,
++        topScore: r.best.score,
++        matched: r.matched,
++        weak: r.best.score < floor,
++        reason: personReason(r),
++        contact,
++        contactSource,
++      };
++    });
++
++  const projects = scoreProjects(corpus.projects, scoreByDocId, queryTokens)
++    .slice(0, top)
++    .map((r, i) => {
++      const [contact, contactSource] = resolveProjectContact(r.project);
++      return {
++        rank: i + 1,
++        title: r.project.title,
++        slug: r.project.slug || null,
++        score: r.score,
++        via: r.via,
++        weak: r.score < floor,
++        reason: projectReason(r),
++        contact,
++        contactSource,
++        themes: r.project.themes,
++      };
++    });
++
++  return Response.json({
++    query,
++    mode: 'keyword',
++    relevanceFloor: floor,
++    coverage: {
++      publications: corpus.publications.length,
++      scored: scored.length,
++      people: corpus.people.length,
++      projects: corpus.projects.length,
++    },
++    researchers,
++    projects,
++  });
++}
+diff --git a/web/src/app/collaborate/page.js b/web/src/app/collaborate/page.js
+new file mode 100644
+index 0000000..678b507
+--- /dev/null
++++ b/web/src/app/collaborate/page.js
+@@ -0,0 +1,190 @@
++'use client';
++
++import { useState } from 'react';
++
++const PERSONAS = [
++  'energy systems forecasting and smart grids',
++  'biomedical imaging and deep learning',
++  'robotics and autonomous systems',
++  'integrated circuits design and pre-silicon verification',
++];
++
++const TOP = 5;
++
++const fmtTerms = (n) => `${n} shared term${n === 1 ? '' : 's'}`;
++
++export default function CollaboratePage() {
++  const [interests, setInterests] = useState('');
++  const [loading, setLoading] = useState(false);
++  const [error, setError] = useState(null);
++  const [result, setResult] = useState(null);
++
++  async function search(text) {
++    const list = String(text).split(',').map((s) => s.trim()).filter(Boolean);
++    if (!list.length) {
++      setError('Please enter at least one research interest.');
++      return;
++    }
++    setError(null);
++    setResult(null);
++    setLoading(true);
++    try {
++      const res = await fetch('/api/collaborate', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ interests: list, top: TOP }),
++      });
++      const data = await res.json();
++      if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
++      setResult(data);
++    } catch (e) {
++      setError(e.message);
++    } finally {
++      setLoading(false);
++    }
++  }
++
++  return (
++    <main className="mx-auto max-w-3xl px-4 py-10">
++      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
++        Find who to collaborate with
++      </h1>
++      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
++        Describe your research interests and get the AIRi researchers and projects whose work is
++        the closest match.
++      </p>
++
++      <form
++        onSubmit={(e) => {
++          e.preventDefault();
++          search(interests);
++        }}
++        className="mt-6 flex flex-col gap-3 sm:flex-row"
++      >
++        <input
++          type="text"
++          value={interests}
++          onChange={(e) => setInterests(e.target.value)}
++          placeholder="e.g. energy systems forecasting, smart grids"
++          className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
++        />
++        <button
++          type="submit"
++          disabled={loading}
++          className="rounded-lg bg-primary-600 px-5 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
++        >
++          {loading ? 'Searching…' : 'Match'}
++        </button>
++      </form>
++
++      <div className="mt-3 flex flex-wrap gap-2">
++        {PERSONAS.map((p) => (
++          <button
++            key={p}
++            onClick={() => {
++              setInterests(p);
++              search(p);
++            }}
++            className="rounded-full border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
++          >
++            {p}
++          </button>
++        ))}
++      </div>
++
++      {error && (
++        <div className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
++          {error}
++        </div>
++      )}
++
++      {result && (
++        <div className="mt-8 space-y-8">
++          <Section title="Researchers" items={result.researchers} render={Researcher} />
++          <Section title="Projects" items={result.projects} render={Project} />
++          <p className="text-xs text-gray-400 dark:text-gray-500">
++            Matching: keyword overlap
++            {result.coverage
++              ? ` · ${result.coverage.scored} of ${result.coverage.publications} publications matched`
++              : ''}
++            {' · '}read-only.
++          </p>
++        </div>
++      )}
++    </main>
++  );
++}
++
++function Section({ title, items, render }) {
++  const strong = (items || []).filter((it) => !it.weak);
++  const weak = (items || []).filter((it) => it.weak);
++  return (
++    <section>
++      <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
++      {strong.length === 0 && weak.length === 0 && (
++        <p className="text-sm text-gray-500 dark:text-gray-400">No matches found.</p>
++      )}
++      <ol className="space-y-3">{strong.map(render)}</ol>
++      {weak.length > 0 && (
++        <>
++          <p className="mt-4 mb-2 text-sm text-gray-500 dark:text-gray-400">
++            {strong.length === 0
++              ? 'No strong matches yet — the closest results, shown as low confidence:'
++              : 'Weaker matches (low confidence):'}
++          </p>
++          <ol className="space-y-3 opacity-70">{weak.map(render)}</ol>
++        </>
++      )}
++    </section>
++  );
++}
++
++function Researcher(r) {
++  return (
++    <li
++      key={`${r.rank}-${r.name}`}
++      className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"
++    >
++      <div className="flex items-center justify-between gap-2">
++        <span className="font-medium text-gray-900 dark:text-gray-100">
++          {r.name}
++          {r.title ? (
++            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{r.title}</span>
++          ) : null}
++        </span>
++        <span className={`text-xs ${r.weak ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>
++          {r.weak ? 'low confidence · ' : ''}
++          {fmtTerms(r.topScore)}
++        </span>
++      </div>
++      <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{r.reason}</p>
++      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
++        Contact: {r.contact} <span className="text-gray-400 dark:text-gray-500">[{r.contactSource}]</span>
++      </p>
++    </li>
++  );
++}
++
++function Project(p) {
++  return (
++    <li
++      key={`${p.rank}-${p.title}`}
++      className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"
++    >
++      <div className="flex items-center justify-between gap-2">
++        <span className="font-medium text-gray-900 dark:text-gray-100">{p.title}</span>
++        <span className={`text-xs ${p.weak ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>
++          {p.weak ? 'low confidence · ' : ''}
++          {fmtTerms(p.score)}
++        </span>
++      </div>
++      <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{p.reason}</p>
++      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
++        Contact: {p.contact} <span className="text-gray-400 dark:text-gray-500">[{p.contactSource}]</span>
++      </p>
++      {p.themes && p.themes.length > 0 && (
++        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Themes: {p.themes.join(', ')}</p>
++      )}
++    </li>
++  );
++}
+diff --git a/web/src/lib/collab-contacts.js b/web/src/lib/collab-contacts.js
+new file mode 100644
+index 0000000..4e4e0b7
+--- /dev/null
++++ b/web/src/lib/collab-contacts.js
+@@ -0,0 +1,53 @@
++// Contact resolution for /collaborate results. Only surfaces contact info that
++// is already public in Strapi; fallback chain documented in docs/collaborate-matching.md.
++
++export const INSTITUTE_FALLBACK_EMAIL = 'airi@campus.utcluj.ro';
++
++export function resolvePersonContact(person, leadByMember) {
++  const email = (person.email || '').trim();
++  if (email) return [email, 'own email'];
++
++  const socialLinks = person.socialLinks || [];
++  if (socialLinks.length > 0) {
++    const link = socialLinks[0];
++    return [`${link.label || 'profile'}: ${link.url}`, 'own public link'];
++  }
++
++  const lead = leadByMember.get((person.fullName || '').toLowerCase().trim());
++  if (lead) {
++    if (lead.email) {
++      return [`team coordinator ${lead.fullName} <${lead.email}>`, 'team coordinator'];
++    }
++    return [
++      `team coordinator ${lead.fullName} (via ${INSTITUTE_FALLBACK_EMAIL})`,
++      'team coordinator (no public email)',
++    ];
++  }
++
++  return [INSTITUTE_FALLBACK_EMAIL, 'institute (no public contact found)'];
++}
++
++export function resolveProjectContact(project) {
++  const entries = project.contactEntries || [];
++  const emailEntries = entries.filter((e) => (e.type || '').toLowerCase() === 'email');
++  const entry = emailEntries[0] || entries[0];
++  if (entry) {
++    const label = entry.label || entry.type || 'contact';
++    const formatted =
++      label.trim().toLowerCase() === entry.value.trim().toLowerCase()
++        ? entry.value
++        : `${label}: ${entry.value}`;
++    return [formatted, 'project contact info'];
++  }
++
++  for (const contributor of project.contributors || []) {
++    if (contributor.email) {
++      return [
++        `contributor ${contributor.fullName} <${contributor.email}>`,
++        'project contributor email',
++      ];
++    }
++  }
++
++  return [INSTITUTE_FALLBACK_EMAIL, 'institute (no public contact found)'];
++}
+diff --git a/web/src/lib/collab-index.js b/web/src/lib/collab-index.js
+new file mode 100644
+index 0000000..6330a3d
+--- /dev/null
++++ b/web/src/lib/collab-index.js
+@@ -0,0 +1,202 @@
++// Data loading for the /collaborate feature (read-only Strapi GETs).
++// See docs/collaborate-matching.md for the full feature description.
++
++import { fetchAPI } from './strapi';
++
++const REVALIDATE_SECONDS = 300;
++
++const attrsOf = (row) => row?.attributes || row;
++
++const relationItems = (value) => {
++  if (!value) return [];
++  if (Array.isArray(value)) return value;
++  if (Array.isArray(value.data)) return value.data;
++  if (value.data) return [value.data];
++  if (value.id || value.documentId || value.attributes) return [value];
++  return [];
++};
++
++async function fetchAllPages(endpoint, params) {
++  const rows = [];
++  let page = 1;
++  let pageCount = 1;
++  while (page <= pageCount) {
++    const qs = new URLSearchParams({
++      ...params,
++      'pagination[page]': String(page),
++      'pagination[pageSize]': '100',
++    });
++    const data = await fetchAPI(`/${endpoint}?${qs.toString()}`, {
++      revalidate: REVALIDATE_SECONDS,
++    });
++    if (Array.isArray(data?.data)) rows.push(...data.data);
++    const metaPageCount = data?.meta?.pagination?.pageCount;
++    pageCount = typeof metaPageCount === 'number' ? metaPageCount : pageCount;
++    page += 1;
++  }
++  return rows;
++}
++
++async function loadPublications() {
++  const rows = await fetchAllPages('publications', {
++    'filters[graphEligible][$eq]': 'true',
++    'fields[0]': 'title',
++    'fields[1]': 'abstract',
++    'fields[2]': 'topics',
++    'populate[authors][fields][0]': 'fullName',
++  });
++
++  return rows.map((row) => {
++    const attrs = attrsOf(row);
++    return {
++      documentId: row.documentId || row.id,
++      title: attrs.title || '',
++      abstract: attrs.abstract || '',
++      topics: attrs.topics || [],
++      authors: relationItems(attrs.authors)
++        .map((a) => attrsOf(a).fullName)
++        .filter(Boolean),
++    };
++  });
++}
++
++async function loadPeople() {
++  const rows = await fetchAllPages('people', {
++    'fields[0]': 'fullName',
++    'fields[1]': 'slug',
++    'fields[2]': 'email',
++    'fields[3]': 'title',
++    'fields[4]': 'firstName',
++    'fields[5]': 'lastName',
++    'populate[socialLinks][fields][0]': 'label',
++    'populate[socialLinks][fields][1]': 'url',
++  });
++
++  const people = [];
++  for (const row of rows) {
++    const attrs = attrsOf(row);
++    const fullName = (
++      attrs.fullName || `${attrs.firstName || ''} ${attrs.lastName || ''}`
++    ).trim();
++    if (!fullName) continue;
++
++    people.push({
++      fullName,
++      slug: attrs.slug,
++      email: (attrs.email || '').trim(),
++      title: attrs.title,
++      socialLinks: relationItems(attrs.socialLinks)
++        .map((link) => ({
++          label: (attrsOf(link).label || '').trim(),
++          url: (attrsOf(link).url || '').trim(),
++        }))
++        .filter((link) => link.url),
++    });
++  }
++
++  const byName = new Map(people.map((p) => [p.fullName.toLowerCase(), p]));
++  return { people, byName };
++}
++
++// The `team` content type is not publicly readable in production (403); in that
++// case fetchAPI returns empty data and the coordinator fallback is simply skipped.
++async function loadTeamLeads() {
++  const rows = await fetchAllPages('teams', {
++    'fields[0]': 'name',
++    'populate[members][fields][0]': 'isLead',
++    'populate[members][populate][person][fields][0]': 'fullName',
++    'populate[members][populate][person][fields][1]': 'email',
++  });
++
++  const leadByMember = new Map();
++  for (const row of rows) {
++    const attrs = attrsOf(row);
++    const members = relationItems(attrs.members).map((m) => attrsOf(m));
++
++    let lead = null;
++    const memberNames = [];
++    for (const member of members) {
++      const person = relationItems(member.person).map((p) => attrsOf(p))[0];
++      const name = (person?.fullName || '').trim();
++      if (!name) continue;
++      memberNames.push(name);
++      if (member.isLead && !lead) {
++        lead = { fullName: name, email: (person.email || '').trim() };
++      }
++    }
++
++    if (!lead) continue;
++    for (const name of memberNames) {
++      const key = name.toLowerCase();
++      if (key === lead.fullName.toLowerCase()) continue;
++      if (!leadByMember.has(key)) {
++        leadByMember.set(key, { teamName: attrs.name, ...lead });
++      }
++    }
++  }
++  return leadByMember;
++}
++
++async function loadProjects() {
++  const rows = await fetchAllPages('projects', {
++    'fields[0]': 'title',
++    'fields[1]': 'slug',
++    'fields[2]': 'abstract',
++    'populate[publications][fields][0]': 'title',
++    'populate[contributors][fields][0]': 'fullName',
++    'populate[contributors][fields][1]': 'email',
++    'populate[themes][fields][0]': 'name',
++    'populate[contactInfo][populate][contactEntries][fields][0]': 'type',
++    'populate[contactInfo][populate][contactEntries][fields][1]': 'value',
++    'populate[contactInfo][populate][contactEntries][fields][2]': 'label',
++  });
++
++  return rows.map((row) => {
++    const attrs = attrsOf(row);
++    const contactInfo = attrsOf(attrs.contactInfo?.data || attrs.contactInfo || {});
++    return {
++      documentId: row.documentId || row.id,
++      title: (attrs.title || '').trim(),
++      slug: attrs.slug,
++      abstract: (attrs.abstract || '').trim(),
++      themes: relationItems(attrs.themes)
++        .map((t) => (attrsOf(t).name || '').trim())
++        .filter(Boolean),
++      publications: relationItems(attrs.publications)
++        .map((p) => ({
++          documentId: p.documentId || p.id,
++          title: attrsOf(p).title,
++        }))
++        .filter((p) => p.documentId),
++      contributors: relationItems(attrs.contributors)
++        .map((c) => ({
++          fullName: (attrsOf(c).fullName || '').trim(),
++          email: (attrsOf(c).email || '').trim(),
++        }))
++        .filter((c) => c.fullName),
++      contactEntries: relationItems(contactInfo.contactEntries)
++        .map((e) => ({
++          type: attrsOf(e).type,
++          value: (attrsOf(e).value || '').trim(),
++          label: (attrsOf(e).label || '').trim(),
++        }))
++        .filter((e) => e.value),
++    };
++  });
++}
++
++export async function loadCollabCorpus() {
++  const [publications, peopleData, leadByMember, projects] = await Promise.all([
++    loadPublications(),
++    loadPeople(),
++    loadTeamLeads(),
++    loadProjects(),
++  ]);
++  return {
++    publications,
++    people: peopleData.people,
++    peopleByName: peopleData.byName,
++    leadByMember,
++    projects,
++  };
++}
+diff --git a/web/src/lib/collab-match.js b/web/src/lib/collab-match.js
+new file mode 100644
+index 0000000..2737f63
+--- /dev/null
++++ b/web/src/lib/collab-match.js
+@@ -0,0 +1,116 @@
++// Keyword-overlap matching for the /collaborate feature.
++// See docs/collaborate-matching.md for the scoring approach and rationale.
++
++const STOPWORDS = new Set([
++  'a', 'an', 'and', 'are', 'as', 'at', 'by', 'for', 'from', 'in', 'into',
++  'of', 'on', 'or', 'the', 'to', 'with', 'via', 'using', 'is', 'be', 'we',
++  'this', 'that', 'it', 'its', 'their', 'our', 'based', 'approach', 'study',
++]);
++
++export function tokenize(text) {
++  if (!text) return new Set();
++  const tokens = String(text).toLowerCase().match(/[a-z0-9]+/g) || [];
++  return new Set(tokens.filter((t) => t.length > 2 && !STOPWORDS.has(t)));
++}
++
++function sharedTerms(queryTokens, tokens) {
++  return [...queryTokens].filter((t) => tokens.has(t));
++}
++
++// A best-publication overlap below this floor is a "weak" match.
++export function relevanceFloor(queryTokens) {
++  return Math.min(2, queryTokens.size);
++}
++
++export function scorePublications(publications, queryTokens) {
++  const scored = [];
++  const scoreByDocId = new Map();
++  for (const pub of publications) {
++    const text = [pub.title, pub.abstract, ...(pub.topics || [])].join(' ');
++    const terms = sharedTerms(queryTokens, tokenize(text));
++    if (terms.length > 0) {
++      scored.push({ pub, score: terms.length, terms });
++      scoreByDocId.set(pub.documentId, terms.length);
++    }
++  }
++  return { scored, scoreByDocId };
++}
++
++export function aggregatePeople(scoredPubs, topK) {
++  const byAuthor = new Map();
++  for (const item of scoredPubs) {
++    for (const name of item.pub.authors || []) {
++      const key = name.toLowerCase().trim();
++      if (!byAuthor.has(key)) byAuthor.set(key, []);
++      byAuthor.get(key).push(item);
++    }
++  }
++
++  const results = [];
++  for (const [key, hits] of byAuthor) {
++    hits.sort((a, b) => b.score - a.score);
++    const top = hits.slice(0, topK);
++    const score = top.reduce((sum, h) => sum + h.score, 0) / top.length;
++    results.push({ key, score, matched: hits.length, best: hits[0] });
++  }
++  results.sort((a, b) => b.score - a.score);
++  return results;
++}
++
++export function scoreProjects(projects, scoreByDocId, queryTokens) {
++  const results = [];
++  for (const project of projects) {
++    const ownText = [project.abstract, ...(project.themes || [])].join(' ');
++    const ownTerms = sharedTerms(queryTokens, tokenize(ownText));
++
++    let bestPub = null;
++    for (const pub of project.publications || []) {
++      const score = scoreByDocId.get(pub.documentId);
++      if (score !== undefined && (!bestPub || score > bestPub.score)) {
++        bestPub = { score, title: pub.title };
++      }
++    }
++
++    if (ownTerms.length === 0 && !bestPub) continue;
++    if (bestPub && bestPub.score > ownTerms.length) {
++      results.push({
++        project,
++        score: bestPub.score,
++        via: 'publications',
++        bestPubTitle: bestPub.title,
++        terms: [],
++      });
++    } else {
++      results.push({ project, score: ownTerms.length, via: 'abstract', terms: ownTerms });
++    }
++  }
++  results.sort((a, b) => b.score - a.score);
++  return results;
++}
++
++const shorten = (title) => {
++  const t = (title || 'untitled').trim();
++  return t.length > 71 ? `${t.slice(0, 70)}…` : t;
++};
++
++const quoteTerms = (terms) => terms.slice(0, 3).map((t) => `"${t}"`).join(', ');
++
++export function personReason(result) {
++  const title = shorten(result.best.pub.title);
++  const plural = result.matched !== 1 ? 's' : '';
++  return `matched ${quoteTerms(result.best.terms)} on ${result.matched} publication${plural}; top: "${title}"`;
++}
++
++export function projectReason(result) {
++  if (result.via === 'abstract') {
++    return `project abstract mentions ${quoteTerms(result.terms)}`;
++  }
++  return `matched via linked publication "${shorten(result.bestPubTitle)}"`;
++}
++
++export function titleCaseName(key) {
++  return key
++    .split(/\s+/)
++    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
++    .join(' ');
++}

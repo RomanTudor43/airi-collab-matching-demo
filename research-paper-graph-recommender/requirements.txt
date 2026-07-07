@@ -1,0 +1,19 @@
+# Recommender dependencies.
+#
+# This tool imports the sibling `research-paper-graph` package as a library and
+# reuses its embedding model. These are the same core packages that package
+# depends on (a subset — the clustering libraries are not needed here because
+# the recommender only reads stored embeddings and encodes the query).
+#
+# torch is installed separately with the CPU-only index (see README).
+
+# Core
+requests>=2.31
+python-dotenv>=1.0
+numpy>=1.24
+
+# ML – embeddings (same model as paper-graph: all-MiniLM-L6-v2)
+sentence-transformers>=2.2
+
+# Used internally by sentence-transformers
+scikit-learn>=1.3

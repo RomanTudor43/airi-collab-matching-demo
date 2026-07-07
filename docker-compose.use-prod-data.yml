@@ -1,0 +1,23 @@
+# OPTIONAL, reversible override — points the LOCAL Next.js site at PRODUCTION's
+# public (read-only) API, so the whole site shows real content instead of empty
+# / "uninitialised" pages (your local Strapi has almost no data because the seed
+# migration crashed).
+#
+# Add it to the -f chain to enable:
+#   docker compose -f docker-compose.yml -f docker-compose.use-prod-data.yml up -d --build nextjs
+#
+# To go back to LOCAL data, simply omit this file from the -f chain.
+#
+# Caveat: production grants public read to most content types, but NOT `team`
+# or the graph-* types (and we have no prod token), so a few pages (the
+# paper-graph map, team listings) may error. The main pages — people, projects,
+# publications, news, events, departments, themes — will work.
+
+services:
+  nextjs:
+    environment:
+      STRAPI_INTERNAL_URL: https://airi.utcluj.ro/strapi    # server-side data fetch → prod
+      STRAPI_URL: https://airi.utcluj.ro/strapi
+      PUBLIC_STRAPI_URL: https://airi.utcluj.ro/strapi       # media / image URLs → prod
+      NEXT_PUBLIC_STRAPI_URL: https://airi.utcluj.ro/strapi
+      STRAPI_API_TOKEN: ""                                   # use prod's public (anonymous) read
